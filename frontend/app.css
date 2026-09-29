@@ -215,6 +215,37 @@ p { margin: 0; }
 .page-intro { margin: -9px 0 25px; color: var(--text-soft); font-size: 14px; }
 .network-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .network-panel { min-height: 266px; padding: 20px; border-radius: var(--radius-md); }.network-panel header { display: grid; grid-template-columns: 43px minmax(0, 1fr) auto; align-items: center; gap: 11px; }.network-panel h2 { overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }.panel-icon { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 14px; background: var(--accent-soft); color: var(--accent); }.panel-icon.neutral { background: var(--surface-muted); color: var(--text-soft); }.panel-icon .icon { width: 22px; height: 22px; }
+.network-map-section .section-title > div { max-width: 720px; }
+.section-hint { margin-top: 5px; color: var(--text-faint); font-size: 11px; line-height: 1.5; }
+.network-map { padding: 22px; overflow: hidden; border-radius: var(--radius-md); }
+.topology-root { width: fit-content; max-width: 100%; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-muted); }
+.topology-root-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
+.topology-root-icon .icon { width: 20px; height: 20px; }
+.topology-root strong, .topology-root small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-root strong { font-size: 13px; }
+.topology-root small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }
+.topology-trunk { width: 1px; height: 26px; margin: 0 auto; background: var(--line-strong); }
+.topology-groups { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.topology-groups::before { content: ''; position: absolute; top: -1px; left: 12.5%; right: 12.5%; height: 1px; background: var(--line-strong); }
+.topology-group { min-width: 0; position: relative; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.topology-group::before { content: ''; position: absolute; top: -13px; left: 50%; width: 1px; height: 12px; background: var(--line-strong); }
+.topology-group > header { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; }
+.topology-group-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-muted); color: var(--accent); }
+.topology-group-icon .icon { width: 18px; height: 18px; }
+.topology-group header strong, .topology-group header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-group header strong { font-size: 12px; }
+.topology-group header small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }
+.topology-device-list { margin-top: 13px; display: grid; gap: 5px; }
+.topology-device { min-width: 0; min-height: 47px; padding: 6px 7px; display: grid; grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 7px; border: 0; border-radius: 9px; background: var(--surface-muted); color: var(--text); text-align: left; }
+.topology-device:hover { background: var(--accent-soft); }
+.topology-device > span { grid-row: 1 / span 2; width: 28px; height: 28px; display: grid; place-items: center; color: var(--accent); }
+.topology-device > span .icon { width: 17px; height: 17px; }
+.topology-device strong, .topology-device small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-device strong { align-self: end; font-size: 10.5px; }
+.topology-device small { align-self: start; color: var(--text-faint); font-size: 9.5px; }
+.topology-more { min-height: 34px; padding: 0 7px; display: flex; align-items: center; justify-content: space-between; gap: 6px; border: 0; background: transparent; color: var(--accent); font-size: 10px; font-weight: 750; text-align: left; }
+.topology-more .icon { width: 13px; height: 13px; }
+
 .detail-list { margin-top: 20px; border-top: 1px solid var(--line); }.detail-row { min-height: 46px; padding: 10px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }.detail-row:last-child { border-bottom: 0; }.detail-row-icon { width: 20px; height: 20px; display: grid; place-items: center; color: var(--text-faint); }.detail-row-icon .icon { width: 15px; height: 15px; }.detail-row > span:not(.detail-row-icon) { color: var(--text-faint); font-size: 11px; }.detail-row strong { max-width: 61%; margin-left: auto; overflow-wrap: anywhere; color: var(--text-soft); font-size: 11px; text-align: right; }
 .interface-list, .route-list { overflow: hidden; border-radius: var(--radius-md); }.interface-row { min-height: 68px; padding: 11px 16px; display: grid; grid-template-columns: 38px minmax(130px, .9fr) minmax(130px, 1.3fr) minmax(62px, .45fr) minmax(68px, .45fr); align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }.interface-row:last-child, .route-list > div:last-child { border-bottom: 0; }.interface-row.subdued { color: var(--text-faint); }.interface-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--surface-muted); color: var(--text-soft); }.interface-icon .icon { width: 18px; height: 18px; }.interface-row strong, .interface-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.interface-row strong { font-size: 12px; }.interface-row small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }.interface-address, .interface-state, .interface-mtu { overflow: hidden; color: var(--text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.empty-inline { min-height: 62px; padding: 20px; color: var(--text-faint); font-size: 12px; }.route-list > div { min-height: 54px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 17px; border-bottom: 1px solid var(--line); }.route-list strong { font-size: 12px; }.route-list span { color: var(--text-soft); font-size: 11px; }
 
