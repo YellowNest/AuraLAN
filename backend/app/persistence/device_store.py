@@ -10,14 +10,34 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
+DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
 MAX_WATCH_MISSING_GRACE_SECONDS = 86400
+PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
+PRESENCE_HISTORY_TOTAL_LIMIT = 5000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
 WATCH_PENDING_NOT_SEEN = 2
+
+PRESENCE_SEEN = 0
+PRESENCE_NOT_SEEN = 1
+PRESENCE_PENDING_NOT_SEEN = 2
+
+
+def presence_missing_grace_seconds() -> int:
+    """Return the configured absence grace period for device presence history."""
+    raw = os.environ.get(
+        "AURALAN_PRESENCE_MISSING_GRACE",
+        str(DEFAULT_PRESENCE_MISSING_GRACE_SECONDS),
+    ).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PRESENCE_MISSING_GRACE_SECONDS
+    return max(0, min(value, MAX_WATCH_MISSING_GRACE_SECONDS))
 
 
 def watch_missing_grace_seconds() -> int:
@@ -73,6 +93,7 @@ class DeviceStore:
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
+            "device_presence_state", "device_presence_history",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -166,6 +187,22 @@ class DeviceStore:
             last_event_id INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_presence_state (
+            device_id TEXT PRIMARY KEY,
+            state INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_presence_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            display_name TEXT,
+            created_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_presence_history_device_time "
+            "ON device_presence_history(device_id, created_at DESC, id DESC)"
+        )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -413,6 +450,122 @@ class DeviceStore:
                     )
 
                 connection.commit()
+            finally:
+                connection.close()
+
+    def record_presence_transitions(self, records: list[dict[str, Any]]) -> None:
+        """Persist debounced seen/not-seen transitions for all inventoried devices."""
+        candidates = [
+            record
+            for record in records
+            if str(record.get("id") or "").strip()
+        ]
+        if not candidates:
+            return
+
+        now = int(time.time())
+        grace_seconds = presence_missing_grace_seconds()
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                for record in candidates:
+                    device_id = str(record.get("id") or "").strip()
+                    currently_missing = record.get("state") == "known"
+                    previous = connection.execute(
+                        "SELECT state, updated_at FROM device_presence_state WHERE device_id = ?",
+                        (device_id,),
+                    ).fetchone()
+
+                    if previous is None:
+                        initial_state = PRESENCE_NOT_SEEN if currently_missing else PRESENCE_SEEN
+                        connection.execute(
+                            "INSERT INTO device_presence_state(device_id, state, updated_at) VALUES (?, ?, ?)",
+                            (device_id, initial_state, now),
+                        )
+                        continue
+
+                    presence_state = int(previous["state"])
+                    state_since = int(previous["updated_at"])
+
+                    if currently_missing:
+                        if presence_state == PRESENCE_NOT_SEEN:
+                            continue
+
+                        if presence_state == PRESENCE_SEEN:
+                            if grace_seconds == 0:
+                                next_state = PRESENCE_NOT_SEEN
+                            else:
+                                connection.execute(
+                                    "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                                    (PRESENCE_PENDING_NOT_SEEN, now, device_id),
+                                )
+                                continue
+                        else:
+                            if now - state_since < grace_seconds:
+                                continue
+                            next_state = PRESENCE_NOT_SEEN
+
+                        event_type = "device_not_seen"
+                    else:
+                        if presence_state == PRESENCE_SEEN:
+                            continue
+                        if presence_state == PRESENCE_PENDING_NOT_SEEN:
+                            connection.execute(
+                                "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                                (PRESENCE_SEEN, now, device_id),
+                            )
+                            continue
+
+                        next_state = PRESENCE_SEEN
+                        event_type = "device_seen_again"
+
+                    display_name = str(record.get("display_name") or "").strip() or None
+                    connection.execute(
+                        "INSERT INTO device_presence_history(device_id, event_type, display_name, created_at) "
+                        "VALUES (?, ?, ?, ?)",
+                        (device_id, event_type, display_name, now),
+                    )
+                    connection.execute(
+                        "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                        (next_state, now, device_id),
+                    )
+
+                    connection.execute(
+                        "DELETE FROM device_presence_history WHERE device_id = ? AND id NOT IN ("
+                        "SELECT id FROM device_presence_history WHERE device_id = ? "
+                        "ORDER BY created_at DESC, id DESC LIMIT ?"
+                        ")",
+                        (device_id, device_id, PRESENCE_HISTORY_PER_DEVICE_LIMIT),
+                    )
+
+                connection.execute(
+                    "DELETE FROM device_presence_history WHERE id NOT IN ("
+                    "SELECT id FROM device_presence_history ORDER BY created_at DESC, id DESC LIMIT ?"
+                    ")",
+                    (PRESENCE_HISTORY_TOTAL_LIMIT,),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def presence_history(self, device_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Return the local debounced presence timeline for one known device."""
+        bounded_limit = max(1, min(int(limit), 200))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                return [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, device_id, event_type, display_name, created_at "
+                        "FROM device_presence_history WHERE device_id = ? "
+                        "ORDER BY created_at DESC, id DESC LIMIT ?",
+                        (str(device_id), bounded_limit),
+                    )
+                ]
             finally:
                 connection.close()
 
