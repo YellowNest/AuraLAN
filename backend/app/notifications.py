@@ -66,7 +66,7 @@ class WebhookNotifier:
             "last_attempt_at": self.last_attempt_at,
             "last_success_at": self.last_success_at,
             "last_error": self.last_error,
-            "pending_events": max(0, latest - int(cursor or latest)),
+            "pending_events": max(0, latest - int(cursor if cursor is not None else latest)),
         }
 
     def _post(self, payload: dict[str, Any]) -> None:
