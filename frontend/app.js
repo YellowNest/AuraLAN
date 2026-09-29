@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isNewDevice, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -251,6 +251,7 @@ function renderOverview() {
   const detectedServices = visibleServiceItems(serviceItems());
   const onlineDevices = devices().filter((item) => item.online === true).length;
   const newDevices = devices().filter((item) => isNewDevice(item));
+  const favoriteNotSeen = devices().filter((item) => isFavoriteNotSeen(item));
   const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
   const recentDiscoveries = (state.data.activity || []).filter((item) => item.event_type === 'device_first_seen').slice(0, 5);
   const attentionCount = Number(system.attention_count || 0);
@@ -274,6 +275,7 @@ function renderOverview() {
     : '';
 
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
+  ${favoriteNotSeen.length ? `<button class="unidentified-callout favorite-watch-callout surface" type="button" data-route="devices" data-device-filter="favorite_missing">${icon('warning')}<span><strong>${escapeHtml(t('favoriteNotSeen', { count: favoriteNotSeen.length }))}</strong><small>${escapeHtml(t('favoriteNotSeenHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${recentDiscoveries.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentDiscoveries')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentDiscoveries)}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
@@ -369,6 +371,7 @@ function renderDevices() {
   const unidentified = allDevices.filter((item) => item.category === 'unknown' && !item.vendor && !item.model && !item.hostname && !item.metadata?.alias).length;
   const filters = [['all', t('all')], ['online', t('online')]];
   if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
+  if (allDevices.some((item) => isFavoriteNotSeen(item))) filters.push(['favorite_missing', t('favoriteNotSeenShort')]);
   if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
   if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
