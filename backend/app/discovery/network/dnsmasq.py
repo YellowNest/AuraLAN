@@ -80,16 +80,22 @@ def leases(path: Path | None) -> list[dict[str, Any]]:
 
 
 def discover(access_point_interface: str | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Find the active dnsmasq belonging to the AP, never a generic resolver blindly."""
+    """Find dnsmasq only when it is explicitly scoped to the confirmed AP.
+
+    dnsmasq is also commonly installed as a local DNS cache. Treating an
+    arbitrary active unit as AuraLAN's DHCP source can attach unrelated leases
+    to the LAN view, especially on ordinary Linux clients.
+    """
+    if not access_point_interface:
+        return ({"detected": False, "state": "unknown", "unit": None, "interface": None, "lease_count": 0}, [])
+
     candidates = _service_rows()
     selected: dict[str, Any] | None = None
     for row in candidates:
         config = _config_values(_config_path(row["unit"]))
-        if access_point_interface and config.get("interface") == access_point_interface:
+        if config.get("interface") == access_point_interface:
             selected = {**row, **config}
             break
-        if selected is None and row["active"] == "active":
-            selected = {**row, **config}
     if not selected:
         return ({"detected": False, "state": "unknown", "unit": None, "interface": access_point_interface, "lease_count": 0}, [])
     lease_file = Path(selected.get("dhcp-leasefile") or DEFAULT_LEASE_FILE)

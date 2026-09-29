@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
 import socket
 import threading
 import time
@@ -14,6 +15,7 @@ from typing import Any, Callable
 from ..discovery.integrations import caddy, docker, pihole, wireguard
 from ..discovery.integrations.base import enrich as enrich_integration
 from ..discovery.network import devices, dnsmasq, iproute, iw, networkmanager
+from ..persistence.device_store import store
 
 CACHE_TTL_SECONDS = 2.0
 _cache_lock = threading.Lock()
@@ -69,7 +71,12 @@ def host() -> dict[str, Any]:
 
 
 def _access_point() -> tuple[dict[str, Any], bool]:
-    """Find an AP across NetworkManager and plain iw without fixed interface names."""
+    """Find an AP across NetworkManager and plain iw without fixed interface names.
+
+    The boolean indicates whether the operator explicitly requested an AP
+    interface. A normal Linux host may be a Wi-Fi client and should not be
+    treated as unhealthy merely because it is not itself an access point.
+    """
     preferred = os.environ.get("AURALAN_WIFI_INTERFACE", "").strip() or None
     nm_candidates = networkmanager.wifi_candidates(preferred)
 
@@ -92,7 +99,7 @@ def _access_point() -> tuple[dict[str, Any], bool]:
             candidates.append({"interface": interface, "connection": None, "ssid": None, "channel": None})
             seen.add(interface)
 
-    had_candidate = bool(candidates)
+    ap_expected = preferred is not None
     for candidate in candidates:
         wireless = iw.interface_info(candidate.get("interface"))
         if wireless.get("type") != "AP":
@@ -108,7 +115,7 @@ def _access_point() -> tuple[dict[str, Any], bool]:
             "ipv4": None,
             "subnet": None,
             "state": "online",
-        }, had_candidate)
+        }, ap_expected)
 
     return ({
         "available": False,
@@ -121,12 +128,12 @@ def _access_point() -> tuple[dict[str, Any], bool]:
         "ipv4": None,
         "subnet": None,
         "state": "unknown",
-    }, had_candidate)
+    }, ap_expected)
 
 
 def discover_network() -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
     errors: list[str] = []
-    access_point, had_wifi_candidate = _access_point()
+    access_point, ap_expected = _access_point()
 
     route_rows = iproute.routes()
     default = iproute.default_route(route_rows)
@@ -147,8 +154,8 @@ def discover_network() -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]
     device_rows, device_errors = devices.collect_devices(interface_rows, lease_entries, signals)
     errors.extend(device_errors)
 
-    if had_wifi_candidate and not access_point["available"]:
-        errors.append("Wi-Fi interfaces were found, but none could be confirmed in AP mode")
+    if ap_expected and not access_point["available"]:
+        errors.append("Configured Wi-Fi interface could not be confirmed in AP mode")
 
     routes = [
         {key: str(row[key]) for key in ("dst", "gateway", "dev", "protocol") if row.get(key) is not None}
@@ -162,11 +169,9 @@ def system_state(network: dict[str, Any], service_items: list[dict[str, Any]], e
     if attention:
         count = len(attention)
         return {"state": "degraded", "title": f"{count} service needs attention", "summary": "A detected service is not reporting as online.", "attention_count": count}
-    if not network["access_point"]["available"]:
-        return {"state": "warning", "title": "Access point not detected", "summary": "AuraLAN is running, but could not confirm an active Wi-Fi access point.", "attention_count": 1}
     if errors:
         return {"state": "warning", "title": "Some details are unavailable", "summary": "Core status is available; one discovery source needs attention.", "attention_count": len(errors)}
-    return {"state": "healthy", "title": "Everything looks good", "summary": "Your access point and detected services are responding normally.", "attention_count": 0}
+    return {"state": "healthy", "title": "Everything looks good", "summary": "Local network discovery and detected services are responding normally.", "attention_count": 0}
 
 
 def _collect() -> dict[str, Any]:
@@ -178,6 +183,12 @@ def _collect() -> dict[str, Any]:
         network = {"access_point": {"available": False, "state": "unknown"}, "uplink": {"state": "unknown"}, "dhcp": {"detected": False, "state": "unknown", "lease_count": 0}, "interfaces": [], "routes": []}
         device_rows = []
         errors.append(f"Network discovery unavailable: {type(exc).__name__}")
+    try:
+        historical = store().known_devices(device_rows)
+        device_rows = [*device_rows, *historical]
+    except (OSError, sqlite3.Error, ValueError, TypeError) as exc:
+        errors.append(f"Device inventory unavailable: {type(exc).__name__}")
+
     try:
         docker_service, containers, docker_error = docker.discover()
         if docker_error:
@@ -197,16 +208,35 @@ def _collect() -> dict[str, Any]:
         except Exception as exc:
             errors.append(f"{identifier} discovery unavailable: {type(exc).__name__}")
     service_items = [enrich_integration(item) for item in service_items]
-    return {"generated_at": datetime.now(UTC).isoformat(), "system": system_state(network, service_items, errors), "host": host(), "network": network, "devices": device_rows, "services": {"items": service_items}, "errors": errors}
+    try:
+        activity = store().recent_events(20)
+    except (OSError, sqlite3.Error):
+        activity = []
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "system": system_state(network, service_items, errors),
+        "host": host(),
+        "network": network,
+        "devices": device_rows,
+        "services": {"items": service_items},
+        "activity": activity,
+        "errors": errors,
+    }
 
 
 def system_snapshot(force: bool = False) -> dict[str, Any]:
+    """Return one bounded snapshot and collapse concurrent cache misses.
+
+    Discovery is the expensive part of AuraLAN. Keep the cache lock across a
+    refresh so simultaneous HTTP requests cannot launch duplicate discovery
+    passes. Timestamp the cache after collection; otherwise a slow-but-valid
+    refresh can already be expired by the time it finishes.
+    """
     global _cache
-    now = time.monotonic()
     with _cache_lock:
+        now = time.monotonic()
         if not force and _cache and now - _cache[0] < CACHE_TTL_SECONDS:
             return _cache[1]
-    snapshot = _collect()
-    with _cache_lock:
-        _cache = (now, snapshot)
-    return snapshot
+        snapshot = _collect()
+        _cache = (time.monotonic(), snapshot)
+        return snapshot

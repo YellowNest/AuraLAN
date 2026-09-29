@@ -8,6 +8,25 @@ from ..command import command_exists, run_command
 WIFI_TYPES = {"802-11-wireless", "wifi"}
 
 
+def _terse_fields(line: str) -> list[str]:
+    """Split nmcli terse output while honoring its backslash escaping."""
+    fields: list[list[str]] = [[]]
+    escaped = False
+    for character in line:
+        if escaped:
+            fields[-1].append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == ":":
+            fields.append([])
+        else:
+            fields[-1].append(character)
+    if escaped:
+        fields[-1].append("\\")
+    return ["".join(field) for field in fields]
+
+
 def active_connections() -> list[dict[str, str]]:
     if not command_exists("nmcli"):
         return []
@@ -16,7 +35,7 @@ def active_connections() -> list[dict[str, str]]:
         return []
     rows: list[dict[str, str]] = []
     for line in result.output.splitlines():
-        fields = line.split(":", 3)
+        fields = _terse_fields(line)
         if len(fields) == 4:
             rows.append({"name": fields[0], "type": fields[1], "device": fields[2], "state": fields[3]})
     return rows
@@ -40,7 +59,11 @@ def connection_details(name: str) -> dict[str, str]:
         return {}
     values: dict[str, str] = {}
     for line in result.output.splitlines():
-        key, _, value = line.partition(":")
+        fields = _terse_fields(line)
+        if len(fields) < 2:
+            continue
+        key = fields[0]
+        value = ":".join(fields[1:])
         values[key.rsplit(".", 1)[-1]] = value
     return values
 

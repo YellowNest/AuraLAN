@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -29,7 +29,13 @@ const state = {
   deviceFilter: 'all',
   deviceQuery: '',
   lastUpdated: null,
-  capabilities: { device_aliases: false, device_category_overrides: false },
+  capabilities: {
+    device_aliases: false,
+    device_category_overrides: false,
+    device_notes: false,
+    device_favorites: false,
+    device_presence: false,
+  },
   mode: 'read-only'
 };
 let commandSelection = 0;
@@ -76,7 +82,8 @@ function normalizeStatus(payload) {
     dhcp: Boolean(device.dhcp), lease_expires_at: device.lease_expires_at ?? null, lease: device.lease || { present: Boolean(device.dhcp), expires_at: device.lease_expires_at ?? null },
     first_seen_at: device.first_seen_at ?? null, last_seen_at: device.last_seen_at ?? null,
     identity: device.identity || { display_name: null, vendor: null, model: null, device_type: null, sources: [] },
-    metadata: device.metadata || { alias: null, category_override: null }, observations: Array.isArray(device.observations) ? device.observations : []
+    metadata: { alias: null, category_override: null, note: null, favorite: false, ...(device.metadata || {}) },
+    observations: Array.isArray(device.observations) ? device.observations : []
   }));
   const offlineServices = legacyServices.filter((item) => item.detected && item.state === 'offline').length;
   const fallbackSystem = offlineServices ? {
@@ -97,12 +104,19 @@ function normalizeStatus(payload) {
     },
     devices: legacyDevices,
     services: { items: legacyServices },
+    activity: Array.isArray(payload.activity) ? payload.activity : [],
+    monitor: payload.monitor && typeof payload.monitor === 'object'
+      ? payload.monitor
+      : { enabled: false, interval_seconds: 0, running: false, last_attempt_at: null, last_success_at: null, last_error: null },
+    notifications: payload.notifications && typeof payload.notifications === 'object'
+      ? payload.notifications
+      : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
 
 function stateLabel(value) {
-  const labels = { healthy: t('everythingGood'), degraded: t('serviceAttention', { count: 1 }), warning: t('unknown'), critical: t('error'), online: t('online'), offline: t('offline'), unknown: t('unknown'), recently_seen: t('recentlySeen'), reachable: t('online'), delay: t('online'), probe: t('unknown'), stale: t('recentlySeen'), lease: t('recentlySeen') };
+  const labels = { healthy: t('everythingGood'), degraded: t('serviceAttention', { count: 1 }), warning: t('unknown'), critical: t('error'), online: t('online'), offline: t('offline'), known: t('notSeenNow'), unknown: t('unknown'), recently_seen: t('recentlySeen'), reachable: t('online'), delay: t('online'), probe: t('unknown'), stale: t('recentlySeen'), lease: t('recentlySeen') };
   return labels[value] || safe(value);
 }
 
@@ -202,10 +216,44 @@ function renderDeviceRows(items, compact = false) {
     const presentation = devicePresentation(device);
     const ip = safe(device.ip, '—');
     const mac = safe(device.mac, '—');
-    const listIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
+    const baseIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
+    const inventoryTags = [device.metadata?.favorite ? t('favorite') : '', isNewDevice(device) ? t('newToAuraLAN') : ''].filter(Boolean);
+    const listIdentity = [baseIdentity, ...inventoryTags].filter(Boolean).join(' · ');
     const mobileMeta = [ip !== '—' ? ip : '', presentation.connectionSummary].filter(Boolean).join(' · ');
     return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${listIdentity ? `<small class="device-list-identity">${escapeHtml(listIdentity)}</small>` : ''}<em class="device-mobile-meta">${escapeHtml(mobileMeta)}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
+}
+
+function renderActivityRows(items) {
+  if (!items.length) {
+    return `<div class="empty-state activity-empty">${icon('uptime')}<h3>${t('noActivity')}</h3><p>${t('noActivityHint')}</p></div>`;
+  }
+  return items.map((event) => {
+    const name = event.display_name || t('networkDevice');
+    const eventPresentation = {
+      device_first_seen: [t('firstSeenByAuraLAN'), 'devices'],
+      favorite_not_seen: [t('eventFavoriteNotSeen'), 'warning'],
+      favorite_seen_again: [t('eventFavoriteSeenAgain'), 'success'],
+    }[event.event_type] || [t('activity'), 'info'];
+    const detail = [eventPresentation[0], event.ip].filter(Boolean).join(' · ');
+    const when = formatTimestamp(event.created_at);
+    const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
+    return `<button class="discovery-row event-${escapeHtml(event.event_type)}" type="button" data-device="${escapeHtml(event.entity_id)}"><span class="discovery-symbol">${icon(eventPresentation[1])}</span><span class="discovery-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${icon('chevron')}</button>`;
+  }).join('');
+}
+
+async function openActivityHistory() {
+  try {
+    const response = await fetchJson('/api/v1/activity?limit=100');
+    inspector(
+      t('activityHistory'),
+      t('activity'),
+      `<p class="inspector-summary">${escapeHtml(t('activityHistoryHint'))}</p><div class="discovery-list activity-history-list">${renderActivityRows(response.items || [])}</div>`,
+      'uptime',
+    );
+  } catch {
+    toast(t('backendUnavailable'));
+  }
 }
 
 function renderOverview() {
@@ -213,6 +261,10 @@ function renderOverview() {
   const ap = network.access_point || {};
   const detectedServices = visibleServiceItems(serviceItems());
   const onlineDevices = devices().filter((item) => item.online === true).length;
+  const newDevices = devices().filter((item) => isNewDevice(item));
+  const favoriteNotSeen = devices().filter((item) => isFavoriteNotSeen(item));
+  const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
+  const recentActivity = (state.data.activity || []).slice(0, 5);
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
@@ -234,7 +286,10 @@ function renderOverview() {
     : '';
 
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
-  <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(devices(), true)}</div></section>
+  ${favoriteNotSeen.length ? `<button class="unidentified-callout favorite-watch-callout surface" type="button" data-route="devices" data-device-filter="favorite_missing">${icon('warning')}<span><strong>${escapeHtml(t('favoriteNotSeen', { count: favoriteNotSeen.length }))}</strong><small>${escapeHtml(t('favoriteNotSeenHint'))}</small></span>${icon('chevron')}</button>` : ''}
+  ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
+  ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
+  <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
 }
 
@@ -247,6 +302,49 @@ function serviceSummary(service) {
 function renderServiceCards(items, compact = false) {
   if (!items.length) return `<div class="surface"><div class="empty-state">${icon('services')}<h3>${t('noServices')}</h3></div></div>`;
   return `<div class="service-grid ${compact ? 'compact' : ''}">${items.map((service) => `<button class="service-card surface" type="button" data-service="${escapeHtml(service.id)}"><div class="service-card-top"><span class="service-symbol">${serviceMark(service.id)}</span>${statusPill(service.state)}</div><h3>${escapeHtml(service.name)}</h3><p>${escapeHtml(serviceSummary(service))}</p><span class="card-link">${t('details')} ${icon('chevron')}</span></button>`).join('')}</div>`;
+}
+
+function renderNetworkMap(network) {
+  const groups = groupCurrentDevicesByConnection(devices());
+  const definitions = [
+    ['wifi', t('wifi'), 'wifi'],
+    ['ethernet', t('ethernet'), 'ethernet'],
+    ['vpn', t('vpn'), 'vpn'],
+    ['unknown', t('otherConnections'), 'devices'],
+  ];
+  const visibleGroups = definitions.filter(([id]) => groups[id].length);
+  if (!visibleGroups.length) {
+    return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
+  }
+
+  const uplink = network.uplink || {};
+  const ap = network.access_point || {};
+  const rootName = ap.ssid || ap.connection || t('localNetwork');
+  const rootDetail = uplink.gateway ? `${t('gateway')} · ${uplink.gateway}` : t('localNetwork');
+
+  return `<section class="content-section network-map-section">
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapHint')}</p></div></header>
+    <div class="surface network-map">
+      <div class="topology-root"><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(rootDetail)}</small></div></div>
+      <div class="topology-trunk" aria-hidden="true"></div>
+      <div class="topology-groups">
+        ${visibleGroups.map(([id, label, glyph]) => {
+          const items = groups[id];
+          const visible = items.slice(0, 4);
+          return `<article class="topology-group">
+            <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: items.length }))}</small></div></header>
+            <div class="topology-device-list">
+              ${visible.map((device) => {
+                const presentation = devicePresentation(device);
+                return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}"><span>${icon(presentation.iconKey)}</span><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></button>`;
+              }).join('')}
+              ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id === 'unknown' ? 'connection_unknown' : id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
+            </div>
+          </article>`;
+        }).join('')}
+      </div>
+    </div>
+  </section>`;
 }
 
 function renderNetwork() {
@@ -269,7 +367,8 @@ function renderNetwork() {
         <header><span class="panel-icon neutral">${icon('dhcp')}</span><div><p class="eyebrow">${t('addressAssignment')}</p><h2>DHCP</h2></div>${statusPill(dhcp.state)}</header>
         <div class="detail-list">${detailRow(t('activeAddresses'), dhcp.lease_count, 'devices')}</div>
       </article>
-    </section>`;
+    </section>
+    ${renderNetworkMap(network)}`;
 }
 
 function filteredDevices() {
@@ -282,10 +381,17 @@ function renderDevices() {
   const result = filteredDevices();
   const unidentified = allDevices.filter((item) => item.category === 'unknown' && !item.vendor && !item.model && !item.hostname && !item.metadata?.alias).length;
   const filters = [['all', t('all')], ['online', t('online')]];
+  if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
+  if (allDevices.some((item) => isFavoriteNotSeen(item))) filters.push(['favorite_missing', t('favoriteNotSeenShort')]);
+  if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
+  if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
     if (allDevices.some((item) => item.connection_type === id)) filters.push([id, label]);
   }
-  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><p>${t('deviceCount', { count: result.length })}</p></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
+  if (allDevices.some((item) => !['wifi', 'ethernet', 'vpn'].includes(item.connection_type))) {
+    filters.push(['connection_unknown', t('otherConnections')]);
+  }
+  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
 
 function renderServices() {
@@ -299,7 +405,31 @@ function settingSelect(id, label, helper, options, selected) {
 
 function renderSettings() {
   const refreshes = [[5000, t('seconds', { count: 5 })], [15000, t('seconds', { count: 15 })], [30000, t('seconds', { count: 30 })], [60000, t('seconds', { count: 60 })], [0, t('off')]];
-  return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section><section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
+  const monitor = state.data?.monitor || {};
+  const monitorState = monitor.enabled
+    ? (monitor.running ? t('monitorRunning') : t('monitorStopped'))
+    : t('monitorDisabled');
+  const monitorDetail = monitor.enabled
+    ? t('monitorEvery', { count: Number(monitor.interval_seconds || 0) })
+    : t('monitorDisabledHint');
+  const monitorLast = monitor.last_success_at ? formatTimestamp(monitor.last_success_at) : t('notYet');
+  const notifications = state.data?.notifications || {};
+  const notificationState = notifications.configured ? t('webhookConfigured') : t('webhookNotConfigured');
+  const notificationDetail = notifications.configured
+    ? (
+      notifications.last_error
+        ? t('webhookDeliveryError', { error: notifications.last_error })
+        : notifications.include_identifiers
+          ? t('webhookConfiguredIdentifiersHint')
+          : t('webhookConfiguredHint')
+    )
+    : t('webhookConfigurationHint');
+  const notificationLast = notifications.last_success_at ? formatTimestamp(notifications.last_success_at) : t('notYet');
+
+  return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('monitoring')}</p><h2>${t('continuousMonitoring')}</h2></header><div class="surface settings-list"><div class="setting-row monitor-setting"><div><strong>${escapeHtml(monitorState)}</strong><small>${escapeHtml(monitorDetail)}</small></div><div class="monitor-last"><span>${t('lastSuccessfulRun')}</span><strong>${escapeHtml(monitorLast)}</strong></div></div></div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('notifications')}</p><h2>${t('webhookNotifications')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${escapeHtml(notificationState)}</strong><small>${escapeHtml(notificationDetail)}</small></div>${notifications.configured ? `<button class="secondary-button" type="button" data-test-notification>${icon('network')}${t('sendTest')}</button>` : ''}</div><div class="setting-row"><div><strong>${t('lastSuccessfulDelivery')}</strong><small>${t('pendingEvents', { count: Number(notifications.pending_events || 0) })}</small></div><div class="monitor-last"><strong>${escapeHtml(notificationLast)}</strong></div></div></div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
 }
 
 function renderView() {
@@ -353,15 +483,90 @@ async function fetchJson(url, timeout = 8000, options = {}) {
   } finally { clearTimeout(timer); }
 }
 
+function preparedInventoryForExport() {
+  return devices().map((device) => ({
+    ...device,
+    presentation_name: devicePresentation(device).name,
+  }));
+}
+
+function openInventoryExport() {
+  inspector(
+    t('exportInventory'),
+    t('devices'),
+    `<p class="inspector-summary">${escapeHtml(t('exportInventoryHint'))}</p>
+      <div class="export-actions">
+        <button class="secondary-button" type="button" data-export-inventory="csv">${icon('download')}${t('exportCsv')}</button>
+        <button class="secondary-button" type="button" data-export-inventory="json">${icon('download')}${t('exportJson')}</button>
+      </div>`,
+    'download',
+  );
+}
+
+function downloadInventory(format) {
+  const prepared = preparedInventoryForExport();
+  const date = new Date();
+  const day = date.toISOString().slice(0, 10);
+  let content;
+  let type;
+  let extension;
+
+  if (format === 'json') {
+    content = JSON.stringify({
+      product: state.brand.productName,
+      version: state.brand.version,
+      exported_at: date.toISOString(),
+      devices: inventoryExportRows(prepared),
+    }, null, 2);
+    type = 'application/json;charset=utf-8';
+    extension = 'json';
+  } else {
+    content = inventoryCsv(prepared);
+    type = 'text/csv;charset=utf-8';
+    extension = 'csv';
+  }
+
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `auralan-device-inventory-${day}.${extension}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  closeDialog(inspectorDialog);
+  toast(t('inventoryExported'));
+}
+
+async function sendTestNotification() {
+  try {
+    const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
+    if (state.data) state.data.notifications = result;
+    renderView();
+    toast(t('testNotificationSent'));
+  } catch {
+    toast(t('testNotificationFailed'));
+  }
+}
+
 async function saveDeviceMetadata(form) {
   const deviceId = form.dataset.deviceId;
   const data = new FormData(form);
   const alias = String(data.get('alias') || '').trim();
+  const note = String(data.get('note') || '').trim();
+  const favorite = String(data.get('favorite') || 'false') === 'true';
   const submit = form.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
     await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/metadata`, 8000, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alias: alias || null })
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alias: alias || null,
+        note: note || null,
+        favorite,
+      })
     });
     await refresh(false);
     showDevice(deviceId);
@@ -486,6 +691,8 @@ function showDevice(id) {
       ? [detailRow(t('signal'), `${device.signal_dbm} dBm${presentation.quality ? ` · ${presentation.quality}` : ''}`, 'signal')]
       : []),
     detailRow(t('status'), status, deviceState(device) === 'online' ? 'success' : 'info'),
+    detailRow(t('firstSeen'), formatTimestamp(device.first_seen_at), 'uptime'),
+    detailRow(t('lastSeen'), formatTimestamp(device.last_seen_at), 'uptime'),
   ].join('');
 
   const identityRows = [
@@ -496,6 +703,11 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
+  const favoriteOptions = [
+    ['false', t('normalPriority')],
+    ['true', t('favorite')],
+  ].map(([value, label]) => `<option value="${value}" ${Boolean(device.metadata?.favorite) === (value === 'true') ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
+
   inspector(
     presentation.name,
     t('device'),
@@ -505,6 +717,8 @@ function showDevice(id) {
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
+        <label><span>${t('note')}</span><input name="note" maxlength="280" value="${escapeHtml(device.metadata?.note || '')}" placeholder="${escapeHtml(t('notePlaceholder'))}"></label>
+        <label><span>${t('priority')}</span><select name="favorite">${favoriteOptions}</select></label>
         <button class="primary-button" type="submit">${icon('success')}${t('save')}</button>
       </form>`,
     deviceIconKey(device),
@@ -621,6 +835,10 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-theme]')) applyTheme(trigger.dataset.theme);
   if (trigger.matches('[data-open-diagnostics]')) loadDiagnostics(true);
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
+  if (trigger.matches('[data-open-activity]')) openActivityHistory();
+  if (trigger.matches('[data-test-notification]')) sendTestNotification();
+  if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
+  if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {
     const { commandKind, commandId } = trigger.dataset;
     closeDialog(commandDialog);

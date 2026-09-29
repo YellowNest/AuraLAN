@@ -68,6 +68,71 @@ jobs:
         working-directory: backend
         run: python -m unittest discover -s tests -v
 
+  smoke:
+    name: Generic Linux smoke boot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Boot and exercise status API
+        run: |
+          set -euo pipefail
+          export AURALAN_DATA_DIR="$RUNNER_TEMP/auralan-state"
+          python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8878 >"$RUNNER_TEMP/auralan-smoke.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+
+          python - <<'PY'
+          import json
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = "http://127.0.0.1:8878"
+          last_error = None
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen(base + "/api/v1/status", timeout=2) as response:
+                      status = json.load(response)
+                  with urllib.request.urlopen(base + "/api/v1/health", timeout=2) as response:
+                      health = json.load(response)
+                  with urllib.request.urlopen(base + "/api/v1/notifications", timeout=2) as response:
+                      notifications = json.load(response)
+                  monitor = status.get("monitor", {})
+                  if (
+                      response.status == 200
+                      and health.get("ok") is True
+                      and isinstance(status.get("devices"), list)
+                      and monitor.get("enabled") is True
+                      and monitor.get("running") is True
+                      and notifications.get("configured") is False
+                  ):
+                      print(
+                          "Smoke OK:",
+                          f"system={status.get('system', {}).get('state', 'unknown')}",
+                          f"devices={len(status['devices'])}",
+                          f"monitor={monitor.get('interval_seconds')}s",
+                      )
+                      break
+              except (OSError, ValueError, urllib.error.URLError) as exc:
+                  last_error = exc
+              time.sleep(0.5)
+          else:
+              raise SystemExit(f"AuraLAN smoke boot failed: {last_error}")
+          PY
+
   dependency-audit:
     name: Python dependency audit
     runs-on: ubuntu-latest

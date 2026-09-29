@@ -236,15 +236,19 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     aliases.discard("")
     overrides = {str((item.get("metadata") or {}).get("category_override") or "").strip() for item in records}
     overrides.discard("")
-    if len(aliases) > 1 or len(overrides) > 1:
+    notes = {str((item.get("metadata") or {}).get("note") or "").strip() for item in records}
+    notes.discard("")
+    if len(aliases) > 1 or len(overrides) > 1 or len(notes) > 1:
         # User-owned labels explicitly distinguish these records.
         return {}
 
-    def score(item: dict[str, Any]) -> tuple[int, int, int, int, int, str]:
+    def score(item: dict[str, Any]) -> tuple[int, int, int, int, int, int, int, str]:
         metadata = item.get("metadata") or {}
         return (
             1 if metadata.get("alias") else 0,
             1 if metadata.get("category_override") else 0,
+            1 if metadata.get("note") else 0,
+            1 if metadata.get("favorite") else 0,
             1 if item.get("vendor") else 0,
             1 if item.get("model") else 0,
             1 if item.get("online") is True else 0,
@@ -294,6 +298,12 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
         primary["first_seen_at"] = min(first_seen)
     if last_seen:
         primary["last_seen_at"] = max(last_seen)
+
+    primary_metadata = dict(primary.get("metadata") or {})
+    if notes and not primary_metadata.get("note"):
+        primary_metadata["note"] = next(iter(notes))
+    primary_metadata["favorite"] = any(bool((item.get("metadata") or {}).get("favorite")) for item in ordered)
+    primary["metadata"] = primary_metadata
 
     # Preserve the strongest available vendor/model/identity while keeping the
     # display name/hostname that proved these interfaces belong together.
@@ -472,7 +482,12 @@ def resolve_observations(
                 "device_type": category_identity,
                 "sources": sources,
             },
-            "metadata": {"alias": alias, "category_override": category_override},
+            "metadata": {
+                "alias": alias,
+                "category_override": category_override,
+                "note": manual.get("note"),
+                "favorite": bool(manual.get("favorite")),
+            },
             "observations": [
                 {"source": item.source, "interface": item.interface, "ip": item.ip, "neighbor_state": item.neighbour_state}
                 for item in evidence
@@ -545,9 +560,12 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
     except (OSError, sqlite3.Error) as exc:
         metadata = {}
         warnings.append(f"AuraLAN device metadata storage is unavailable: {type(exc).__name__}")
+    new_ids = {identifier for identifier, item in metadata.items() if item.get("_new_presence")}
     resolved = resolve_observations(provider_results, metadata)
     try:
         active_store.remember_identities(resolved)
+        active_store.remember_inventory(resolved)
+        active_store.record_first_seen(resolved, new_ids)
     except (OSError, sqlite3.Error):
         pass
     return resolved, warnings

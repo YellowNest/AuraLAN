@@ -6,6 +6,48 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-29
+
+### Fixed
+
+- The aggregate status endpoint now includes AuraLAN and API version metadata, matching health/diagnostics and making release verification self-contained.
+- Favorite-device absence events are now debounced with a persistent grace period, preventing one transient discovery miss from producing a `favorite_not_seen` webhook or activity event while still reporting a confirmed return immediately.
+- Clean systemd installs now build in an isolated staging directory and remove an incomplete activation automatically, so dependency or first-start failures are safe to retry.
+- Git-backed install and upgrade sources now refuse dirty worktrees, preventing validation from checking files that differ from the archived commit.
+- Upgrade readiness now opens a consistent copy of the current AuraLAN SQLite state with the staged release before code is switched, while the runtime health endpoint verifies metadata-store readiness after activation.
+- Interrupted-upgrade markers are diagnosed before the upgrader can misreport the installation as missing, and activation rollback keeps restoring the previous application, unit and database state.
+- CI now includes a generic Linux smoke boot that exercises the full status API as well as the state-aware health endpoint.
+- Concurrent cache misses now collapse into one discovery pass, and cache age starts when collection completes rather than before a slow refresh.
+- SQLite state now re-bootstraps its schema after a database replacement and metadata write failures return a controlled service-unavailable response instead of leaking an internal error.
+- NetworkManager terse output now honors escaped delimiters in connection names and SSIDs.
+- Ordinary Linux hosts are no longer marked unhealthy merely because their Wi-Fi interface is a client rather than an access point; AP mode becomes an explicit expectation only when `AURALAN_WIFI_INTERFACE` is configured.
+- dnsmasq is no longer treated as AuraLAN's DHCP source unless it is explicitly scoped to the confirmed access-point interface, preventing unrelated local DNS-cache instances from contributing misleading lease data.
+
+### Added
+
+- Optional reliable HTTP(S) webhook notifications can now deliver new-device and favorite-watch state events to Home Assistant or another receiver. Delivery is ordered, failed events remain pending for retry, old history is not replayed on first enable, and IP/MAC/internal device IDs are excluded unless explicitly opted in.
+- Settings exposes webhook delivery health and a test action without revealing the configured URL or bearer token; aggregate delivery state is also available through diagnostics and Prometheus.
+- AuraLAN now performs continuous local discovery in the background by default, keeping inventory, first/last-seen timestamps, discovery history and favorite-device watch state current even when no browser is open; the interval is configurable and can be disabled.
+- Settings, diagnostics, Prometheus and `/api/v1/monitor` expose background-monitor health without including device identity data.
+- Favorite devices now double as a local watchlist: Overview highlights favorites that AuraLAN is not currently observing, and the Devices view can filter that exact state without calling the device offline.
+- Device discovery history now backfills from existing first-seen inventory data, adds a full local history inspector, and supports requesting up to 100 entries from `/api/v1/activity`.
+- A dependency-free Prometheus `/metrics` endpoint now exposes aggregate inventory, service and host-health gauges without device identities, addresses or notes.
+- The Devices view can export the current local inventory as CSV or JSON in-browser, with an explicit privacy warning and spreadsheet-formula neutralization for untrusted network-provided values.
+- The Network view now includes an evidence-based map that groups current devices by confirmed Wi-Fi, Ethernet, VPN or other connection evidence and links each visible node back to its device details.
+- Previously observed devices now remain in the inventory as **Not seen now** when they are absent from the current discovery pass, preserving last-known identity, addressing and presence data without pretending absence proves the device is offline.
+- The Devices view adds a dedicated remembered-device filter while live devices with overlapping MAC identities suppress their historical copy.
+- AuraLAN now keeps a compact local first-seen discovery history and shows recent device discoveries on Overview.
+- Device aliases update matching discovery labels, while multi-interface devices only generate a discovery when all observed identities are new, reducing false "new device" entries for an existing machine gaining another adapter.
+- Device inventory now exposes first/last-seen timestamps, local notes and favorites in the device inspector.
+- Device search includes local notes, and the device view can filter favorites and devices first seen by AuraLAN within the last 24 hours.
+- The overview surfaces newly seen devices without treating them as a security verdict; inventory data remains local to AuraLAN.
+- Canonical systemd installations now have a staged production upgrader that preserves host configuration and runtime state, creates a consistent SQLite backup, health-checks the new version, and restores code/unit/database state automatically on activation failure.
+
+### Changed
+
+- User-owned runtime state now defaults to the per-user XDG state directory outside the source checkout when AuraLAN is run without an explicit `AURALAN_DATA_DIR`; the supplied systemd service continues to use `/var/lib/auralan`.
+- Documentation now makes the separation between application code, local runtime data, and host-specific configuration explicit so updates cannot accidentally package another user's settings.
+
 ## [0.4.0] - 2026-09-29
 
 ### Added

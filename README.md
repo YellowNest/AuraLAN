@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
+  <img alt="Release 0.5.0" src="https://img.shields.io/badge/release-0.5.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -25,9 +26,14 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
+| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, keep previously seen devices visible, and export the inventory as CSV or JSON. |
+| **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
+| **Home Assistant & webhook friendly** | Optional reliable webhooks can report new devices and favorite watch-state changes, with network identifiers excluded by default. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
+| **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
+| **Prometheus-ready** | A dependency-free `/metrics` endpoint exposes aggregate device, service and host health without device names, IP addresses, MAC addresses or notes. |
 | **Works with imperfect systems** | Optional providers fail independently instead of taking down the dashboard. |
 | **Phone to desktop** | Responsive interface with light, dark and system appearance. |
 
@@ -49,11 +55,27 @@ AuraLAN can combine local evidence from:
 
 Device identity is deliberately conservative. An OUI can identify an organization; it cannot prove an exact model. AuraLAN keeps the raw evidence separate from the friendly presentation.
 
+### Device inventory
+
+AuraLAN remembers when a device was first and last observed. You can give devices your own names, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
+
+Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory.
+
+All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
+
+A background monitor performs local discovery every 60 seconds by default, so first/last-seen data, recent discoveries and the favorite-device watchlist continue updating when the web interface is closed. The interval is configurable or can be disabled entirely.
+
+If an operator configures a webhook, AuraLAN can deliver newly persisted device events to Home Assistant or another HTTP(S) receiver. Delivery is ordered and retryable, old history is not replayed when notifications are first enabled, and IP/MAC/internal device IDs are omitted unless explicitly enabled. Favorite-absence events are debounced by default so one transient discovery miss does not create a false alert.
+
+A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict. Recent-discovery entries are likewise local observations, not security alerts.
+
+The Devices view can export the current inventory as CSV or JSON directly in the browser. Exports can contain private IP/MAC addresses and user notes, so AuraLAN labels that clearly before download. CSV cells that begin like spreadsheet formulas are neutralized before export because network-provided device names are not trusted input.
+
 ## What AuraLAN does not do
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Its only write operation stores AuraLAN-local device labels such as aliases.
+The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes and favorites.
 
 ## Quick start
 
@@ -87,6 +109,8 @@ See **[Configuration](docs/CONFIGURATION.md)** for:
 - bind address and port
 - data directory
 - non-standard Pi-hole FTL database location
+- continuous background monitoring interval
+- optional webhook/Home Assistant notifications and privacy controls
 - service/deployment overrides
 
 ## Compatibility
@@ -124,9 +148,14 @@ GET   /api/v1/network
 GET   /api/v1/devices
 GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
+GET   /api/v1/activity?limit=50
+GET   /api/v1/monitor
+GET   /api/v1/notifications
+POST  /api/v1/notifications/test
 GET   /api/v1/services
 GET   /api/v1/services/{id}
 GET   /api/v1/diagnostics
+GET   /metrics
 ```
 
 Normal dashboard refreshes use the aggregated status endpoint. Discovery is cached briefly and subprocesses are executed as literal argument lists with bounded timeouts; AuraLAN does not expose an arbitrary shell endpoint.
@@ -134,6 +163,10 @@ Normal dashboard refreshes use the aggregated status endpoint. Discovery is cach
 ## Privacy and security
 
 Runtime network information stays on the machine running AuraLAN. Device identity is not sent to external lookup services.
+
+The Prometheus endpoint intentionally exposes aggregate counts and host-health gauges only. It does not emit device names, IDs, IP/MAC addresses, notes, or per-device labels.
+
+Webhook delivery is disabled unless explicitly configured. Event payloads omit IP/MAC/internal device IDs by default; the endpoint URL and optional bearer token are never exposed through the browser-facing status, diagnostics, or Prometheus surfaces.
 
 The production systemd example binds to loopback by default. Remote LAN access should be an explicit choice, typically through a reverse proxy or by changing `AURALAN_HOST`.
 
@@ -168,7 +201,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN `0.4.0` is the first public pre-1.0 release. The API is intentionally small and may still evolve before 1.0.
+AuraLAN `0.5.0` is the current public pre-1.0 release. It adds persistent inventory, continuous background monitoring, activity history, an evidence-based network map, CSV/JSON export, Prometheus metrics, favorite-device watch state and reliable opt-in webhooks. The API is intentionally small and may still evolve before 1.0.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 

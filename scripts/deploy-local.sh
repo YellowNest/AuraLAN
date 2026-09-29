@@ -70,6 +70,16 @@ print_success() {
 [ -z "$(git status --porcelain)" ] || fail "working tree is not clean"
 git remote get-url origin >/dev/null 2>&1 || fail "origin remote is missing"
 [ -x "$VENV_PYTHON" ] || fail "backend virtualenv is missing: $VENV_PYTHON"
+systemctl cat "$SERVICE_NAME" >/dev/null 2>&1 || fail "systemd service is missing: $SERVICE_NAME"
+
+SERVICE_WORKDIR="$(systemctl show "$SERVICE_NAME" -p WorkingDirectory --value 2>/dev/null || true)"
+EXPECTED_WORKDIR="$ROOT_DIR/backend"
+if [ -n "$SERVICE_WORKDIR" ]; then
+  SERVICE_WORKDIR="$(realpath -m "$SERVICE_WORKDIR")"
+  EXPECTED_WORKDIR="$(realpath -m "$EXPECTED_WORKDIR")"
+  [ "$SERVICE_WORKDIR" = "$EXPECTED_WORKDIR" ] ||
+    fail "$SERVICE_NAME runs from $SERVICE_WORKDIR, not this checkout; use scripts/upgrade.sh for canonical /opt/auralan installations"
+fi
 
 OLD_HEAD="$(git rev-parse HEAD)"
 TMPDIR_DEPLOY="$(mktemp -d /tmp/auralan-deploy.XXXXXX)"

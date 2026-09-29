@@ -124,6 +124,8 @@ class DeviceIdentityResponse(BaseModel):
 class DeviceMetadataResponse(BaseModel):
     alias: str | None = None
     category_override: DeviceCategory | None = None
+    note: str | None = None
+    favorite: bool = False
 
 
 class DeviceObservationResponse(BaseModel):
@@ -141,6 +143,8 @@ class DeviceLeaseResponse(BaseModel):
 class DeviceMetadataUpdate(BaseModel):
     alias: str | None = Field(default=None, max_length=80)
     category_override: DeviceCategory | None = None
+    note: str | None = Field(default=None, max_length=280)
+    favorite: bool = False
 
 
 class DeviceResponse(BaseModel):
@@ -160,7 +164,7 @@ class DeviceResponse(BaseModel):
     interface: str | None = None
     connection_type: Literal["wifi", "ethernet", "vpn", "unknown"] = "unknown"
     online: bool | None = None
-    state: Literal["online", "recently_seen", "offline", "unknown"] = "unknown"
+    state: Literal["online", "recently_seen", "offline", "known", "unknown"] = "unknown"
     signal_dbm: int | None = None
     signal_quality: Literal["excellent", "good", "fair", "weak"] | None = None
     dhcp: bool = False
@@ -206,6 +210,29 @@ class ServicesResponse(BaseModel):
     items: list[ServiceResponse] = Field(default_factory=list)
 
 
+class ActivityEventResponse(BaseModel):
+    id: int
+    event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]
+    entity_id: str
+    display_name: str | None = None
+    ip: str | None = None
+    mac: str | None = None
+    created_at: int
+
+
+class ActivityResponse(BaseModel):
+    items: list[ActivityEventResponse] = Field(default_factory=list)
+
+
+class NotificationStatusResponse(BaseModel):
+    configured: bool = False
+    include_identifiers: bool = False
+    last_attempt_at: int | None = None
+    last_success_at: int | None = None
+    last_error: str | None = None
+    pending_events: int = 0
+
+
 class SystemStateResponse(BaseModel):
     state: HealthState
     title: str
@@ -213,13 +240,27 @@ class SystemStateResponse(BaseModel):
     attention_count: int = 0
 
 
+class MonitorResponse(BaseModel):
+    enabled: bool = False
+    interval_seconds: int = 0
+    running: bool = False
+    last_attempt_at: int | None = None
+    last_success_at: int | None = None
+    last_error: str | None = None
+
+
 class StatusResponse(BaseModel):
+    version: str = ""
+    api_version: str = "v1"
     generated_at: str
     system: SystemStateResponse
     host: HostResponse
     network: NetworkResponse
     devices: list[DeviceResponse] = Field(default_factory=list)
     services: ServicesResponse
+    activity: list[ActivityEventResponse] = Field(default_factory=list)
+    monitor: MonitorResponse = Field(default_factory=MonitorResponse)
+    notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     errors: list[str] = Field(default_factory=list)
 
 
@@ -231,4 +272,6 @@ class DiagnosticsResponse(BaseModel):
     host: HostResponse
     network: NetworkResponse
     services: ServicesResponse
+    monitor: MonitorResponse = Field(default_factory=MonitorResponse)
+    notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     discovery_errors: list[str] = Field(default_factory=list)
