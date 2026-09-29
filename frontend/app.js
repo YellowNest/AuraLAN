@@ -110,7 +110,7 @@ function normalizeStatus(payload) {
 }
 
 function stateLabel(value) {
-  const labels = { healthy: t('everythingGood'), degraded: t('serviceAttention', { count: 1 }), warning: t('unknown'), critical: t('error'), online: t('online'), offline: t('offline'), unknown: t('unknown'), recently_seen: t('recentlySeen'), reachable: t('online'), delay: t('online'), probe: t('unknown'), stale: t('recentlySeen'), lease: t('recentlySeen') };
+  const labels = { healthy: t('everythingGood'), degraded: t('serviceAttention', { count: 1 }), warning: t('unknown'), critical: t('error'), online: t('online'), offline: t('offline'), known: t('notSeenNow'), unknown: t('unknown'), recently_seen: t('recentlySeen'), reachable: t('online'), delay: t('online'), probe: t('unknown'), stale: t('recentlySeen'), lease: t('recentlySeen') };
   return labels[value] || safe(value);
 }
 
@@ -299,6 +299,7 @@ function renderDevices() {
   const filters = [['all', t('all')], ['online', t('online')]];
   if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
   if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
+  if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
     if (allDevices.some((item) => item.connection_type === id)) filters.push([id, label]);
   }
