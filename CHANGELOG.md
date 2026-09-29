@@ -21,6 +21,8 @@ Development target: `0.4.1`.
 
 ### Added
 
+- Optional reliable HTTP(S) webhook notifications can now deliver new-device and favorite-watch state events to Home Assistant or another receiver. Delivery is ordered, failed events remain pending for retry, old history is not replayed on first enable, and IP/MAC/internal device IDs are excluded unless explicitly opted in.
+- Settings exposes webhook delivery health and a test action without revealing the configured URL or bearer token; aggregate delivery state is also available through diagnostics and Prometheus.
 - AuraLAN now performs continuous local discovery in the background by default, keeping inventory, first/last-seen timestamps, discovery history and favorite-device watch state current even when no browser is open; the interval is configurable and can be disabled.
 - Settings, diagnostics, Prometheus and `/api/v1/monitor` expose background-monitor health without including device identity data.
 - Favorite devices now double as a local watchlist: Overview highlights favorites that AuraLAN is not currently observing, and the Devices view can filter that exact state without calling the device offline.

@@ -33,6 +33,19 @@ class BackgroundMonitorTests(unittest.TestCase):
         self.assertIsNone(status["last_error"])
         self.assertNotIn("devices", status)
 
+    def test_run_once_executes_post_collect_hook(self):
+        seen = []
+
+        def collector(*, force=False):
+            return {"devices": [{"id": "one"}]}
+
+        def after_collect(snapshot):
+            seen.append(snapshot["devices"][0]["id"])
+
+        monitor = BackgroundMonitor(collector, interval_seconds=60, after_collect=after_collect)
+        self.assertTrue(monitor.run_once())
+        self.assertEqual(seen, ["one"])
+
     def test_run_once_contains_collector_failure(self):
         def collector(*, force=False):
             raise RuntimeError("sample failure")

@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 
 
@@ -52,7 +52,7 @@ class DeviceStore:
         version = int(version_row[0]) if version_row else 0
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
-            "device_events", "device_inventory",
+            "device_events", "device_inventory", "device_watch_state", "notification_cursors",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -126,6 +126,16 @@ class DeviceStore:
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_inventory_last_seen ON device_inventory(last_seen_at DESC, device_id)"
         )
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_watch_state (
+            device_id TEXT PRIMARY KEY,
+            not_seen INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS notification_cursors (
+            channel TEXT PRIMARY KEY,
+            last_event_id INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )""")
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -273,6 +283,112 @@ class DeviceStore:
                         (bounded_limit,),
                     )
                 ]
+            finally:
+                connection.close()
+
+    def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
+        """Record state changes for user-favorited devices without guessing offline state."""
+        favorites = [
+            record for record in records
+            if bool((record.get("metadata") or {}).get("favorite"))
+            and str(record.get("id") or "").strip()
+        ]
+        if not favorites:
+            return
+
+        now = int(time.time())
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                for record in favorites:
+                    device_id = str(record.get("id") or "").strip()
+                    not_seen = int(record.get("state") == "known")
+                    previous = connection.execute(
+                        "SELECT not_seen FROM device_watch_state WHERE device_id = ?",
+                        (device_id,),
+                    ).fetchone()
+
+                    if previous is None:
+                        connection.execute(
+                            "INSERT INTO device_watch_state(device_id, not_seen, updated_at) VALUES (?, ?, ?)",
+                            (device_id, not_seen, now),
+                        )
+                        continue
+
+                    previous_not_seen = int(previous["not_seen"])
+                    if previous_not_seen == not_seen:
+                        continue
+
+                    event_type = "favorite_not_seen" if not_seen else "favorite_seen_again"
+                    display_name = str(record.get("display_name") or "").strip() or None
+                    ip = str(record.get("ip") or "").strip() or None
+                    mac = str(record.get("mac") or "").strip() or None
+                    connection.execute(
+                        "INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?)",
+                        (event_type, device_id, display_name, ip, mac, now),
+                    )
+                    connection.execute(
+                        "UPDATE device_watch_state SET not_seen = ?, updated_at = ? WHERE device_id = ?",
+                        (not_seen, now, device_id),
+                    )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def latest_event_id(self) -> int:
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                row = connection.execute("SELECT COALESCE(MAX(id), 0) FROM device_events").fetchone()
+                return int(row[0]) if row else 0
+            finally:
+                connection.close()
+
+    def events_after(self, event_id: int, limit: int = 50) -> list[dict[str, Any]]:
+        bounded_limit = max(1, min(int(limit), 100))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                return [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, event_type, entity_id, display_name, ip, mac, created_at "
+                        "FROM device_events WHERE id > ? ORDER BY id ASC LIMIT ?",
+                        (int(event_id), bounded_limit),
+                    )
+                ]
+            finally:
+                connection.close()
+
+    def notification_cursor(self, channel: str) -> int | None:
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                row = connection.execute(
+                    "SELECT last_event_id FROM notification_cursors WHERE channel = ?",
+                    (channel,),
+                ).fetchone()
+                return int(row["last_event_id"]) if row else None
+            finally:
+                connection.close()
+
+    def set_notification_cursor(self, channel: str, event_id: int) -> None:
+        now = int(time.time())
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO notification_cursors(channel, last_event_id, updated_at) VALUES (?, ?, ?) "
+                    "ON CONFLICT(channel) DO UPDATE SET last_event_id=excluded.last_event_id, updated_at=excluded.updated_at",
+                    (channel, int(event_id), now),
+                )
+                connection.commit()
             finally:
                 connection.close()
 
@@ -600,9 +716,13 @@ class DeviceStore:
                 )
                 if next_alias:
                     connection.execute(
-                        "UPDATE device_events SET display_name = ? "
-                        "WHERE event_type = 'device_first_seen' AND entity_id = ?",
+                        "UPDATE device_events SET display_name = ? WHERE entity_id = ?",
                         (next_alias, device_id),
+                    )
+                if not next_favorite:
+                    connection.execute(
+                        "DELETE FROM device_watch_state WHERE device_id = ?",
+                        (device_id,),
                     )
                 connection.commit()
                 return {
