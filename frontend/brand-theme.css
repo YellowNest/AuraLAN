@@ -186,11 +186,10 @@ body::before{
 
 /* Page title language */
 .eyebrow{color:color-mix(in srgb,var(--accent) 58%,var(--text-faint));letter-spacing:.145em}
+/* Keep page titles on the normal text-painting path. Chromium on Windows can
+   crop descenders such as g/p/q/y when background-clip:text is used here. */
 h1{
-  background:linear-gradient(110deg,var(--text) 0 72%,color-mix(in srgb,var(--accent) 62%,var(--text)) 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
+  color:var(--text);
 }
 
 /* Overview network hero — the UI equivalent of Signal Halo */
