@@ -58,7 +58,7 @@ AuraLAN remembers when a device was first and last observed. You can give device
 
 Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory.
 
-All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact recent-discovery history when a physical device is first observed, so the Overview can answer "what showed up recently?" without sending device data anywhere.
+All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
 
 A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict. Recent-discovery entries are likewise local observations, not security alerts.
 
@@ -139,7 +139,7 @@ GET   /api/v1/network
 GET   /api/v1/devices
 GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
-GET   /api/v1/activity
+GET   /api/v1/activity?limit=50
 GET   /api/v1/services
 GET   /api/v1/services/{id}
 GET   /api/v1/diagnostics
