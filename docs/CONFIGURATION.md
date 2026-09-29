@@ -13,6 +13,9 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
+| `AURALAN_WEBHOOK_URL` | unset | Optional HTTP(S) endpoint for new-device and favorite-watch events |
+| `AURALAN_WEBHOOK_BEARER_TOKEN` | unset | Optional bearer token sent only in the webhook Authorization header |
+| `AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS` | off | Opt in to include AuraLAN device ID, IP and MAC in webhook event payloads |
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
@@ -42,6 +45,38 @@ AURALAN_MONITOR_INTERVAL=120
 Set it to `0` to disable background discovery. Positive values below 15 seconds are clamped to 15 seconds to avoid accidental high-frequency scanning.
 
 The monitor uses the same bounded discovery code and local cache/store as normal dashboard refreshes. It does not enable telemetry or send device information anywhere.
+
+## Webhook notifications
+
+AuraLAN can deliver persisted local events to one operator-configured HTTP(S) webhook. This works well with Home Assistant webhook automations, local automation servers, or another endpoint you control.
+
+For example:
+
+```bash
+AURALAN_WEBHOOK_URL=http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID
+```
+
+Supported event types currently include:
+
+- `device_first_seen`
+- `favorite_not_seen`
+- `favorite_seen_again`
+
+When a webhook is enabled for the first time, AuraLAN starts at the current end of its event history instead of replaying old discoveries. New events are delivered in order. A failed event remains pending and is retried on a later monitor pass.
+
+By default webhook event payloads do **not** include IP addresses, MAC addresses or AuraLAN's internal device identifier. To opt in:
+
+```bash
+AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS=1
+```
+
+If the receiver expects a bearer token:
+
+```bash
+AURALAN_WEBHOOK_BEARER_TOKEN=replace-me
+```
+
+The configured URL and bearer token are never returned by AuraLAN's status, diagnostics, or Prometheus endpoints. The Settings page can send an explicit test event once a webhook is configured.
 
 ## Pi-hole FTL
 
