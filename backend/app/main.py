@@ -56,6 +56,7 @@ def _notification_status() -> dict:
     except (OSError, sqlite3.Error):
         return {
             "configured": webhook_notifier.enabled,
+            "include_identifiers": webhook_notifier.include_identifiers,
             "last_attempt_at": webhook_notifier.last_attempt_at,
             "last_success_at": webhook_notifier.last_success_at,
             "last_error": "StorageUnavailable",
