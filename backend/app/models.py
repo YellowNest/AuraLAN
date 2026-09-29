@@ -124,6 +124,8 @@ class DeviceIdentityResponse(BaseModel):
 class DeviceMetadataResponse(BaseModel):
     alias: str | None = None
     category_override: DeviceCategory | None = None
+    note: str | None = None
+    favorite: bool = False
 
 
 class DeviceObservationResponse(BaseModel):
@@ -141,6 +143,8 @@ class DeviceLeaseResponse(BaseModel):
 class DeviceMetadataUpdate(BaseModel):
     alias: str | None = Field(default=None, max_length=80)
     category_override: DeviceCategory | None = None
+    note: str | None = Field(default=None, max_length=280)
+    favorite: bool = False
 
 
 class DeviceResponse(BaseModel):

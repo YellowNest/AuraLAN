@@ -19,6 +19,9 @@ INTEGRATION_METADATA: dict[str, dict[str, Any]] = {
 APP_CAPABILITIES = {
     "device_aliases": True,
     "device_category_overrides": True,
+    "device_notes": True,
+    "device_favorites": True,
+    "device_presence": True,
     "dhcp_editing": False,
     "wifi_editing": False,
     "service_actions": False,

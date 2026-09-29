@@ -93,7 +93,7 @@ def device_detail(device_id: str) -> dict:
 def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict:
     """The sole write endpoint: persist AuraLAN-local device labels only."""
     if not update.model_fields_set:
-        raise HTTPException(status_code=422, detail="Provide an alias or category override")
+        raise HTTPException(status_code=422, detail="Provide device metadata to update")
     current = next((item for item in system_snapshot()["devices"] if item["id"] == device_id), None)
     if not current:
         raise HTTPException(status_code=404, detail="Unknown current device")
@@ -102,6 +102,10 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
         kwargs["alias"] = update.alias.strip() if update.alias else None
     if "category_override" in update.model_fields_set:
         kwargs["category_override"] = update.category_override
+    if "note" in update.model_fields_set:
+        kwargs["note"] = update.note.strip() if update.note else None
+    if "favorite" in update.model_fields_set:
+        kwargs["favorite"] = update.favorite
     try:
         store().update_metadata(device_id, **kwargs)
     except (OSError, sqlite3.Error) as exc:
