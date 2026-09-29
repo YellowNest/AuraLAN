@@ -927,6 +927,77 @@ class DeviceStore:
             finally:
                 connection.close()
 
+    @staticmethod
+    def _identity_id_from_mac(value: object) -> str:
+        return str(value or "").strip().replace(":", "").replace("-", "").lower()
+
+    def forget_device(self, device_id: str) -> bool:
+        """Remove AuraLAN-owned memory for one remembered physical device."""
+        requested_id = str(device_id or "").strip()
+        if not requested_id:
+            return False
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+
+                linked_ids = {requested_id}
+                inventory_row = connection.execute(
+                    "SELECT mac, mac_addresses_json FROM device_inventory WHERE device_id = ?",
+                    (requested_id,),
+                ).fetchone()
+
+                if inventory_row is not None:
+                    raw_macs: list[object] = [inventory_row["mac"]]
+                    try:
+                        raw_macs.extend(json.loads(inventory_row["mac_addresses_json"] or "[]"))
+                    except (TypeError, ValueError):
+                        pass
+                    linked_ids.update(
+                        identifier
+                        for identifier in (
+                            self._identity_id_from_mac(value)
+                            for value in raw_macs
+                        )
+                        if identifier
+                    )
+
+                placeholders = ",".join("?" for _ in linked_ids)
+                values = tuple(sorted(linked_ids))
+                deleted = 0
+
+                for table in (
+                    "device_metadata",
+                    "device_presence",
+                    "device_identity_cache",
+                    "device_inventory",
+                    "device_watch_state",
+                    "device_presence_state",
+                ):
+                    cursor = connection.execute(
+                        f"DELETE FROM {table} WHERE device_id IN ({placeholders})",
+                        values,
+                    )
+                    deleted += max(0, int(cursor.rowcount))
+
+                cursor = connection.execute(
+                    f"DELETE FROM device_presence_history WHERE device_id IN ({placeholders})",
+                    values,
+                )
+                deleted += max(0, int(cursor.rowcount))
+
+                cursor = connection.execute(
+                    f"DELETE FROM device_events WHERE entity_id IN ({placeholders})",
+                    values,
+                )
+                deleted += max(0, int(cursor.rowcount))
+
+                connection.commit()
+                return deleted > 0
+            finally:
+                connection.close()
+
     def update_metadata(
         self,
         device_id: str,
