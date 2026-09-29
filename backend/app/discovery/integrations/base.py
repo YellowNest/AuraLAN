@@ -25,6 +25,7 @@ APP_CAPABILITIES = {
     "device_tags": True,
     "device_presence": True,
     "device_presence_history": True,
+    "forget_remembered_devices": True,
     "background_monitor": True,
     "webhook_notifications": True,
     "home_assistant_summary": True,

@@ -39,6 +39,7 @@ const state = {
     device_tags: false,
     device_presence: false,
     device_presence_history: false,
+    forget_remembered_devices: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -557,6 +558,20 @@ function downloadInventory(format) {
   toast(t('inventoryExported'));
 }
 
+async function forgetRememberedDevice(deviceId, displayName) {
+  const confirmed = window.confirm(t('forgetDeviceConfirm', { name: displayName || t('unnamedDevice') }));
+  if (!confirmed) return;
+
+  try {
+    await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/memory`, 8000, { method: 'DELETE' });
+    closeDialog(inspectorDialog);
+    await refresh(false);
+    toast(t('deviceForgotten'));
+  } catch {
+    toast(t('forgetDeviceFailed'));
+  }
+}
+
 async function wakeDevice(deviceId) {
   try {
     await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/wake`, 8000, { method: 'POST' });
@@ -775,6 +790,10 @@ function showDevice(id) {
     && device.online !== true
     && [...(device.mac_addresses || []), device.mac].some((value) => value && value !== '—')
   );
+  const forgetAvailable = Boolean(
+    state.capabilities.forget_remembered_devices
+    && device.state === 'known'
+  );
 
   const favoriteOptions = [
     ['false', t('normalPriority')],
@@ -789,6 +808,7 @@ function showDevice(id) {
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div></div>
       ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
       ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
+      ${forgetAvailable ? `<div class="detail-section device-actions danger-zone"><h3>${t('forgetDevice')}</h3><button class="secondary-button danger-button" type="button" data-forget-device="${escapeHtml(device.id)}" data-forget-name="${escapeHtml(presentation.name)}">${icon('trash')}${t('forgetDevice')}</button><p class="action-hint">${escapeHtml(t('forgetDeviceHint'))}</p></div>` : ''}
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
@@ -919,6 +939,7 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
   if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
+  if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
   if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {

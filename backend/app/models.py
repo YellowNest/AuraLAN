@@ -29,6 +29,11 @@ class MetaResponse(BaseModel):
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
+class ForgetDeviceResponse(BaseModel):
+    forgotten: bool = True
+    device_id: str
+
+
 class WakeResponse(BaseModel):
     sent: bool = True
     device_id: str

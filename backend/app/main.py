@@ -16,6 +16,7 @@ from .models import (
     DevicesResponse,
     DeviceMetadataUpdate,
     DeviceResponse,
+    ForgetDeviceResponse,
     HealthResponse,
     HomeAssistantSummaryResponse,
     HostResponse,
@@ -255,6 +256,33 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
     if not item:
         raise HTTPException(status_code=404, detail="Device disappeared during update")
     return item
+
+
+@app.delete("/api/v1/devices/{device_id}/memory", response_model=ForgetDeviceResponse)
+def forget_remembered_device(device_id: str) -> dict:
+    """Forget a device only when AuraLAN has no current observation of it."""
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Unknown device")
+    if current.get("state") != "known":
+        raise HTTPException(
+            status_code=409,
+            detail="Only devices that are not currently observed can be forgotten",
+        )
+
+    try:
+        forgotten = store().forget_device(device_id)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
+
+    if not forgotten:
+        raise HTTPException(status_code=404, detail="Device memory was not found")
+
+    system_snapshot(force=True)
+    return {"forgotten": True, "device_id": device_id}
 
 
 @app.post("/api/v1/devices/{device_id}/wake", response_model=WakeResponse)
