@@ -23,6 +23,7 @@ def home_assistant_summary(
     current_time = int(time.time()) if now is None else int(now)
     devices = list(snapshot.get("devices") or [])
     services = list((snapshot.get("services") or {}).get("items") or [])
+    detected_services = [service for service in services if service.get("detected")]
     system = snapshot.get("system") or {}
 
     def favorite(device: dict[str, Any]) -> bool:
@@ -49,8 +50,12 @@ def home_assistant_summary(
             if device.get("first_seen_at") is not None
             and int(device["first_seen_at"]) >= current_time - NEW_DEVICE_WINDOW_SECONDS
         ),
-        "services_detected": len(services),
-        "services_online": sum(1 for service in services if service.get("state") == "online"),
+        "services_detected": len(detected_services),
+        "services_online": sum(
+            1
+            for service in detected_services
+            if service.get("state") == "online"
+        ),
         "discovery_errors": len(snapshot.get("errors") or []),
         "monitor_running": bool(monitor.get("running")),
         "monitor_last_success_at": monitor.get("last_success_at"),
