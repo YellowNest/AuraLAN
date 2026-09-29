@@ -22,6 +22,7 @@ from .models import (
     ServiceResponse,
     StatusResponse,
 )
+from .metrics import render_prometheus
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
@@ -35,7 +36,7 @@ app = FastAPI(title="AuraLAN", version=brand()["version"], docs_url=None, redoc_
 @app.middleware("http")
 async def safety_headers(request: Request, call_next):
     response: Response = await call_next(request)
-    if request.url.path.startswith("/api/"):
+    if request.url.path.startswith("/api/") or request.url.path == "/metrics":
         response.headers["Cache-Control"] = "no-store"
     # Frontend source files are the one canonical production asset set for the
     # framework-free build. Keep them revalidating while this pre-release evolves;
@@ -69,6 +70,14 @@ def health() -> dict:
 @app.get("/api/v1/status", response_model=StatusResponse)
 def status() -> dict:
     return system_snapshot()
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(
+        render_prometheus(system_snapshot()),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/api/v1/host", response_model=HostResponse)
