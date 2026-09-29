@@ -99,7 +99,7 @@ import urllib.request
 port = sys.argv[1]
 base = f"http://127.0.0.1:{port}"
 
-for path in ("/", "/manifest.webmanifest", "/api/v1/meta", "/api/v1/status", "/api/v1/devices", "/metrics"):
+for path in ("/", "/manifest.webmanifest", "/api/v1/meta", "/api/v1/status", "/api/v1/devices", "/api/v1/monitor", "/metrics"):
     with urllib.request.urlopen(base + path, timeout=5) as response:
         if response.status != 200:
             raise SystemExit(f"{path}: HTTP {response.status}")
