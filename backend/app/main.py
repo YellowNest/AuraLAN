@@ -22,6 +22,7 @@ from .models import (
     MonitorResponse,
     NetworkResponse,
     NotificationStatusResponse,
+    PresenceHistoryResponse,
     ServicesResponse,
     ServiceResponse,
     StatusResponse,
@@ -42,7 +43,9 @@ webhook_notifier = WebhookNotifier(store())
 
 
 def _after_background_snapshot(snapshot: dict) -> None:
-    store().record_watch_transitions(snapshot.get("devices") or [])
+    devices = snapshot.get("devices") or []
+    store().record_presence_transitions(devices)
+    store().record_watch_transitions(devices)
     webhook_notifier.dispatch_pending()
 
 
@@ -264,6 +267,26 @@ def wake_device(device_id: str) -> dict:
         "broadcast": active.broadcast,
         "port": active.port,
     }
+
+
+@app.get("/api/v1/devices/{device_id}/presence", response_model=PresenceHistoryResponse)
+def device_presence_history(
+    device_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    try:
+        items = store().presence_history(device_id, limit)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
+
+    return {"device_id": device_id, "items": items}
 
 
 @app.get("/api/v1/activity", response_model=ActivityResponse)
