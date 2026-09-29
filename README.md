@@ -28,6 +28,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, and keep previously seen devices visible when they disappear from the live LAN view. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
+| **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
 | **Works with imperfect systems** | Optional providers fail independently instead of taking down the dashboard. |
 | **Phone to desktop** | Responsive interface with light, dark and system appearance. |
