@@ -238,7 +238,14 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     overrides.discard("")
     notes = {str((item.get("metadata") or {}).get("note") or "").strip() for item in records}
     notes.discard("")
-    if len(aliases) > 1 or len(overrides) > 1 or len(notes) > 1:
+    locations = {str((item.get("metadata") or {}).get("location") or "").strip() for item in records}
+    locations.discard("")
+    tags = {
+        tuple((item.get("metadata") or {}).get("tags") or [])
+        for item in records
+        if (item.get("metadata") or {}).get("tags")
+    }
+    if len(aliases) > 1 or len(overrides) > 1 or len(notes) > 1 or len(locations) > 1 or len(tags) > 1:
         # User-owned labels explicitly distinguish these records.
         return {}
 
@@ -248,6 +255,8 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
             1 if metadata.get("alias") else 0,
             1 if metadata.get("category_override") else 0,
             1 if metadata.get("note") else 0,
+            1 if metadata.get("location") else 0,
+            1 if metadata.get("tags") else 0,
             1 if metadata.get("favorite") else 0,
             1 if item.get("vendor") else 0,
             1 if item.get("model") else 0,
@@ -302,6 +311,10 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     primary_metadata = dict(primary.get("metadata") or {})
     if notes and not primary_metadata.get("note"):
         primary_metadata["note"] = next(iter(notes))
+    if locations and not primary_metadata.get("location"):
+        primary_metadata["location"] = next(iter(locations))
+    if tags and not primary_metadata.get("tags"):
+        primary_metadata["tags"] = list(next(iter(tags)))
     primary_metadata["favorite"] = any(bool((item.get("metadata") or {}).get("favorite")) for item in ordered)
     primary["metadata"] = primary_metadata
 
@@ -487,6 +500,8 @@ def resolve_observations(
                 "category_override": category_override,
                 "note": manual.get("note"),
                 "favorite": bool(manual.get("favorite")),
+                "location": manual.get("location"),
+                "tags": list(manual.get("tags") or []),
             },
             "observations": [
                 {"source": item.source, "interface": item.interface, "ip": item.ip, "neighbor_state": item.neighbour_state}
