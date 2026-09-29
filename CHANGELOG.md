@@ -6,6 +6,13 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
+Development target: `0.4.1`.
+
+### Changed
+
+- User-owned runtime state now defaults to the per-user XDG state directory outside the source checkout when AuraLAN is run without an explicit `AURALAN_DATA_DIR`; the supplied systemd service continues to use `/var/lib/auralan`.
+- Documentation now makes the separation between application code, local runtime data, and host-specific configuration explicit so updates cannot accidentally package another user's settings.
+
 ## [0.4.0] - 2026-09-29
 
 ### Added
