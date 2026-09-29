@@ -573,6 +573,108 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertTrue(remembered[0]["metadata"]["favorite"])
 
 
+    def test_forget_device_removes_all_linked_local_memory_but_keeps_global_notification_cursor(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            primary = "001122334455"
+            secondary = "001122334466"
+
+            metadata = device_store.enrich([primary, secondary])
+            record = {
+                "id": primary,
+                "display_name": "Docked laptop",
+                "hostname": "laptop",
+                "vendor": "Example",
+                "model": "Portable",
+                "device_type": "computer",
+                "category": "computer",
+                "icon_key": "laptop",
+                "ip": "192.0.2.20",
+                "ip_addresses": ["192.0.2.20"],
+                "mac": "00:11:22:33:44:55",
+                "mac_addresses": [
+                    "00:11:22:33:44:55",
+                    "00:11:22:33:44:66",
+                ],
+                "mac_type": "global",
+                "interface": "lan0",
+                "connection_type": "ethernet",
+                "online": True,
+                "state": "online",
+                "first_seen_at": metadata[primary]["first_seen_at"],
+                "last_seen_at": metadata[primary]["last_seen_at"],
+                "identity": {
+                    "display_name": {"value": "Docked laptop", "source": "local_hosts", "confidence": "high"},
+                    "vendor": {"value": "Example", "source": "oui_vendor", "confidence": "high"},
+                    "model": {"value": "Portable", "source": "dns_sd", "confidence": "medium"},
+                    "device_type": {"value": "computer", "source": "dns_sd", "confidence": "medium"},
+                    "sources": [],
+                },
+                "metadata": {
+                    "alias": None,
+                    "category_override": None,
+                    "note": None,
+                    "favorite": False,
+                    "location": None,
+                    "tags": [],
+                },
+                "observations": [],
+            }
+
+            device_store.remember_inventory([record])
+            device_store.remember_identities([record])
+            device_store.update_metadata(
+                primary,
+                alias="Laptop",
+                favorite=True,
+                location="Office",
+                tags=["work"],
+            )
+            device_store.record_watch_transitions([{**record, "metadata": {"favorite": True}}])
+            device_store.record_presence_transitions([record])
+
+            record["state"] = "known"
+            with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+                device_store.record_presence_transitions([record])
+
+            latest = device_store.latest_event_id()
+            device_store.set_notification_cursor("webhook", latest)
+
+            self.assertTrue(device_store.forget_device(primary))
+            self.assertFalse(device_store.forget_device(primary))
+            self.assertEqual(device_store.known_devices([]), [])
+            self.assertEqual(device_store.presence_history(primary), [])
+            self.assertEqual(device_store.recent_events(), [])
+            self.assertEqual(device_store.notification_cursor("webhook"), latest)
+
+            connection = sqlite3.connect(device_store.path)
+            try:
+                linked = (primary, secondary)
+                placeholders = ",".join("?" for _ in linked)
+                for table in (
+                    "device_metadata",
+                    "device_presence",
+                    "device_identity_cache",
+                    "device_inventory",
+                    "device_watch_state",
+                    "device_presence_state",
+                    "device_presence_history",
+                ):
+                    count = connection.execute(
+                        f"SELECT COUNT(*) FROM {table} WHERE device_id IN ({placeholders})",
+                        linked,
+                    ).fetchone()[0]
+                    self.assertEqual(count, 0, table)
+
+                events = connection.execute(
+                    f"SELECT COUNT(*) FROM device_events WHERE entity_id IN ({placeholders})",
+                    linked,
+                ).fetchone()[0]
+                self.assertEqual(events, 0)
+            finally:
+                connection.close()
+
+
     def test_first_seen_events_are_persistent_deduplicated_and_follow_aliases(self):
         with TemporaryDirectory() as temp_dir:
             device_store = DeviceStore(Path(temp_dir))
