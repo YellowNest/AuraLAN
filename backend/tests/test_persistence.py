@@ -78,7 +78,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 3)
+            self.assertEqual(result["schema_version"], 4)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -89,6 +89,127 @@ class DefaultDataDirTests(unittest.TestCase):
             finally:
                 connection.close()
             self.assertIn("device_events", tables)
+            self.assertIn("device_inventory", tables)
+
+
+    def test_schema_three_state_migrates_to_known_device_inventory(self):
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)")
+                connection.execute("""CREATE TABLE device_metadata (
+                    device_id TEXT PRIMARY KEY,
+                    alias TEXT,
+                    category_override TEXT,
+                    note TEXT,
+                    favorite INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_presence (
+                    device_id TEXT PRIMARY KEY,
+                    first_seen_at INTEGER NOT NULL,
+                    last_seen_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_identity_cache (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    source TEXT,
+                    confidence TEXT,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    display_name TEXT,
+                    ip TEXT,
+                    mac TEXT,
+                    created_at INTEGER NOT NULL
+                )""")
+                connection.execute("PRAGMA user_version = 3")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = DeviceStore(Path(temp_dir)).readiness_check()
+            self.assertEqual(result["schema_version"], 4)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                }
+            finally:
+                connection.close()
+            self.assertIn("device_inventory", tables)
+
+
+
+    def test_remembered_devices_survive_current_discovery_and_do_not_duplicate_live_macs(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            metadata = device_store.enrich(["001122334455"])["001122334455"]
+            record = {
+                "id": "001122334455",
+                "display_name": "Office printer",
+                "hostname": "office-printer",
+                "vendor": "Example",
+                "model": "Laser 1",
+                "device_type": "printer",
+                "category": "printer",
+                "icon_key": "printer",
+                "ip": "192.0.2.70",
+                "ip_addresses": ["192.0.2.70"],
+                "mac": "00:11:22:33:44:55",
+                "mac_addresses": ["00:11:22:33:44:55"],
+                "mac_type": "global",
+                "interface": "lan0",
+                "connection_type": "ethernet",
+                "online": True,
+                "state": "online",
+                "first_seen_at": metadata["first_seen_at"],
+                "last_seen_at": metadata["last_seen_at"],
+                "identity": {
+                    "display_name": {"value": "Office printer", "source": "local_hosts", "confidence": "high"},
+                    "vendor": {"value": "Example", "source": "oui_vendor", "confidence": "high"},
+                    "model": {"value": "Laser 1", "source": "dns_sd", "confidence": "medium"},
+                    "device_type": {"value": "printer", "source": "dns_sd", "confidence": "medium"},
+                    "sources": [],
+                },
+                "metadata": {"alias": None, "category_override": None, "note": None, "favorite": False},
+                "observations": [],
+            }
+
+            device_store.remember_inventory([record])
+
+            remembered = device_store.known_devices([])
+            self.assertEqual(len(remembered), 1)
+            self.assertEqual(remembered[0]["state"], "known")
+            self.assertIsNone(remembered[0]["online"])
+            self.assertEqual(remembered[0]["display_name"], "Office printer")
+            self.assertEqual(remembered[0]["ip"], "192.0.2.70")
+            self.assertEqual(remembered[0]["last_seen_at"], metadata["last_seen_at"])
+
+            live_same_mac = [{"id": "different-primary", "mac_addresses": ["00:11:22:33:44:55"]}]
+            self.assertEqual(device_store.known_devices(live_same_mac), [])
+
+            device_store.update_metadata(
+                "001122334455",
+                alias="Printer",
+                note="Upstairs",
+                favorite=True,
+            )
+            remembered = device_store.known_devices([])
+            self.assertEqual(remembered[0]["metadata"]["alias"], "Printer")
+            self.assertEqual(remembered[0]["metadata"]["note"], "Upstairs")
+            self.assertTrue(remembered[0]["metadata"]["favorite"])
 
 
     def test_first_seen_events_are_persistent_deduplicated_and_follow_aliases(self):

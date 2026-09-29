@@ -164,7 +164,7 @@ class DeviceResponse(BaseModel):
     interface: str | None = None
     connection_type: Literal["wifi", "ethernet", "vpn", "unknown"] = "unknown"
     online: bool | None = None
-    state: Literal["online", "recently_seen", "offline", "unknown"] = "unknown"
+    state: Literal["online", "recently_seen", "offline", "known", "unknown"] = "unknown"
     signal_dbm: int | None = None
     signal_quality: Literal["excellent", "good", "fair", "weak"] | None = None
     dhcp: bool = False

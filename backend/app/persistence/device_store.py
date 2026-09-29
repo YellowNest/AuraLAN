@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import threading
@@ -9,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 
 
@@ -50,7 +51,8 @@ class DeviceStore:
         version_row = connection.execute("PRAGMA user_version").fetchone()
         version = int(version_row[0]) if version_row else 0
         required_tables = {
-            "schema_migrations", "device_metadata", "device_presence", "device_identity_cache", "device_events",
+            "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
+            "device_events", "device_inventory",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -101,6 +103,28 @@ class DeviceStore:
         )""")
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_events_created_at ON device_events(created_at DESC, id DESC)"
+        )
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_inventory (
+            device_id TEXT PRIMARY KEY,
+            display_name TEXT,
+            hostname TEXT,
+            vendor TEXT,
+            model TEXT,
+            category TEXT,
+            icon_key TEXT,
+            ip TEXT,
+            ip_addresses_json TEXT NOT NULL DEFAULT '[]',
+            mac TEXT,
+            mac_addresses_json TEXT NOT NULL DEFAULT '[]',
+            mac_type TEXT,
+            interface TEXT,
+            connection_type TEXT,
+            first_seen_at INTEGER,
+            last_seen_at INTEGER,
+            updated_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_inventory_last_seen ON device_inventory(last_seen_at DESC, device_id)"
         )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
@@ -251,6 +275,218 @@ class DeviceStore:
                 ]
             finally:
                 connection.close()
+
+    @staticmethod
+    def _normalise_mac(value: object) -> str:
+        return str(value or "").strip().upper()
+
+    def remember_inventory(self, records: list[dict[str, Any]]) -> None:
+        """Persist the last trustworthy presentation of currently observed devices."""
+        if not records:
+            return
+
+        now = int(time.time())
+        rows: list[tuple[Any, ...]] = []
+        for record in records:
+            device_id = str(record.get("id") or "").strip()
+            if not device_id:
+                continue
+
+            identity = record.get("identity") or {}
+            display_identity = identity.get("display_name") or {}
+            display_name = str(record.get("display_name") or "").strip() or None
+            if display_identity.get("source") == "manual_alias":
+                display_name = (
+                    str(record.get("hostname") or "").strip()
+                    or str(record.get("model") or "").strip()
+                    or str(record.get("vendor") or "").strip()
+                    or None
+                )
+
+            ip_addresses = [
+                str(value).strip()
+                for value in (record.get("ip_addresses") or [record.get("ip")])
+                if value and str(value).strip() != "—"
+            ]
+            mac_addresses = [
+                self._normalise_mac(value)
+                for value in (record.get("mac_addresses") or [record.get("mac")])
+                if value
+            ]
+
+            rows.append((
+                device_id,
+                display_name,
+                str(record.get("hostname") or "").strip() or None,
+                str(record.get("vendor") or "").strip() or None,
+                str(record.get("model") or "").strip() or None,
+                str(record.get("category") or "unknown"),
+                str(record.get("icon_key") or "device_generic"),
+                str(record.get("ip") or "").strip() or None,
+                json.dumps(ip_addresses, separators=(",", ":")),
+                self._normalise_mac(record.get("mac")) or None,
+                json.dumps(mac_addresses, separators=(",", ":")),
+                str(record.get("mac_type") or "unknown"),
+                str(record.get("interface") or "").strip() or None,
+                str(record.get("connection_type") or "unknown"),
+                record.get("first_seen_at"),
+                record.get("last_seen_at"),
+                now,
+            ))
+
+        if not rows:
+            return
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                connection.executemany(
+                    """INSERT INTO device_inventory(
+                        device_id, display_name, hostname, vendor, model, category, icon_key,
+                        ip, ip_addresses_json, mac, mac_addresses_json, mac_type, interface,
+                        connection_type, first_seen_at, last_seen_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(device_id) DO UPDATE SET
+                        display_name=COALESCE(excluded.display_name, device_inventory.display_name),
+                        hostname=COALESCE(excluded.hostname, device_inventory.hostname),
+                        vendor=COALESCE(excluded.vendor, device_inventory.vendor),
+                        model=COALESCE(excluded.model, device_inventory.model),
+                        category=COALESCE(NULLIF(excluded.category, 'unknown'), device_inventory.category),
+                        icon_key=COALESCE(NULLIF(excluded.icon_key, 'device_generic'), device_inventory.icon_key),
+                        ip=COALESCE(excluded.ip, device_inventory.ip),
+                        ip_addresses_json=CASE
+                            WHEN excluded.ip_addresses_json != '[]' THEN excluded.ip_addresses_json
+                            ELSE device_inventory.ip_addresses_json
+                        END,
+                        mac=COALESCE(excluded.mac, device_inventory.mac),
+                        mac_addresses_json=CASE
+                            WHEN excluded.mac_addresses_json != '[]' THEN excluded.mac_addresses_json
+                            ELSE device_inventory.mac_addresses_json
+                        END,
+                        mac_type=COALESCE(NULLIF(excluded.mac_type, 'unknown'), device_inventory.mac_type),
+                        interface=COALESCE(excluded.interface, device_inventory.interface),
+                        connection_type=COALESCE(NULLIF(excluded.connection_type, 'unknown'), device_inventory.connection_type),
+                        first_seen_at=COALESCE(
+                            MIN(device_inventory.first_seen_at, excluded.first_seen_at),
+                            device_inventory.first_seen_at,
+                            excluded.first_seen_at
+                        ),
+                        last_seen_at=COALESCE(
+                            MAX(device_inventory.last_seen_at, excluded.last_seen_at),
+                            device_inventory.last_seen_at,
+                            excluded.last_seen_at
+                        ),
+                        updated_at=excluded.updated_at""",
+                    rows,
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def known_devices(self, current_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return remembered devices that are not represented by the current discovery pass."""
+        current_macs = {
+            self._normalise_mac(mac)
+            for record in current_records
+            for mac in (record.get("mac_addresses") or [record.get("mac")])
+            if mac
+        }
+        current_ids = {str(record.get("id") or "").strip() for record in current_records}
+        current_ids.discard("")
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = [dict(row) for row in connection.execute(
+                    "SELECT * FROM device_inventory ORDER BY last_seen_at DESC, device_id"
+                )]
+                metadata = {
+                    row["device_id"]: dict(row)
+                    for row in connection.execute(
+                        "SELECT device_id, alias, category_override, note, favorite "
+                        "FROM device_metadata"
+                    )
+                }
+            finally:
+                connection.close()
+
+        remembered: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                mac_addresses = [
+                    self._normalise_mac(value)
+                    for value in json.loads(row.get("mac_addresses_json") or "[]")
+                    if value
+                ]
+            except (TypeError, ValueError):
+                mac_addresses = []
+            if row["device_id"] in current_ids or current_macs.intersection(mac_addresses):
+                continue
+
+            try:
+                ip_addresses = [
+                    str(value)
+                    for value in json.loads(row.get("ip_addresses_json") or "[]")
+                    if value
+                ]
+            except (TypeError, ValueError):
+                ip_addresses = []
+
+            item_metadata = metadata.get(row["device_id"], {})
+            category = item_metadata.get("category_override") or row.get("category") or "unknown"
+            icon_key = row.get("icon_key") or "device_generic"
+            display_name = row.get("display_name") or row.get("hostname") or row.get("model") or "Network device"
+            sources = [{"source": "inventory_cache", "confidence": "medium"}]
+            remembered.append({
+                "id": row["device_id"],
+                "display_name": display_name,
+                "hostname": row.get("hostname"),
+                "vendor": row.get("vendor"),
+                "model": row.get("model"),
+                "device_type": category,
+                "category": category,
+                "icon_key": icon_key,
+                "ip": row.get("ip") or (ip_addresses[0] if ip_addresses else "—"),
+                "ip_addresses": ip_addresses,
+                "mac": row.get("mac") or (mac_addresses[0] if mac_addresses else "—"),
+                "mac_addresses": mac_addresses,
+                "mac_type": row.get("mac_type") or "unknown",
+                "interface": row.get("interface"),
+                "connection_type": row.get("connection_type") or "unknown",
+                "online": None,
+                "state": "known",
+                "signal_dbm": None,
+                "signal_quality": None,
+                "dhcp": False,
+                "lease_expires_at": None,
+                "lease": {"present": False, "expires_at": None},
+                "first_seen_at": row.get("first_seen_at"),
+                "last_seen_at": row.get("last_seen_at"),
+                "identity": {
+                    "display_name": {"value": display_name, "source": "inventory_cache", "confidence": "medium"},
+                    "vendor": (
+                        {"value": row["vendor"], "source": "inventory_cache", "confidence": "medium"}
+                        if row.get("vendor") else None
+                    ),
+                    "model": (
+                        {"value": row["model"], "source": "inventory_cache", "confidence": "medium"}
+                        if row.get("model") else None
+                    ),
+                    "device_type": {"value": category, "source": "inventory_cache", "confidence": "medium"},
+                    "sources": sources,
+                },
+                "metadata": {
+                    "alias": item_metadata.get("alias"),
+                    "category_override": item_metadata.get("category_override"),
+                    "note": item_metadata.get("note"),
+                    "favorite": bool(item_metadata.get("favorite")),
+                },
+                "observations": [],
+            })
+
+        return remembered
 
     def remember_identities(self, records: list[dict[str, Any]]) -> None:
         """Keep the last trustworthy identity for the same observed MAC."""

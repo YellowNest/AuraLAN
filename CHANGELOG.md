@@ -21,6 +21,8 @@ Development target: `0.4.1`.
 
 ### Added
 
+- Previously observed devices now remain in the inventory as **Not seen now** when they are absent from the current discovery pass, preserving last-known identity, addressing and presence data without pretending absence proves the device is offline.
+- The Devices view adds a dedicated remembered-device filter while live devices with overlapping MAC identities suppress their historical copy.
 - AuraLAN now keeps a compact local first-seen discovery history and shows recent device discoveries on Overview.
 - Device aliases update matching discovery labels, while multi-interface devices only generate a discovery when all observed identities are new, reducing false "new device" entries for an existing machine gaining another adapter.
 - Device inventory now exposes first/last-seen timestamps, local notes and favorites in the device inspector.

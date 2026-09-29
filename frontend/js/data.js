@@ -17,6 +17,7 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'unknown' && unidentified)
       || (filter === 'new' && isNewDevice(device))
       || (filter === 'favorites' && Boolean(device.metadata?.favorite))
+      || (filter === 'known' && device.state === 'known')
       || device.connection_type === filter;
     const searchable = [
       device.presentation_name, device.display_name, device.hostname, device.vendor, device.model,
