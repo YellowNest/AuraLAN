@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, isNewDevice, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, isNewDevice, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -56,6 +56,23 @@ test('device inventory supports new, favorite, and note discovery', () => {
     metadata: {},
   };
   assert.equal(filterDevices([...inventory, remembered], 'known')[0].display_name, 'Old camera');
+});
+
+test('network map groups current devices without reviving remembered devices', () => {
+  const items = [
+    { display_name: 'Phone', connection_type: 'wifi', state: 'online', metadata: {} },
+    { display_name: 'Desktop', connection_type: 'ethernet', state: 'online', metadata: {} },
+    { display_name: 'VPN client', connection_type: 'vpn', state: 'online', metadata: {} },
+    { display_name: 'Mystery', connection_type: 'unknown', state: 'recently_seen', metadata: {} },
+    { display_name: 'Old camera', connection_type: 'wifi', state: 'known', metadata: {} },
+  ];
+
+  const groups = groupCurrentDevicesByConnection(items);
+  assert.equal(groups.wifi.length, 1);
+  assert.equal(groups.ethernet.length, 1);
+  assert.equal(groups.vpn.length, 1);
+  assert.equal(groups.unknown.length, 1);
+  assert.equal(filterDevices(items, 'connection_unknown')[0].display_name, 'Mystery');
 });
 
 test('absent optional integrations are not rendered as offline cards', () => {
