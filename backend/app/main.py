@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sqlite3
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -132,8 +132,11 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
 
 
 @app.get("/api/v1/activity", response_model=ActivityResponse)
-def activity_status() -> dict:
-    return {"items": system_snapshot()["activity"]}
+def activity_status(limit: int = Query(default=50, ge=1, le=100)) -> dict:
+    try:
+        return {"items": store().recent_events(limit)}
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN activity history is unavailable") from exc
 
 
 @app.get("/api/v1/services", response_model=ServicesResponse)

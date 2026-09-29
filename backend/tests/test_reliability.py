@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import health, update_device_metadata
+from app.main import activity_status, health, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -32,6 +32,25 @@ class HealthReadinessTests(unittest.TestCase):
 
             with self.assertRaises(HTTPException) as raised:
                 health()
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+
+class ActivityReliabilityTests(unittest.TestCase):
+    def test_activity_endpoint_uses_requested_history_limit(self):
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.recent_events.return_value = [{"id": 1}]
+            result = activity_status(37)
+
+        store_factory.return_value.recent_events.assert_called_once_with(37)
+        self.assertEqual(result, {"items": [{"id": 1}]})
+
+    def test_activity_endpoint_reports_storage_failure(self):
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.recent_events.side_effect = sqlite3.DatabaseError("broken")
+
+            with self.assertRaises(HTTPException) as raised:
+                activity_status(50)
 
         self.assertEqual(raised.exception.status_code, 503)
 

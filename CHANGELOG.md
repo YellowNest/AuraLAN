@@ -21,6 +21,7 @@ Development target: `0.4.1`.
 
 ### Added
 
+- Device discovery history now backfills from existing first-seen inventory data, adds a full local history inspector, and supports requesting up to 100 entries from `/api/v1/activity`.
 - A dependency-free Prometheus `/metrics` endpoint now exposes aggregate inventory, service and host-health gauges without device identities, addresses or notes.
 - The Devices view can export the current local inventory as CSV or JSON in-browser, with an explicit privacy warning and spreadsheet-formula neutralization for untrusted network-provided values.
 - The Network view now includes an evidence-based map that groups current devices by confirmed Wi-Fi, Ethernet, VPN or other connection evidence and links each visible node back to its device details.
