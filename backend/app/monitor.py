@@ -34,8 +34,10 @@ class BackgroundMonitor:
         collector: Callable[..., dict[str, Any]],
         *,
         interval_seconds: int | None = None,
+        after_collect: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.collector = collector
+        self.after_collect = after_collect
         self.interval_seconds = configured_interval() if interval_seconds is None else int(interval_seconds)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -82,7 +84,9 @@ class BackgroundMonitor:
             self._last_attempt_at = now
 
         try:
-            self.collector(force=True)
+            snapshot = self.collector(force=True)
+            if self.after_collect:
+                self.after_collect(snapshot)
         except Exception as exc:
             with self._lock:
                 self._last_error = type(exc).__name__
