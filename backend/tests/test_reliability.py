@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, health, update_device_metadata
+from app.main import activity_status, health, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -34,6 +34,31 @@ class HealthReadinessTests(unittest.TestCase):
                 health()
 
         self.assertEqual(raised.exception.status_code, 503)
+
+
+class StatusMetadataTests(unittest.TestCase):
+    def test_status_includes_runtime_version_metadata(self):
+        snapshot = {
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "system": {"state": "healthy", "title": "Healthy", "summary": "", "attention_count": 0},
+            "host": {"name": "test", "uptime": "1m", "load": "0.00"},
+            "network": {"access_point": {"available": False}, "uplink": {}, "dhcp": {}, "interfaces": [], "routes": []},
+            "devices": [],
+            "services": {"items": []},
+            "activity": [],
+            "errors": [],
+        }
+        with (
+            patch("app.main.system_snapshot", return_value=snapshot),
+            patch("app.main.brand", return_value={"version": "9.8.7-test", "apiVersion": "v1"}),
+            patch("app.main._notification_status", return_value={"configured": False}),
+            patch("app.main.background_monitor") as monitor,
+        ):
+            monitor.status.return_value = {"enabled": True, "interval_seconds": 60, "running": True}
+            result = status()
+
+        self.assertEqual(result["version"], "9.8.7-test")
+        self.assertEqual(result["api_version"], "v1")
 
 
 class ActivityReliabilityTests(unittest.TestCase):
