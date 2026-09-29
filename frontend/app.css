@@ -192,6 +192,17 @@ p { margin: 0; }
 .device-status i { width: 7px; height: 7px; flex: 0 0 7px; aspect-ratio: 1; border-radius: 50%; background: var(--text-faint); }
 .device-status.online { color: var(--good); }.device-status.online i { background: var(--good); }.device-status.offline { color: var(--danger); }.device-status.offline i { background: var(--danger); }.device-status.recently_seen { color: var(--attention); }.device-status.recently_seen i { background: var(--attention); }
 .device-status > .icon { width: 14px; height: 14px; margin-left: 2px; color: var(--text-faint); }
+.discovery-list { overflow: hidden; border-radius: var(--radius-md); }
+.discovery-row { min-height: 68px; padding: 11px 17px; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+.discovery-row:last-child { border-bottom: 0; }
+.discovery-symbol { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
+.discovery-symbol .icon { width: 19px; height: 19px; }
+.discovery-copy { min-width: 0; }
+.discovery-copy strong, .discovery-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discovery-copy strong { font-size: 12.5px; }
+.discovery-copy small { margin-top: 3px; color: var(--text-faint); font-size: 10px; }
+.discovery-row time { color: var(--text-faint); font-size: 10px; white-space: nowrap; }
+
 .unidentified-callout { width: 100%; min-height: 64px; margin: 0 0 13px; padding: 11px 15px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow-sm); }.unidentified-callout > .icon:first-child { width: 32px; height: 32px; padding: 7px; border-radius: 10px; background: var(--attention-soft); color: var(--attention); }.unidentified-callout strong, .unidentified-callout small { display: block; }.unidentified-callout strong { font-size: 12px; }.unidentified-callout small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }.unidentified-callout > .icon:last-child { color: var(--text-faint); }
 .empty-state { min-height: 215px; padding: 35px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-soft); text-align: center; }
 .empty-state > .icon { width: 44px; height: 44px; padding: 10px; border-radius: 15px; background: var(--surface-muted); color: var(--text-faint); }
