@@ -10,7 +10,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
-from app.discovery.network import networkmanager
+from app.discovery.network import dnsmasq, networkmanager
 from app.main import update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
@@ -152,6 +152,57 @@ class NetworkManagerReliabilityTests(unittest.TestCase):
 
         self.assertEqual(details["ssid"], "Office:LAN")
         self.assertEqual(details["channel"], "11")
+
+
+class PortabilityReliabilityTests(unittest.TestCase):
+    def test_generic_host_without_access_point_can_be_healthy(self):
+        network = {"access_point": {"available": False}}
+        state = system.system_state(network, [], [])
+        self.assertEqual(state["state"], "healthy")
+        self.assertEqual(state["attention_count"], 0)
+
+    def test_explicit_ap_override_that_is_not_an_ap_reports_warning(self):
+        with (
+            patch.dict("os.environ", {"AURALAN_WIFI_INTERFACE": "radio-client"}, clear=True),
+            patch("app.services.system.networkmanager.wifi_candidates", return_value=[]),
+            patch("app.services.system.iw.wireless_interfaces", return_value=[]),
+            patch("app.services.system.iw.interface_info", return_value={"type": "MANAGED"}),
+            patch("app.services.system.iproute.routes", return_value=[]),
+            patch("app.services.system.iproute.default_route", return_value={"interface": None, "gateway": None}),
+            patch("app.services.system.iproute.interfaces", return_value=[]),
+            patch("app.services.system.iproute.ipv4_for", return_value=None),
+            patch("app.services.system.dnsmasq.discover", return_value=({"detected": False, "state": "unknown", "unit": None, "interface": None, "lease_count": 0}, [])),
+            patch("app.services.system.devices.collect_devices", return_value=([], [])),
+        ):
+            network, _devices, errors = system.discover_network()
+
+        self.assertFalse(network["access_point"]["available"])
+        self.assertEqual(errors, ["Configured Wi-Fi interface could not be confirmed in AP mode"])
+
+    def test_dnsmasq_without_confirmed_ap_is_not_treated_as_dhcp(self):
+        with patch("app.discovery.network.dnsmasq._service_rows") as service_rows:
+            status, leases = dnsmasq.discover(None)
+
+        service_rows.assert_not_called()
+        self.assertFalse(status["detected"])
+        self.assertEqual(status["lease_count"], 0)
+        self.assertEqual(leases, [])
+
+    def test_dnsmasq_for_other_interface_is_not_used_as_ap_dhcp(self):
+        with (
+            patch("app.discovery.network.dnsmasq._service_rows", return_value=[
+                {"unit": "dnsmasq-example.service", "active": "active"},
+            ]),
+            patch("app.discovery.network.dnsmasq._config_path", return_value=Path("/tmp/example.conf")),
+            patch("app.discovery.network.dnsmasq._config_values", return_value={
+                "interface": "other-radio",
+                "dhcp-leasefile": "/tmp/example.leases",
+            }),
+        ):
+            status, leases = dnsmasq.discover("radio-ap")
+
+        self.assertFalse(status["detected"])
+        self.assertEqual(leases, [])
 
 
 if __name__ == "__main__":
