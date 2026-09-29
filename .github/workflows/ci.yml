@@ -108,6 +108,8 @@ jobs:
                       status = json.load(response)
                   with urllib.request.urlopen(base + "/api/v1/health", timeout=2) as response:
                       health = json.load(response)
+                  with urllib.request.urlopen(base + "/api/v1/notifications", timeout=2) as response:
+                      notifications = json.load(response)
                   monitor = status.get("monitor", {})
                   if (
                       response.status == 200
@@ -115,6 +117,7 @@ jobs:
                       and isinstance(status.get("devices"), list)
                       and monitor.get("enabled") is True
                       and monitor.get("running") is True
+                      and notifications.get("configured") is False
                   ):
                       print(
                           "Smoke OK:",
