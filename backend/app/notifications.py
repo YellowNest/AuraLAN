@@ -32,6 +32,11 @@ def configured_bearer_token() -> str | None:
     return value or None
 
 
+def include_identifiers_by_default() -> bool:
+    value = os.environ.get("AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 class WebhookNotifier:
     """Deliver persisted AuraLAN events in order without replaying old history."""
 
@@ -41,11 +46,17 @@ class WebhookNotifier:
         *,
         url: str | None = None,
         bearer_token: str | None = None,
+        include_identifiers: bool | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         self.event_store = event_store
         self.url = configured_webhook_url() if url is None else url
         self.bearer_token = configured_bearer_token() if bearer_token is None else bearer_token
+        self.include_identifiers = (
+            include_identifiers_by_default()
+            if include_identifiers is None
+            else bool(include_identifiers)
+        )
         self.timeout_seconds = float(timeout_seconds)
         self.last_attempt_at: int | None = None
         self.last_success_at: int | None = None
@@ -92,20 +103,23 @@ class WebhookNotifier:
                     None,
                 )
 
-    @staticmethod
-    def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    def _event_payload(self, event: dict[str, Any]) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "id": event["id"],
+            "event_type": event["event_type"],
+            "display_name": event.get("display_name"),
+            "created_at": event["created_at"],
+        }
+        if self.include_identifiers:
+            payload.update({
+                "entity_id": event["entity_id"],
+                "ip": event.get("ip"),
+                "mac": event.get("mac"),
+            })
         return {
             "type": "auralan.event",
             "source": "AuraLAN",
-            "event": {
-                "id": event["id"],
-                "event_type": event["event_type"],
-                "entity_id": event["entity_id"],
-                "display_name": event.get("display_name"),
-                "ip": event.get("ip"),
-                "mac": event.get("mac"),
-                "created_at": event["created_at"],
-            },
+            "event": payload,
         }
 
     def dispatch_pending(self, limit: int = 25) -> int:
