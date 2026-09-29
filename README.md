@@ -25,7 +25,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
-| **A device inventory that remembers** | Track first/last seen time, add aliases and categories, keep private notes, mark important devices, and filter devices that are new to AuraLAN. |
+| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, and filter devices that are new to AuraLAN. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
@@ -52,7 +52,7 @@ Device identity is deliberately conservative. An OUI can identify an organizatio
 
 ### Device inventory
 
-AuraLAN remembers when a device was first and last observed. You can give devices your own names, override a category, keep a short local note and mark important devices as favorites. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
+AuraLAN remembers when a device was first and last observed. You can give devices your own names, keep a short local note and mark important devices as favorites. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
 
 All of that inventory data stays in AuraLAN's local SQLite state. A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict.
 
@@ -60,7 +60,7 @@ All of that inventory data stays in AuraLAN's local SQLite state. A "new" device
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Its only write operation stores AuraLAN-local device inventory metadata such as aliases, category overrides, notes and favorites.
+The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Its only write operation stores AuraLAN-local device inventory metadata such as aliases, notes and favorites.
 
 ## Quick start
 
