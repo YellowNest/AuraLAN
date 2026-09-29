@@ -8,6 +8,10 @@ export function isNewDevice(device, nowMs = Date.now()) {
   return ageSeconds >= 0 && ageSeconds <= NEW_DEVICE_WINDOW_SECONDS;
 }
 
+export function isFavoriteNotSeen(device) {
+  return Boolean(device?.metadata?.favorite) && device?.state === 'known';
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
   const normalizedQuery = query.trim().toLowerCase();
   return items.filter((device) => {
@@ -17,6 +21,7 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'unknown' && unidentified)
       || (filter === 'new' && isNewDevice(device))
       || (filter === 'favorites' && Boolean(device.metadata?.favorite))
+      || (filter === 'favorite_missing' && isFavoriteNotSeen(device))
       || (filter === 'known' && device.state === 'known')
       || (filter === 'connection_unknown' && !['wifi', 'ethernet', 'vpn'].includes(device.connection_type))
       || device.connection_type === filter;
