@@ -289,6 +289,28 @@ class StatusResponse(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class HomeAssistantSummaryResponse(BaseModel):
+    version: str
+    api_version: str
+    generated_at: str | None = None
+    system_state: HealthState = "unknown"
+    attention_count: int = 0
+    devices_total: int = 0
+    devices_online: int = 0
+    devices_not_seen_now: int = 0
+    favorites_total: int = 0
+    favorites_not_seen_now: int = 0
+    new_devices_24h: int = 0
+    services_detected: int = 0
+    services_online: int = 0
+    discovery_errors: int = 0
+    monitor_running: bool = False
+    monitor_last_success_at: int | None = None
+    webhook_configured: bool = False
+    webhook_pending_events: int = 0
+    wake_on_lan_enabled: bool = False
+
+
 class DiagnosticsResponse(BaseModel):
     generated_at: str
     api_version: str
