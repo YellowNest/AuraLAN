@@ -13,6 +13,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
+| `AURALAN_WATCH_MISSING_GRACE` | `120` | Seconds a favorite must remain unobserved before AuraLAN emits `favorite_not_seen`; bounded to 0–86400 |
 | `AURALAN_WEBHOOK_URL` | unset | Optional HTTP(S) endpoint for new-device and favorite-watch events |
 | `AURALAN_WEBHOOK_BEARER_TOKEN` | unset | Optional bearer token sent only in the webhook Authorization header |
 | `AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS` | off | Opt in to include AuraLAN device ID, IP and MAC in webhook event payloads |
@@ -61,6 +62,8 @@ Supported event types currently include:
 - `device_first_seen`
 - `favorite_not_seen`
 - `favorite_seen_again`
+
+A single missed discovery pass is weak evidence. By default a favorite must remain unobserved for 120 seconds before AuraLAN persists and delivers `favorite_not_seen`. A positive observation cancels a pending absence immediately, while `favorite_seen_again` is emitted immediately after a confirmed absence when the device returns. Set `AURALAN_WATCH_MISSING_GRACE=0` only if immediate absence events are explicitly wanted.
 
 When a webhook is enabled for the first time, AuraLAN starts at the current end of its event history instead of replaying old discoveries. New events are delivered in order. A failed event remains pending and is retried on a later monitor pass.
 
