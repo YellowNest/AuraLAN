@@ -161,6 +161,47 @@ class PersistenceReliabilityTests(unittest.TestCase):
             {"schema_migrations", "device_metadata", "device_presence", "device_identity_cache"}.issubset(tables)
         )
 
+    def test_device_metadata_endpoint_normalizes_location_and_tags(self):
+        current = {"id": "sample-device"}
+        refreshed = {
+            "id": "sample-device",
+            "display_name": "Sample",
+            "ip": "192.0.2.2",
+            "mac": "00:11:22:33:44:55",
+            "metadata": {
+                "alias": None,
+                "category_override": None,
+                "note": None,
+                "favorite": False,
+                "location": "Office",
+                "tags": ["Lab", "critical"],
+            },
+        }
+        metadata_store = unittest.mock.Mock()
+
+        with (
+            patch("app.main.system_snapshot", side_effect=[
+                {"devices": [current]},
+                {"devices": [refreshed]},
+            ]),
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            result = update_device_metadata(
+                "sample-device",
+                DeviceMetadataUpdate(
+                    location=" Office ",
+                    tags=[" Lab ", "lab", "critical", ""],
+                ),
+            )
+
+        metadata_store.update_metadata.assert_called_once_with(
+            "sample-device",
+            location="Office",
+            tags=["Lab", "critical"],
+        )
+        self.assertEqual(result["metadata"]["location"], "Office")
+        self.assertEqual(result["metadata"]["tags"], ["Lab", "critical"])
+
     def test_sqlite_write_failure_becomes_service_unavailable(self):
         current = {"id": "sample-device"}
         broken_store = unittest.mock.Mock()

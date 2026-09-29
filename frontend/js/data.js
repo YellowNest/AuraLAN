@@ -29,9 +29,51 @@ export function filterDevices(items, filter = 'all', query = '') {
       device.presentation_name, device.display_name, device.hostname, device.vendor, device.model,
       device.identity?.model?.value, device.category, device.device_type, device.ip, ...(device.ip_addresses || []),
       device.mac, ...(device.mac_addresses || []), device.interface, device.connection_type,
-      device.metadata?.alias, device.metadata?.note,
+      device.metadata?.alias, device.metadata?.note, device.metadata?.location, ...(device.metadata?.tags || []),
     ].filter(Boolean).join(' ').toLowerCase();
     return matchesFilter && (!normalizedQuery || searchable.includes(normalizedQuery));
+  });
+}
+
+function ipSortKey(value) {
+  return String(value || '').split('.').reduce((total, part) => {
+    const number = Number(part);
+    return Number.isInteger(number) && number >= 0 && number <= 255
+      ? (total * 256) + number
+      : Number.MAX_SAFE_INTEGER;
+  }, 0);
+}
+
+export function sortDevices(items, sort = 'smart') {
+  const prepared = [...items];
+  if (sort === 'smart') return prepared;
+
+  const compareText = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base', numeric: true });
+
+  return prepared.sort((left, right) => {
+    if (sort === 'name') {
+      return compareText(
+        left.presentation_name || left.metadata?.alias || left.display_name || left.hostname,
+        right.presentation_name || right.metadata?.alias || right.display_name || right.hostname,
+      );
+    }
+    if (sort === 'last_seen') {
+      return Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0)
+        || compareText(left.display_name, right.display_name);
+    }
+    if (sort === 'first_seen') {
+      return Number(right.first_seen_at || 0) - Number(left.first_seen_at || 0)
+        || compareText(left.display_name, right.display_name);
+    }
+    if (sort === 'location') {
+      return compareText(left.metadata?.location || '\uffff', right.metadata?.location || '\uffff')
+        || compareText(left.display_name, right.display_name);
+    }
+    if (sort === 'ip') {
+      return ipSortKey(left.ip) - ipSortKey(right.ip)
+        || compareText(left.display_name, right.display_name);
+    }
+    return 0;
   });
 }
 
@@ -62,6 +104,8 @@ export function inventoryExportRows(items) {
     first_seen_at: device.first_seen_at ?? null,
     last_seen_at: device.last_seen_at ?? null,
     favorite: Boolean(device.metadata?.favorite),
+    location: device.metadata?.location || '',
+    tags: device.metadata?.tags || [],
     note: device.metadata?.note || '',
   }));
 }
@@ -76,7 +120,7 @@ export function inventoryCsv(items) {
   const rows = inventoryExportRows(items);
   const columns = [
     'name', 'hostname', 'vendor', 'model', 'category', 'state', 'online', 'connection',
-    'ip_addresses', 'mac_addresses', 'first_seen_at', 'last_seen_at', 'favorite', 'note',
+    'ip_addresses', 'mac_addresses', 'first_seen_at', 'last_seen_at', 'favorite', 'location', 'tags', 'note',
   ];
   return [
     columns.map(csvCell).join(','),
