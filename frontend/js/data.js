@@ -18,6 +18,7 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'new' && isNewDevice(device))
       || (filter === 'favorites' && Boolean(device.metadata?.favorite))
       || (filter === 'known' && device.state === 'known')
+      || (filter === 'connection_unknown' && !['wifi', 'ethernet', 'vpn'].includes(device.connection_type))
       || device.connection_type === filter;
     const searchable = [
       device.presentation_name, device.display_name, device.hostname, device.vendor, device.model,
