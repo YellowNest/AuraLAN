@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 
 
@@ -50,7 +50,7 @@ class DeviceStore:
         version_row = connection.execute("PRAGMA user_version").fetchone()
         version = int(version_row[0]) if version_row else 0
         required_tables = {
-            "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
+            "schema_migrations", "device_metadata", "device_presence", "device_identity_cache", "device_events",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -90,6 +90,18 @@ class DeviceStore:
             confidence TEXT,
             updated_at INTEGER NOT NULL
         )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            display_name TEXT,
+            ip TEXT,
+            mac TEXT,
+            created_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_events_created_at ON device_events(created_at DESC, id DESC)"
+        )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -133,6 +145,7 @@ class DeviceStore:
                         f"SELECT device_id, first_seen_at, last_seen_at FROM device_presence WHERE device_id IN ({placeholders})", unique
                     )
                 }
+                new_ids = set(unique) - set(existing)
                 for identifier in unique:
                     previous = existing.get(identifier)
                     if previous is None:
@@ -166,8 +179,76 @@ class DeviceStore:
                         cached = dict(identity_cache[identifier])
                         cached.pop("device_id", None)
                         item["cached_identity"] = cached
+                    item["_new_presence"] = identifier in new_ids
                     result[identifier] = item
                 return result
+            finally:
+                connection.close()
+
+    def record_first_seen(self, records: list[dict[str, Any]], new_ids: set[str]) -> None:
+        """Persist one local discovery event for genuinely new physical devices."""
+        if not records or not new_ids:
+            return
+
+        now = int(time.time())
+        events: list[tuple[str, str, str | None, str | None, str | None, int]] = []
+        for record in records:
+            observed_ids = {
+                str(mac).upper().replace(":", "").lower()
+                for mac in (record.get("mac_addresses") or [record.get("mac")])
+                if mac
+            }
+            if not observed_ids or not observed_ids.issubset(new_ids):
+                continue
+            entity_id = str(record.get("id") or "").strip()
+            if not entity_id:
+                continue
+            events.append((
+                "device_first_seen",
+                entity_id,
+                str(record.get("display_name") or "").strip() or None,
+                str(record.get("ip") or "").strip() or None,
+                str(record.get("mac") or "").strip() or None,
+                int(record.get("first_seen_at") or now),
+            ))
+
+        if not events:
+            return
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                for event in events:
+                    exists = connection.execute(
+                        "SELECT 1 FROM device_events WHERE event_type = ? AND entity_id = ? LIMIT 1",
+                        (event[0], event[1]),
+                    ).fetchone()
+                    if exists is None:
+                        connection.execute(
+                            "INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at) "
+                            "VALUES (?, ?, ?, ?, ?, ?)",
+                            event,
+                        )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return recent local inventory events without external enrichment."""
+        bounded_limit = max(1, min(int(limit), 100))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                return [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, event_type, entity_id, display_name, ip, mac, created_at "
+                        "FROM device_events ORDER BY created_at DESC, id DESC LIMIT ?",
+                        (bounded_limit,),
+                    )
+                ]
             finally:
                 connection.close()
 
@@ -258,6 +339,12 @@ class DeviceStore:
                     "note=excluded.note, favorite=excluded.favorite, updated_at=excluded.updated_at",
                     (device_id, next_alias, next_category, next_note, int(next_favorite), now),
                 )
+                if next_alias:
+                    connection.execute(
+                        "UPDATE device_events SET display_name = ? "
+                        "WHERE event_type = 'device_first_seen' AND entity_id = ?",
+                        (next_alias, device_id),
+                    )
                 connection.commit()
                 return {
                     "alias": next_alias,
