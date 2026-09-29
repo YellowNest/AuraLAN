@@ -11,10 +11,29 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import update_device_metadata
+from app.main import health, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
+
+
+class HealthReadinessTests(unittest.TestCase):
+    def test_health_checks_local_state_readiness(self):
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.readiness_check.return_value = {"ready": True, "schema_version": 2}
+            result = health()
+
+        store_factory.return_value.readiness_check.assert_called_once_with()
+        self.assertTrue(result["ok"])
+
+    def test_health_reports_state_failure_as_unavailable(self):
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.readiness_check.side_effect = sqlite3.DatabaseError("broken")
+
+            with self.assertRaises(HTTPException) as raised:
+                health()
+
+        self.assertEqual(raised.exception.status_code, 503)
 
 
 class SnapshotReliabilityTests(unittest.TestCase):
