@@ -23,7 +23,7 @@ Example payload:
 
 ```json
 {
-  "version": "0.6.0-dev",
+  "version": "0.6.0",
   "api_version": "v1",
   "generated_at": "2026-09-29T19:00:00+02:00",
   "system_state": "healthy",
