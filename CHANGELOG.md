@@ -10,6 +10,7 @@ Development target: `0.4.1`.
 
 ### Fixed
 
+- Favorite-device absence events are now debounced with a persistent grace period, preventing one transient discovery miss from producing a `favorite_not_seen` webhook or activity event while still reporting a confirmed return immediately.
 - Clean systemd installs now build in an isolated staging directory and remove an incomplete activation automatically, so dependency or first-start failures are safe to retry.
 - Git-backed install and upgrade sources now refuse dirty worktrees, preventing validation from checking files that differ from the archived commit.
 - Upgrade readiness now opens a consistent copy of the current AuraLAN SQLite state with the staged release before code is switched, while the runtime health endpoint verifies metadata-store readiness after activation.
