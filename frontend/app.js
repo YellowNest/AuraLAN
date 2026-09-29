@@ -104,6 +104,7 @@ function normalizeStatus(payload) {
     },
     devices: legacyDevices,
     services: { items: legacyServices },
+    activity: Array.isArray(payload.activity) ? payload.activity : [],
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -224,6 +225,7 @@ function renderOverview() {
   const onlineDevices = devices().filter((item) => item.online === true).length;
   const newDevices = devices().filter((item) => isNewDevice(item));
   const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
+  const recentDiscoveries = (state.data.activity || []).filter((item) => item.event_type === 'device_first_seen').slice(0, 5);
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
@@ -246,6 +248,7 @@ function renderOverview() {
 
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
   ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
+  ${recentDiscoveries.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentDiscoveries')}</h2></div></header><div class="surface discovery-list">${recentDiscoveries.map((event) => `<div class="discovery-row"><span class="discovery-symbol">${icon('devices')}</span><span class="discovery-copy"><strong>${escapeHtml(event.display_name || t('networkDevice'))}</strong><small>${escapeHtml([t('firstSeenByAuraLAN'), event.ip].filter(Boolean).join(' · '))}</small></span><time datetime="${escapeHtml(new Date(Number(event.created_at || 0) * 1000).toISOString())}">${escapeHtml(formatTimestamp(event.created_at))}</time></div>`).join('')}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
 }
