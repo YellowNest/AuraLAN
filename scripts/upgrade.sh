@@ -10,6 +10,7 @@ UNIT_PATH="/etc/systemd/system/$UNIT_NAME"
 UNIT_BACKUP="/etc/systemd/system/.auralan.service.pre-upgrade"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE_DIR=""
+READINESS_DIR=""
 DB_BACKUP=""
 DESTRUCTIVE=0
 
@@ -138,6 +139,7 @@ rollback() {
 
 cleanup_stage() {
   [ -z "$STAGE_DIR" ] || rm -rf "$STAGE_DIR"
+  [ -z "$READINESS_DIR" ] || rm -rf "$READINESS_DIR"
 }
 
 [ "$(id -u)" -eq 0 ] || fail "run this upgrader as root (sudo ./scripts/upgrade.sh)"
@@ -146,9 +148,20 @@ for command in python3 systemctl install tar getent runuser mktemp cp mv; do
   command -v "$command" >/dev/null 2>&1 || fail "required command is missing: $command"
 done
 
+if [ -d "$ROLLBACK_DIR" ] || [ -e "$UNIT_BACKUP" ]; then
+  fail "interrupted AuraLAN upgrade markers exist; inspect $ROLLBACK_DIR and $UNIT_BACKUP before retrying or installing"
+fi
+
 [ -d "$PREFIX" ] || fail "$PREFIX does not exist; use scripts/install.sh for a clean installation"
 [ -f "$UNIT_PATH" ] || fail "$UNIT_PATH does not exist; this upgrader only supports the canonical systemd installation"
 [ -f "$ROOT_DIR/project.json" ] || fail "project.json is missing from the upgrade source"
+
+SOURCE_IS_GIT=0
+if command -v git >/dev/null 2>&1 && git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  SOURCE_IS_GIT=1
+  [ -z "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=normal)" ] ||
+    fail "source Git worktree is dirty; commit, stash, or remove local changes before upgrading"
+fi
 
 SERVICE_USER="$(systemctl show "$UNIT_NAME" -p User --value 2>/dev/null || true)"
 SERVICE_GROUP="$(systemctl show "$UNIT_NAME" -p Group --value 2>/dev/null || true)"
@@ -185,18 +198,11 @@ case "$DATA_DIR" in
   *) fail "AURALAN_DATA_DIR must be an absolute path for safe upgrades" ;;
 esac
 
-if [ -d "$ROLLBACK_DIR" ]; then
-  fail "$ROLLBACK_DIR exists from an interrupted upgrade; restore or remove it before continuing"
-fi
-if [ -e "$UNIT_BACKUP" ]; then
-  fail "$UNIT_BACKUP exists from an interrupted upgrade; inspect it before continuing"
-fi
-
 trap cleanup_stage EXIT
 
 STAGE_DIR="$(mktemp -d /opt/.auralan-stage.XXXXXX)"
 
-if command -v git >/dev/null 2>&1 && git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ "$SOURCE_IS_GIT" -eq 1 ]; then
   git -C "$ROOT_DIR" archive --format=tar HEAD | tar -xf - -C "$STAGE_DIR"
 else
   tar \
@@ -252,6 +258,18 @@ PY
   mv -f "$DB_TMP" "$DB_BACKUP"
 fi
 
+READINESS_DIR="$(mktemp -d /tmp/auralan-upgrade-readiness.XXXXXX)"
+chown "$SERVICE_USER:$SERVICE_GROUP" "$READINESS_DIR"
+if [ -n "$DB_BACKUP" ]; then
+  cp -f "$DB_BACKUP" "$READINESS_DIR/auralan.db"
+  chown "$SERVICE_USER:$SERVICE_GROUP" "$READINESS_DIR/auralan.db"
+  chmod 0640 "$READINESS_DIR/auralan.db"
+fi
+
+printf 'Checking staged code against a copy of current AuraLAN state...\n'
+runuser -u "$SERVICE_USER" -- "$STAGE_DIR/backend/.venv/bin/python" \
+  "$STAGE_DIR/scripts/check-state-readiness.py" "$READINESS_DIR"
+
 cp -f "$UNIT_PATH" "$UNIT_BACKUP"
 
 printf 'Switching application code...\n'
@@ -281,6 +299,8 @@ trap - ERR INT TERM
 DESTRUCTIVE=0
 rm -rf "$ROLLBACK_DIR"
 rm -f "$UNIT_BACKUP"
+rm -rf "$READINESS_DIR"
+READINESS_DIR=""
 
 printf '\nAuraLAN upgraded successfully.\n'
 printf 'Version: %s\n' "$TARGET_VERSION"
