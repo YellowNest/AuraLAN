@@ -250,6 +250,8 @@ class MonitorResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
+    version: str = ""
+    api_version: str = "v1"
     generated_at: str
     system: SystemStateResponse
     host: HostResponse

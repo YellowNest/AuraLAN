@@ -118,8 +118,11 @@ def health() -> dict:
 
 @app.get("/api/v1/status", response_model=StatusResponse)
 def status() -> dict:
+    metadata = brand()
     return {
         **system_snapshot(),
+        "version": metadata["version"],
+        "api_version": metadata["apiVersion"],
         "monitor": background_monitor.status(),
         "notifications": _notification_status(),
     }
