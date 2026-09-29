@@ -298,7 +298,7 @@ function renderNetworkMap(network) {
                 const presentation = devicePresentation(device);
                 return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}"><span>${icon(presentation.iconKey)}</span><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></button>`;
               }).join('')}
-              ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
+              ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id === 'unknown' ? 'connection_unknown' : id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
             </div>
           </article>`;
         }).join('')}
@@ -346,6 +346,9 @@ function renderDevices() {
   if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
     if (allDevices.some((item) => item.connection_type === id)) filters.push([id, label]);
+  }
+  if (allDevices.some((item) => !['wifi', 'ethernet', 'vpn'].includes(item.connection_type))) {
+    filters.push(['connection_unknown', t('otherConnections')]);
   }
   return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><p>${t('deviceCount', { count: result.length })}</p></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
