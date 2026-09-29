@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -36,7 +37,7 @@ class DefaultDataDirTests(unittest.TestCase):
             path.write_text("not sqlite", encoding="utf-8")
             device_store = DeviceStore(Path(temp_dir))
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(sqlite3.DatabaseError):
                 device_store.readiness_check()
 
     def test_inventory_metadata_round_trips_and_partial_updates_preserve_fields(self):
