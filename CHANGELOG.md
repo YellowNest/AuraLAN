@@ -10,6 +10,11 @@ Development target: `0.4.1`.
 
 ### Fixed
 
+- Clean systemd installs now build in an isolated staging directory and remove an incomplete activation automatically, so dependency or first-start failures are safe to retry.
+- Git-backed install and upgrade sources now refuse dirty worktrees, preventing validation from checking files that differ from the archived commit.
+- Upgrade readiness now opens a consistent copy of the current AuraLAN SQLite state with the staged release before code is switched, while the runtime health endpoint verifies metadata-store readiness after activation.
+- Interrupted-upgrade markers are diagnosed before the upgrader can misreport the installation as missing, and activation rollback keeps restoring the previous application, unit and database state.
+- CI now includes a generic Linux smoke boot that exercises the full status API as well as the state-aware health endpoint.
 - Concurrent cache misses now collapse into one discovery pass, and cache age starts when collection completes rather than before a slow refresh.
 - SQLite state now re-bootstraps its schema after a database replacement and metadata write failures return a controlled service-unavailable response instead of leaking an internal error.
 - NetworkManager terse output now honors escaped delimiters in connection names and SSIDs.
