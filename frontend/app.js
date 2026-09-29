@@ -108,6 +108,9 @@ function normalizeStatus(payload) {
     monitor: payload.monitor && typeof payload.monitor === 'object'
       ? payload.monitor
       : { enabled: false, interval_seconds: 0, running: false, last_attempt_at: null, last_success_at: null, last_error: null },
+    notifications: payload.notifications && typeof payload.notifications === 'object'
+      ? payload.notifications
+      : { configured: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -227,10 +230,15 @@ function renderActivityRows(items) {
   }
   return items.map((event) => {
     const name = event.display_name || t('networkDevice');
-    const detail = [t('firstSeenByAuraLAN'), event.ip].filter(Boolean).join(' · ');
+    const eventPresentation = {
+      device_first_seen: [t('firstSeenByAuraLAN'), 'devices'],
+      favorite_not_seen: [t('eventFavoriteNotSeen'), 'warning'],
+      favorite_seen_again: [t('eventFavoriteSeenAgain'), 'success'],
+    }[event.event_type] || [t('activity'), 'info'];
+    const detail = [eventPresentation[0], event.ip].filter(Boolean).join(' · ');
     const when = formatTimestamp(event.created_at);
     const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
-    return `<button class="discovery-row" type="button" data-device="${escapeHtml(event.entity_id)}"><span class="discovery-symbol">${icon('devices')}</span><span class="discovery-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${icon('chevron')}</button>`;
+    return `<button class="discovery-row event-${escapeHtml(event.event_type)}" type="button" data-device="${escapeHtml(event.entity_id)}"><span class="discovery-symbol">${icon(eventPresentation[1])}</span><span class="discovery-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${icon('chevron')}</button>`;
   }).join('');
 }
 
@@ -256,7 +264,7 @@ function renderOverview() {
   const newDevices = devices().filter((item) => isNewDevice(item));
   const favoriteNotSeen = devices().filter((item) => isFavoriteNotSeen(item));
   const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
-  const recentDiscoveries = (state.data.activity || []).filter((item) => item.event_type === 'device_first_seen').slice(0, 5);
+  const recentActivity = (state.data.activity || []).slice(0, 5);
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
@@ -280,7 +288,7 @@ function renderOverview() {
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
   ${favoriteNotSeen.length ? `<button class="unidentified-callout favorite-watch-callout surface" type="button" data-route="devices" data-device-filter="favorite_missing">${icon('warning')}<span><strong>${escapeHtml(t('favoriteNotSeen', { count: favoriteNotSeen.length }))}</strong><small>${escapeHtml(t('favoriteNotSeenHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
-  ${recentDiscoveries.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentDiscoveries')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentDiscoveries)}</div></section>` : ''}
+  ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
 }
@@ -405,9 +413,16 @@ function renderSettings() {
     ? t('monitorEvery', { count: Number(monitor.interval_seconds || 0) })
     : t('monitorDisabledHint');
   const monitorLast = monitor.last_success_at ? formatTimestamp(monitor.last_success_at) : t('notYet');
+  const notifications = state.data?.notifications || {};
+  const notificationState = notifications.configured ? t('webhookConfigured') : t('webhookNotConfigured');
+  const notificationDetail = notifications.configured
+    ? (notifications.last_error ? t('webhookDeliveryError', { error: notifications.last_error }) : t('webhookConfiguredHint'))
+    : t('webhookConfigurationHint');
+  const notificationLast = notifications.last_success_at ? formatTimestamp(notifications.last_success_at) : t('notYet');
 
   return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section>
   <section class="settings-group"><header><p class="eyebrow">${t('monitoring')}</p><h2>${t('continuousMonitoring')}</h2></header><div class="surface settings-list"><div class="setting-row monitor-setting"><div><strong>${escapeHtml(monitorState)}</strong><small>${escapeHtml(monitorDetail)}</small></div><div class="monitor-last"><span>${t('lastSuccessfulRun')}</span><strong>${escapeHtml(monitorLast)}</strong></div></div></div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('notifications')}</p><h2>${t('webhookNotifications')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${escapeHtml(notificationState)}</strong><small>${escapeHtml(notificationDetail)}</small></div>${notifications.configured ? `<button class="secondary-button" type="button" data-test-notification>${icon('network')}${t('sendTest')}</button>` : ''}</div><div class="setting-row"><div><strong>${t('lastSuccessfulDelivery')}</strong><small>${t('pendingEvents', { count: Number(notifications.pending_events || 0) })}</small></div><div class="monitor-last"><strong>${escapeHtml(notificationLast)}</strong></div></div></div></section>
   <section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
 }
 
@@ -516,6 +531,17 @@ function downloadInventory(format) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
   closeDialog(inspectorDialog);
   toast(t('inventoryExported'));
+}
+
+async function sendTestNotification() {
+  try {
+    const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
+    if (state.data) state.data.notifications = result;
+    renderView();
+    toast(t('testNotificationSent'));
+  } catch {
+    toast(t('testNotificationFailed'));
+  }
 }
 
 async function saveDeviceMetadata(form) {
@@ -804,6 +830,7 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-open-diagnostics]')) loadDiagnostics(true);
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
+  if (trigger.matches('[data-test-notification]')) sendTestNotification();
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
   if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {
