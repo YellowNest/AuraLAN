@@ -102,12 +102,15 @@ class PersistenceReliabilityTests(unittest.TestCase):
             data = store.enrich(["sample-device"])
 
             self.assertIn("first_seen_at", data["sample-device"])
-            with sqlite3.connect(store.path) as connection:
+            connection = sqlite3.connect(store.path)
+            try:
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
                 tables = {
                     row[0]
                     for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
                 }
+            finally:
+                connection.close()
 
         self.assertEqual(version, SCHEMA_VERSION)
         self.assertTrue(
