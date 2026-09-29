@@ -63,7 +63,9 @@ const paths = {
   advanced: '<path d="M7 12h10M12 7v10"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   close: '<path d="m7 7 10 10M17 7 7 17"/>',
-  copy: '<rect x="8" y="8" width="11" height="12" rx="2.2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/>'
+  copy: '<rect x="8" y="8" width="11" height="12" rx="2.2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/>',
+  power: '<path d="M12 2.8v8.4"/><path d="M7.2 5.9a8 8 0 1 0 9.6 0"/>',
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/>'
 };
 
 export function icon(name, label = '') {

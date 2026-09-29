@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -27,7 +27,7 @@ test('device inventory supports new, favorite, and note discovery', () => {
       mac: '02:00:00:00:00:04',
       connection_type: 'ethernet',
       first_seen_at: nowSeconds - 3600,
-      metadata: { favorite: true, note: 'Backup target' },
+      metadata: { favorite: true, note: 'Backup target', location: 'Office', tags: ['storage', 'critical'] },
     },
     {
       display_name: 'Old tablet',
@@ -45,6 +45,8 @@ test('device inventory supports new, favorite, and note discovery', () => {
   assert.equal(filterDevices(inventory, 'new').length, 1);
   assert.equal(filterDevices(inventory, 'favorites')[0].display_name, 'NAS');
   assert.equal(filterDevices(inventory, 'all', 'backup target')[0].display_name, 'NAS');
+  assert.equal(filterDevices(inventory, 'all', 'office')[0].display_name, 'NAS');
+  assert.equal(filterDevices(inventory, 'all', 'critical')[0].display_name, 'NAS');
 
   const remembered = {
     display_name: 'Old camera',
@@ -56,6 +58,21 @@ test('device inventory supports new, favorite, and note discovery', () => {
     metadata: {},
   };
   assert.equal(filterDevices([...inventory, remembered], 'known')[0].display_name, 'Old camera');
+});
+
+test('device sorting supports name, recency, location, and IP without mutating source order', () => {
+  const source = [
+    { display_name: 'Zulu', presentation_name: 'Zulu', ip: '192.0.2.20', first_seen_at: 100, last_seen_at: 200, metadata: { location: 'Office' } },
+    { display_name: 'Alpha', presentation_name: 'Alpha', ip: '192.0.2.3', first_seen_at: 300, last_seen_at: 150, metadata: { location: 'Kitchen' } },
+    { display_name: 'Beta', presentation_name: 'Beta', ip: '192.0.2.10', first_seen_at: 200, last_seen_at: 400, metadata: {} },
+  ];
+
+  assert.deepEqual(sortDevices(source, 'name').map((item) => item.display_name), ['Alpha', 'Beta', 'Zulu']);
+  assert.deepEqual(sortDevices(source, 'last_seen').map((item) => item.display_name), ['Beta', 'Zulu', 'Alpha']);
+  assert.deepEqual(sortDevices(source, 'first_seen').map((item) => item.display_name), ['Alpha', 'Beta', 'Zulu']);
+  assert.deepEqual(sortDevices(source, 'location').map((item) => item.display_name), ['Alpha', 'Zulu', 'Beta']);
+  assert.deepEqual(sortDevices(source, 'ip').map((item) => item.display_name), ['Alpha', 'Beta', 'Zulu']);
+  assert.deepEqual(source.map((item) => item.display_name), ['Zulu', 'Alpha', 'Beta']);
 });
 
 test('network map groups current devices without reviving remembered devices', () => {
@@ -89,18 +106,22 @@ test('inventory export is stable, private-data explicit, and CSV-safe', () => {
     mac_addresses: ['02:00:00:00:00:55'],
     first_seen_at: 100,
     last_seen_at: 200,
-    metadata: { favorite: true, note: 'Kitchen, shelf' },
+    metadata: { favorite: true, note: 'Kitchen, shelf', location: 'Kitchen', tags: ['sensor', 'climate'] },
   }];
 
   const rows = inventoryExportRows(items);
   assert.equal(rows[0].name, '=HYPERLINK("https://example.invalid","sensor")');
   assert.equal(rows[0].note, 'Kitchen, shelf');
   assert.deepEqual(rows[0].ip_addresses, ['192.0.2.55']);
+  assert.equal(rows[0].location, 'Kitchen');
+  assert.deepEqual(rows[0].tags, ['sensor', 'climate']);
 
   const csv = inventoryCsv(items);
   assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.invalid"",""sensor""\)"/);
   assert.match(csv, /"Kitchen, shelf"/);
   assert.match(csv, /"02:00:00:00:00:55"/);
+  assert.match(csv, /"Kitchen"/);
+  assert.match(csv, /"sensor \| climate"/);
 });
 
 test('favorite devices become a watchlist only when they are not currently seen', () => {

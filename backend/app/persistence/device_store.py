@@ -10,14 +10,34 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
+DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
 MAX_WATCH_MISSING_GRACE_SECONDS = 86400
+PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
+PRESENCE_HISTORY_TOTAL_LIMIT = 5000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
 WATCH_PENDING_NOT_SEEN = 2
+
+PRESENCE_SEEN = 0
+PRESENCE_NOT_SEEN = 1
+PRESENCE_PENDING_NOT_SEEN = 2
+
+
+def presence_missing_grace_seconds() -> int:
+    """Return the configured absence grace period for device presence history."""
+    raw = os.environ.get(
+        "AURALAN_PRESENCE_MISSING_GRACE",
+        str(DEFAULT_PRESENCE_MISSING_GRACE_SECONDS),
+    ).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PRESENCE_MISSING_GRACE_SECONDS
+    return max(0, min(value, MAX_WATCH_MISSING_GRACE_SECONDS))
 
 
 def watch_missing_grace_seconds() -> int:
@@ -73,6 +93,7 @@ class DeviceStore:
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
+            "device_presence_state", "device_presence_history",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -93,8 +114,18 @@ class DeviceStore:
             category_override TEXT,
             note TEXT,
             favorite INTEGER NOT NULL DEFAULT 0,
+            location TEXT,
+            tags_json TEXT NOT NULL DEFAULT '[]',
             updated_at INTEGER NOT NULL
         )""")
+        metadata_columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(device_metadata)")
+        }
+        if "location" not in metadata_columns:
+            connection.execute("ALTER TABLE device_metadata ADD COLUMN location TEXT")
+        if "tags_json" not in metadata_columns:
+            connection.execute("ALTER TABLE device_metadata ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'")
         connection.execute("""CREATE TABLE IF NOT EXISTS device_presence (
             device_id TEXT PRIMARY KEY,
             first_seen_at INTEGER NOT NULL,
@@ -156,6 +187,22 @@ class DeviceStore:
             last_event_id INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_presence_state (
+            device_id TEXT PRIMARY KEY,
+            state INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_presence_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            display_name TEXT,
+            created_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_presence_history_device_time "
+            "ON device_presence_history(device_id, created_at DESC, id DESC)"
+        )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -209,7 +256,7 @@ class DeviceStore:
                 metadata = {
                     row["device_id"]: dict(row)
                     for row in connection.execute(
-                        f"SELECT device_id, alias, category_override, note, favorite, updated_at FROM device_metadata WHERE device_id IN ({placeholders})", unique
+                        f"SELECT device_id, alias, category_override, note, favorite, location, tags_json, updated_at FROM device_metadata WHERE device_id IN ({placeholders})", unique
                     )
                 }
                 identity_cache = {
@@ -229,6 +276,15 @@ class DeviceStore:
                 result: dict[str, dict[str, Any]] = {}
                 for identifier in unique:
                     item = {**metadata.get(identifier, {}), **refreshed.get(identifier, {})}
+                    try:
+                        item["tags"] = [
+                            str(value)
+                            for value in json.loads(item.pop("tags_json", "[]") or "[]")
+                            if str(value).strip()
+                        ]
+                    except (TypeError, ValueError):
+                        item.pop("tags_json", None)
+                        item["tags"] = []
                     if identifier in identity_cache:
                         cached = dict(identity_cache[identifier])
                         cached.pop("device_id", None)
@@ -394,6 +450,122 @@ class DeviceStore:
                     )
 
                 connection.commit()
+            finally:
+                connection.close()
+
+    def record_presence_transitions(self, records: list[dict[str, Any]]) -> None:
+        """Persist debounced seen/not-seen transitions for all inventoried devices."""
+        candidates = [
+            record
+            for record in records
+            if str(record.get("id") or "").strip()
+        ]
+        if not candidates:
+            return
+
+        now = int(time.time())
+        grace_seconds = presence_missing_grace_seconds()
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                for record in candidates:
+                    device_id = str(record.get("id") or "").strip()
+                    currently_missing = record.get("state") == "known"
+                    previous = connection.execute(
+                        "SELECT state, updated_at FROM device_presence_state WHERE device_id = ?",
+                        (device_id,),
+                    ).fetchone()
+
+                    if previous is None:
+                        initial_state = PRESENCE_NOT_SEEN if currently_missing else PRESENCE_SEEN
+                        connection.execute(
+                            "INSERT INTO device_presence_state(device_id, state, updated_at) VALUES (?, ?, ?)",
+                            (device_id, initial_state, now),
+                        )
+                        continue
+
+                    presence_state = int(previous["state"])
+                    state_since = int(previous["updated_at"])
+
+                    if currently_missing:
+                        if presence_state == PRESENCE_NOT_SEEN:
+                            continue
+
+                        if presence_state == PRESENCE_SEEN:
+                            if grace_seconds == 0:
+                                next_state = PRESENCE_NOT_SEEN
+                            else:
+                                connection.execute(
+                                    "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                                    (PRESENCE_PENDING_NOT_SEEN, now, device_id),
+                                )
+                                continue
+                        else:
+                            if now - state_since < grace_seconds:
+                                continue
+                            next_state = PRESENCE_NOT_SEEN
+
+                        event_type = "device_not_seen"
+                    else:
+                        if presence_state == PRESENCE_SEEN:
+                            continue
+                        if presence_state == PRESENCE_PENDING_NOT_SEEN:
+                            connection.execute(
+                                "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                                (PRESENCE_SEEN, now, device_id),
+                            )
+                            continue
+
+                        next_state = PRESENCE_SEEN
+                        event_type = "device_seen_again"
+
+                    display_name = str(record.get("display_name") or "").strip() or None
+                    connection.execute(
+                        "INSERT INTO device_presence_history(device_id, event_type, display_name, created_at) "
+                        "VALUES (?, ?, ?, ?)",
+                        (device_id, event_type, display_name, now),
+                    )
+                    connection.execute(
+                        "UPDATE device_presence_state SET state = ?, updated_at = ? WHERE device_id = ?",
+                        (next_state, now, device_id),
+                    )
+
+                    connection.execute(
+                        "DELETE FROM device_presence_history WHERE device_id = ? AND id NOT IN ("
+                        "SELECT id FROM device_presence_history WHERE device_id = ? "
+                        "ORDER BY created_at DESC, id DESC LIMIT ?"
+                        ")",
+                        (device_id, device_id, PRESENCE_HISTORY_PER_DEVICE_LIMIT),
+                    )
+
+                connection.execute(
+                    "DELETE FROM device_presence_history WHERE id NOT IN ("
+                    "SELECT id FROM device_presence_history ORDER BY created_at DESC, id DESC LIMIT ?"
+                    ")",
+                    (PRESENCE_HISTORY_TOTAL_LIMIT,),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def presence_history(self, device_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Return the local debounced presence timeline for one known device."""
+        bounded_limit = max(1, min(int(limit), 200))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                return [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, device_id, event_type, display_name, created_at "
+                        "FROM device_presence_history WHERE device_id = ? "
+                        "ORDER BY created_at DESC, id DESC LIMIT ?",
+                        (str(device_id), bounded_limit),
+                    )
+                ]
             finally:
                 connection.close()
 
@@ -604,7 +776,7 @@ class DeviceStore:
                 metadata = {
                     row["device_id"]: dict(row)
                     for row in connection.execute(
-                        "SELECT device_id, alias, category_override, note, favorite "
+                        "SELECT device_id, alias, category_override, note, favorite, location, tags_json "
                         "FROM device_metadata"
                     )
                 }
@@ -634,6 +806,14 @@ class DeviceStore:
                 ip_addresses = []
 
             item_metadata = metadata.get(row["device_id"], {})
+            try:
+                item_tags = [
+                    str(value)
+                    for value in json.loads(item_metadata.get("tags_json") or "[]")
+                    if str(value).strip()
+                ]
+            except (TypeError, ValueError):
+                item_tags = []
             category = item_metadata.get("category_override") or row.get("category") or "unknown"
             icon_key = row.get("icon_key") or "device_generic"
             display_name = row.get("display_name") or row.get("hostname") or row.get("model") or "Network device"
@@ -681,6 +861,8 @@ class DeviceStore:
                     "category_override": item_metadata.get("category_override"),
                     "note": item_metadata.get("note"),
                     "favorite": bool(item_metadata.get("favorite")),
+                    "location": item_metadata.get("location"),
+                    "tags": item_tags,
                 },
                 "observations": [],
             })
@@ -745,6 +927,77 @@ class DeviceStore:
             finally:
                 connection.close()
 
+    @staticmethod
+    def _identity_id_from_mac(value: object) -> str:
+        return str(value or "").strip().replace(":", "").replace("-", "").lower()
+
+    def forget_device(self, device_id: str) -> bool:
+        """Remove AuraLAN-owned memory for one remembered physical device."""
+        requested_id = str(device_id or "").strip()
+        if not requested_id:
+            return False
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+
+                linked_ids = {requested_id}
+                inventory_row = connection.execute(
+                    "SELECT mac, mac_addresses_json FROM device_inventory WHERE device_id = ?",
+                    (requested_id,),
+                ).fetchone()
+
+                if inventory_row is not None:
+                    raw_macs: list[object] = [inventory_row["mac"]]
+                    try:
+                        raw_macs.extend(json.loads(inventory_row["mac_addresses_json"] or "[]"))
+                    except (TypeError, ValueError):
+                        pass
+                    linked_ids.update(
+                        identifier
+                        for identifier in (
+                            self._identity_id_from_mac(value)
+                            for value in raw_macs
+                        )
+                        if identifier
+                    )
+
+                placeholders = ",".join("?" for _ in linked_ids)
+                values = tuple(sorted(linked_ids))
+                deleted = 0
+
+                for table in (
+                    "device_metadata",
+                    "device_presence",
+                    "device_identity_cache",
+                    "device_inventory",
+                    "device_watch_state",
+                    "device_presence_state",
+                ):
+                    cursor = connection.execute(
+                        f"DELETE FROM {table} WHERE device_id IN ({placeholders})",
+                        values,
+                    )
+                    deleted += max(0, int(cursor.rowcount))
+
+                cursor = connection.execute(
+                    f"DELETE FROM device_presence_history WHERE device_id IN ({placeholders})",
+                    values,
+                )
+                deleted += max(0, int(cursor.rowcount))
+
+                cursor = connection.execute(
+                    f"DELETE FROM device_events WHERE entity_id IN ({placeholders})",
+                    values,
+                )
+                deleted += max(0, int(cursor.rowcount))
+
+                connection.commit()
+                return deleted > 0
+            finally:
+                connection.close()
+
     def update_metadata(
         self,
         device_id: str,
@@ -753,6 +1006,8 @@ class DeviceStore:
         category_override: str | None | object = ...,
         note: str | None | object = ...,
         favorite: bool | object = ...,
+        location: str | None | object = ...,
+        tags: list[str] | object = ...,
     ) -> dict[str, Any]:
         """Persist AuraLAN-local inventory metadata; no system configuration is touched."""
         now = int(time.time())
@@ -761,18 +1016,37 @@ class DeviceStore:
             try:
                 self._ensure_schema(connection)
                 current = connection.execute(
-                    "SELECT alias, category_override, note, favorite FROM device_metadata WHERE device_id = ?",
+                    "SELECT alias, category_override, note, favorite, location, tags_json FROM device_metadata WHERE device_id = ?",
                     (device_id,),
                 ).fetchone()
                 next_alias = current["alias"] if current and alias is ... else (alias if alias is not ... else None)
                 next_category = current["category_override"] if current and category_override is ... else (category_override if category_override is not ... else None)
                 next_note = current["note"] if current and note is ... else (note if note is not ... else None)
                 next_favorite = bool(current["favorite"]) if current and favorite is ... else (bool(favorite) if favorite is not ... else False)
+                next_location = current["location"] if current and location is ... else (location if location is not ... else None)
+                if current and tags is ...:
+                    try:
+                        next_tags = [
+                            str(value)
+                            for value in json.loads(current["tags_json"] or "[]")
+                            if str(value).strip()
+                        ]
+                    except (TypeError, ValueError):
+                        next_tags = []
+                elif tags is ...:
+                    next_tags = []
+                else:
+                    next_tags = list(tags)
                 connection.execute(
-                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, location, tags_json, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                     "ON CONFLICT(device_id) DO UPDATE SET alias=excluded.alias, category_override=excluded.category_override, "
-                    "note=excluded.note, favorite=excluded.favorite, updated_at=excluded.updated_at",
-                    (device_id, next_alias, next_category, next_note, int(next_favorite), now),
+                    "note=excluded.note, favorite=excluded.favorite, location=excluded.location, tags_json=excluded.tags_json, "
+                    "updated_at=excluded.updated_at",
+                    (
+                        device_id, next_alias, next_category, next_note, int(next_favorite),
+                        next_location, json.dumps(next_tags, separators=(",", ":")), now,
+                    ),
                 )
                 if next_alias:
                     connection.execute(
@@ -790,6 +1064,8 @@ class DeviceStore:
                     "category_override": next_category,
                     "note": next_note,
                     "favorite": next_favorite,
+                    "location": next_location,
+                    "tags": next_tags,
                     "updated_at": now,
                 }
             finally:

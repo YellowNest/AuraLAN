@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -28,13 +28,19 @@ const state = {
   locale: preferredLocale(localStorage.getItem('auralan.locale')),
   deviceFilter: 'all',
   deviceQuery: '',
+  deviceSort: localStorage.getItem('auralan.device-sort') || 'smart',
   lastUpdated: null,
   capabilities: {
     device_aliases: false,
     device_category_overrides: false,
     device_notes: false,
     device_favorites: false,
+    device_locations: false,
+    device_tags: false,
     device_presence: false,
+    device_presence_history: false,
+    forget_remembered_devices: false,
+    wake_on_lan: false,
   },
   mode: 'read-only'
 };
@@ -82,7 +88,7 @@ function normalizeStatus(payload) {
     dhcp: Boolean(device.dhcp), lease_expires_at: device.lease_expires_at ?? null, lease: device.lease || { present: Boolean(device.dhcp), expires_at: device.lease_expires_at ?? null },
     first_seen_at: device.first_seen_at ?? null, last_seen_at: device.last_seen_at ?? null,
     identity: device.identity || { display_name: null, vendor: null, model: null, device_type: null, sources: [] },
-    metadata: { alias: null, category_override: null, note: null, favorite: false, ...(device.metadata || {}) },
+    metadata: { alias: null, category_override: null, note: null, favorite: false, location: null, tags: [], ...(device.metadata || {}) },
     observations: Array.isArray(device.observations) ? device.observations : []
   }));
   const offlineServices = legacyServices.filter((item) => item.detected && item.state === 'offline').length;
@@ -217,7 +223,12 @@ function renderDeviceRows(items, compact = false) {
     const ip = safe(device.ip, '—');
     const mac = safe(device.mac, '—');
     const baseIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
-    const inventoryTags = [device.metadata?.favorite ? t('favorite') : '', isNewDevice(device) ? t('newToAuraLAN') : ''].filter(Boolean);
+    const inventoryTags = [
+      device.metadata?.favorite ? t('favorite') : '',
+      isNewDevice(device) ? t('newToAuraLAN') : '',
+      device.metadata?.location || '',
+      ...(device.metadata?.tags || []).slice(0, 2),
+    ].filter(Boolean);
     const listIdentity = [baseIdentity, ...inventoryTags].filter(Boolean).join(' · ');
     const mobileMeta = [ip !== '—' ? ip : '', presentation.connectionSummary].filter(Boolean).join(' · ');
     return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${listIdentity ? `<small class="device-list-identity">${escapeHtml(listIdentity)}</small>` : ''}<em class="device-mobile-meta">${escapeHtml(mobileMeta)}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
@@ -373,7 +384,7 @@ function renderNetwork() {
 
 function filteredDevices() {
   const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
-  return filterDevices(prepared, state.deviceFilter, state.deviceQuery);
+  return sortDevices(filterDevices(prepared, state.deviceFilter, state.deviceQuery), state.deviceSort);
 }
 
 function renderDevices() {
@@ -391,7 +402,15 @@ function renderDevices() {
   if (allDevices.some((item) => !['wifi', 'ethernet', 'vpn'].includes(item.connection_type))) {
     filters.push(['connection_unknown', t('otherConnections')]);
   }
-  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
+  const sortOptions = [
+    ['smart', t('sortSmart')],
+    ['name', t('sortName')],
+    ['last_seen', t('sortLastSeen')],
+    ['first_seen', t('sortFirstSeen')],
+    ['location', t('sortLocation')],
+    ['ip', t('sortIp')],
+  ];
+  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
 
 function renderServices() {
@@ -539,6 +558,30 @@ function downloadInventory(format) {
   toast(t('inventoryExported'));
 }
 
+async function forgetRememberedDevice(deviceId, displayName) {
+  const confirmed = window.confirm(t('forgetDeviceConfirm', { name: displayName || t('unnamedDevice') }));
+  if (!confirmed) return;
+
+  try {
+    await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/memory`, 8000, { method: 'DELETE' });
+    closeDialog(inspectorDialog);
+    await refresh(false);
+    toast(t('deviceForgotten'));
+  } catch {
+    toast(t('forgetDeviceFailed'));
+  }
+}
+
+async function wakeDevice(deviceId) {
+  try {
+    await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/wake`, 8000, { method: 'POST' });
+    toast(t('wakeSent'));
+    setTimeout(() => refresh(false), 2500);
+  } catch {
+    toast(t('wakeFailed'));
+  }
+}
+
 async function sendTestNotification() {
   try {
     const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
@@ -555,6 +598,12 @@ async function saveDeviceMetadata(form) {
   const data = new FormData(form);
   const alias = String(data.get('alias') || '').trim();
   const note = String(data.get('note') || '').trim();
+  const location = String(data.get('location') || '').trim();
+  const tags = String(data.get('tags') || '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 8);
   const favorite = String(data.get('favorite') || 'false') === 'true';
   const submit = form.querySelector('[type="submit"]');
   submit.disabled = true;
@@ -565,6 +614,8 @@ async function saveDeviceMetadata(form) {
       body: JSON.stringify({
         alias: alias || null,
         note: note || null,
+        location: location || null,
+        tags,
         favorite,
       })
     });
@@ -677,6 +728,37 @@ function inspector(title, eyebrow, content, iconName = 'info') {
   $('#inspector-close').focus();
 }
 
+function renderDevicePresenceHistory(items) {
+  if (!items.length) {
+    return `<div class="presence-history-empty">${escapeHtml(t('noPresenceHistory'))}</div>`;
+  }
+
+  return `<div class="presence-history-list">${items.map((event) => {
+    const returned = event.event_type === 'device_seen_again';
+    const label = returned ? t('presenceSeenAgain') : t('presenceNotSeen');
+    const glyph = returned ? 'success' : 'offline';
+    const when = formatTimestamp(event.created_at);
+    const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
+    return `<div class="presence-history-row"><span class="presence-history-icon">${icon(glyph)}</span><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('presenceEventHint'))}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time></div>`;
+  }).join('')}</div>`;
+}
+
+async function loadDevicePresenceHistory(deviceId) {
+  const target = $('#device-presence-history');
+  if (!target || target.dataset.deviceId !== deviceId) return;
+
+  try {
+    const response = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/presence?limit=50`);
+    const current = $('#device-presence-history');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = renderDevicePresenceHistory(response.items || []);
+  } catch {
+    const current = $('#device-presence-history');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = `<div class="presence-history-empty">${escapeHtml(t('presenceHistoryUnavailable'))}</div>`;
+  }
+}
+
 function showDevice(id) {
   const device = devices().find((item) => item.id === id);
   if (!device) return;
@@ -703,6 +785,16 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
+  const wakeAvailable = Boolean(
+    state.capabilities.wake_on_lan
+    && device.online !== true
+    && [...(device.mac_addresses || []), device.mac].some((value) => value && value !== '—')
+  );
+  const forgetAvailable = Boolean(
+    state.capabilities.forget_remembered_devices
+    && device.state === 'known'
+  );
+
   const favoriteOptions = [
     ['false', t('normalPriority')],
     ['true', t('favorite')],
@@ -714,15 +806,24 @@ function showDevice(id) {
     `<p class="inspector-summary">${escapeHtml(summary)}</p>
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div></div>
+      ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
+      ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
+      ${forgetAvailable ? `<div class="detail-section device-actions danger-zone"><h3>${t('forgetDevice')}</h3><button class="secondary-button danger-button" type="button" data-forget-device="${escapeHtml(device.id)}" data-forget-name="${escapeHtml(presentation.name)}">${icon('trash')}${t('forgetDevice')}</button><p class="action-hint">${escapeHtml(t('forgetDeviceHint'))}</p></div>` : ''}
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
+        <label><span>${t('location')}</span><input name="location" maxlength="60" value="${escapeHtml(device.metadata?.location || '')}" placeholder="${escapeHtml(t('locationPlaceholder'))}"></label>
+        <label><span>${t('tags')}</span><input name="tags" maxlength="200" value="${escapeHtml((device.metadata?.tags || []).join(', '))}" placeholder="${escapeHtml(t('tagsPlaceholder'))}"></label>
         <label><span>${t('note')}</span><input name="note" maxlength="280" value="${escapeHtml(device.metadata?.note || '')}" placeholder="${escapeHtml(t('notePlaceholder'))}"></label>
         <label><span>${t('priority')}</span><select name="favorite">${favoriteOptions}</select></label>
         <button class="primary-button" type="submit">${icon('success')}${t('save')}</button>
       </form>`,
     deviceIconKey(device),
   );
+
+  if (state.capabilities.device_presence_history) {
+    loadDevicePresenceHistory(device.id);
+  }
 }
 
 function serviceFields(service) {
@@ -837,6 +938,8 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
+  if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
+  if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
   if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {
@@ -852,6 +955,13 @@ $('#refresh-button').addEventListener('click', () => refresh(true));
 document.addEventListener('change', (event) => {
   if (event.target.matches('#language-select')) setLocale(event.target.value);
   if (event.target.matches('#refresh-rate')) scheduleRefresh(event.target.value);
+  if (event.target.matches('#device-sort')) {
+    state.deviceSort = ['smart', 'name', 'last_seen', 'first_seen', 'location', 'ip'].includes(event.target.value)
+      ? event.target.value
+      : 'smart';
+    localStorage.setItem('auralan.device-sort', state.deviceSort);
+    renderView();
+  }
 });
 document.addEventListener('submit', (event) => {
   if (event.target.matches('#device-metadata-form')) {

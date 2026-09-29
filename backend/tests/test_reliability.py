@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, health, status, update_device_metadata
+from app.main import activity_status, device_presence_history, forget_remembered_device, health, home_assistant_status, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -61,6 +61,34 @@ class StatusMetadataTests(unittest.TestCase):
         self.assertEqual(result["api_version"], "v1")
 
 
+class HomeAssistantReliabilityTests(unittest.TestCase):
+    def test_home_assistant_endpoint_uses_aggregate_snapshot_only(self):
+        snapshot = {
+            "generated_at": "2026-09-29T19:00:00+02:00",
+            "system": {"state": "healthy", "attention_count": 0},
+            "devices": [],
+            "services": {"items": []},
+            "errors": [],
+        }
+        with (
+            patch("app.main.system_snapshot", return_value=snapshot),
+            patch("app.main.brand", return_value={"version": "9.8.7-test", "apiVersion": "v1"}),
+            patch("app.main._notification_status", return_value={"configured": False, "pending_events": 0}),
+            patch("app.main.wake_config") as wake,
+            patch("app.main.background_monitor") as monitor,
+        ):
+            wake.return_value.enabled = False
+            monitor.status.return_value = {"running": True, "last_success_at": 123}
+            result = home_assistant_status()
+
+        self.assertEqual(result["version"], "9.8.7-test")
+        self.assertEqual(result["api_version"], "v1")
+        self.assertEqual(result["devices_total"], 0)
+        self.assertTrue(result["monitor_running"])
+        self.assertFalse(result["webhook_configured"])
+        self.assertFalse(result["wake_on_lan_enabled"])
+
+
 class ActivityReliabilityTests(unittest.TestCase):
     def test_activity_endpoint_uses_requested_history_limit(self):
         with patch("app.main.store") as store_factory:
@@ -76,6 +104,48 @@ class ActivityReliabilityTests(unittest.TestCase):
 
             with self.assertRaises(HTTPException) as raised:
                 activity_status(50)
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+
+class PresenceHistoryReliabilityTests(unittest.TestCase):
+    def test_presence_endpoint_returns_bounded_device_history(self):
+        current = {"id": "sample-device"}
+        history = [
+            {
+                "id": 1,
+                "device_id": "sample-device",
+                "event_type": "device_not_seen",
+                "display_name": "Sample",
+                "created_at": 100,
+            }
+        ]
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [current]}),
+            patch("app.main.store") as store_factory,
+        ):
+            store_factory.return_value.presence_history.return_value = history
+            result = device_presence_history("sample-device", 37)
+
+        store_factory.return_value.presence_history.assert_called_once_with("sample-device", 37)
+        self.assertEqual(result, {"device_id": "sample-device", "items": history})
+
+    def test_presence_endpoint_rejects_unknown_device(self):
+        with patch("app.main.system_snapshot", return_value={"devices": []}):
+            with self.assertRaises(HTTPException) as raised:
+                device_presence_history("missing-device", 50)
+
+        self.assertEqual(raised.exception.status_code, 404)
+
+    def test_presence_endpoint_reports_storage_failure(self):
+        current = {"id": "sample-device"}
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [current]}),
+            patch("app.main.store") as store_factory,
+        ):
+            store_factory.return_value.presence_history.side_effect = sqlite3.DatabaseError("broken")
+            with self.assertRaises(HTTPException) as raised:
+                device_presence_history("sample-device", 50)
 
         self.assertEqual(raised.exception.status_code, 503)
 
@@ -161,6 +231,47 @@ class PersistenceReliabilityTests(unittest.TestCase):
             {"schema_migrations", "device_metadata", "device_presence", "device_identity_cache"}.issubset(tables)
         )
 
+    def test_device_metadata_endpoint_normalizes_location_and_tags(self):
+        current = {"id": "sample-device"}
+        refreshed = {
+            "id": "sample-device",
+            "display_name": "Sample",
+            "ip": "192.0.2.2",
+            "mac": "00:11:22:33:44:55",
+            "metadata": {
+                "alias": None,
+                "category_override": None,
+                "note": None,
+                "favorite": False,
+                "location": "Office",
+                "tags": ["Lab", "critical"],
+            },
+        }
+        metadata_store = unittest.mock.Mock()
+
+        with (
+            patch("app.main.system_snapshot", side_effect=[
+                {"devices": [current]},
+                {"devices": [refreshed]},
+            ]),
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            result = update_device_metadata(
+                "sample-device",
+                DeviceMetadataUpdate(
+                    location=" Office ",
+                    tags=[" Lab ", "lab", "critical", ""],
+                ),
+            )
+
+        metadata_store.update_metadata.assert_called_once_with(
+            "sample-device",
+            location="Office",
+            tags=["Lab", "critical"],
+        )
+        self.assertEqual(result["metadata"]["location"], "Office")
+        self.assertEqual(result["metadata"]["tags"], ["Lab", "critical"])
+
     def test_sqlite_write_failure_becomes_service_unavailable(self):
         current = {"id": "sample-device"}
         broken_store = unittest.mock.Mock()
@@ -175,6 +286,54 @@ class PersistenceReliabilityTests(unittest.TestCase):
                     "sample-device",
                     DeviceMetadataUpdate(alias="Sample device"),
                 )
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+
+class ForgetDeviceReliabilityTests(unittest.TestCase):
+    def test_forget_requires_a_remembered_not_current_device(self):
+        live = {"id": "live-device", "state": "online"}
+        with patch("app.main.system_snapshot", return_value={"devices": [live]}):
+            with self.assertRaises(HTTPException) as raised:
+                forget_remembered_device("live-device")
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_forget_removes_remembered_device_and_refreshes_snapshot(self):
+        remembered = {"id": "remembered-device", "state": "known"}
+        metadata_store = unittest.mock.Mock()
+        metadata_store.forget_device.return_value = True
+
+        with (
+            patch(
+                "app.main.system_snapshot",
+                side_effect=[
+                    {"devices": [remembered]},
+                    {"devices": []},
+                ],
+            ) as snapshot,
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            result = forget_remembered_device("remembered-device")
+
+        metadata_store.forget_device.assert_called_once_with("remembered-device")
+        self.assertEqual(snapshot.call_args_list[-1].kwargs, {"force": True})
+        self.assertEqual(
+            result,
+            {"forgotten": True, "device_id": "remembered-device"},
+        )
+
+    def test_forget_reports_storage_failure(self):
+        remembered = {"id": "remembered-device", "state": "known"}
+        metadata_store = unittest.mock.Mock()
+        metadata_store.forget_device.side_effect = sqlite3.OperationalError("locked")
+
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [remembered]}),
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                forget_remembered_device("remembered-device")
 
         self.assertEqual(raised.exception.status_code, 503)
 

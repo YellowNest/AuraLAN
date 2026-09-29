@@ -29,6 +29,19 @@ class MetaResponse(BaseModel):
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
+class ForgetDeviceResponse(BaseModel):
+    forgotten: bool = True
+    device_id: str
+
+
+class WakeResponse(BaseModel):
+    sent: bool = True
+    device_id: str
+    mac: str
+    broadcast: str
+    port: int
+
+
 class HealthResponse(BaseModel):
     ok: bool
     mode: Literal["local-metadata"] = "local-metadata"
@@ -126,6 +139,8 @@ class DeviceMetadataResponse(BaseModel):
     category_override: DeviceCategory | None = None
     note: str | None = None
     favorite: bool = False
+    location: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class DeviceObservationResponse(BaseModel):
@@ -145,6 +160,8 @@ class DeviceMetadataUpdate(BaseModel):
     category_override: DeviceCategory | None = None
     note: str | None = Field(default=None, max_length=280)
     favorite: bool = False
+    location: str | None = Field(default=None, max_length=60)
+    tags: list[str] | None = Field(default=None, max_length=8)
 
 
 class DeviceResponse(BaseModel):
@@ -210,6 +227,19 @@ class ServicesResponse(BaseModel):
     items: list[ServiceResponse] = Field(default_factory=list)
 
 
+class PresenceHistoryEventResponse(BaseModel):
+    id: int
+    device_id: str
+    event_type: Literal["device_not_seen", "device_seen_again"]
+    display_name: str | None = None
+    created_at: int
+
+
+class PresenceHistoryResponse(BaseModel):
+    device_id: str
+    items: list[PresenceHistoryEventResponse] = Field(default_factory=list)
+
+
 class ActivityEventResponse(BaseModel):
     id: int
     event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]
@@ -262,6 +292,28 @@ class StatusResponse(BaseModel):
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     errors: list[str] = Field(default_factory=list)
+
+
+class HomeAssistantSummaryResponse(BaseModel):
+    version: str
+    api_version: str
+    generated_at: str | None = None
+    system_state: HealthState = "unknown"
+    attention_count: int = 0
+    devices_total: int = 0
+    devices_online: int = 0
+    devices_not_seen_now: int = 0
+    favorites_total: int = 0
+    favorites_not_seen_now: int = 0
+    new_devices_24h: int = 0
+    services_detected: int = 0
+    services_online: int = 0
+    discovery_errors: int = 0
+    monitor_running: bool = False
+    monitor_last_success_at: int | None = None
+    webhook_configured: bool = False
+    webhook_pending_events: int = 0
+    wake_on_lan_enabled: bool = False
 
 
 class DiagnosticsResponse(BaseModel):

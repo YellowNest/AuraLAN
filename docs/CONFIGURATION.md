@@ -14,9 +14,13 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
 | `AURALAN_WATCH_MISSING_GRACE` | `120` | Seconds a favorite must remain unobserved before AuraLAN emits `favorite_not_seen`; bounded to 0–86400 |
+| `AURALAN_PRESENCE_MISSING_GRACE` | `180` | Seconds a device must remain unobserved before AuraLAN records a general presence-history absence; bounded to 0–86400 |
 | `AURALAN_WEBHOOK_URL` | unset | Optional HTTP(S) endpoint for new-device and favorite-watch events |
 | `AURALAN_WEBHOOK_BEARER_TOKEN` | unset | Optional bearer token sent only in the webhook Authorization header |
 | `AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS` | off | Opt in to include AuraLAN device ID, IP and MAC in webhook event payloads |
+| `AURALAN_ENABLE_WAKE_ON_LAN` | off | Explicitly enable the Wake-on-LAN action for known devices |
+| `AURALAN_WAKE_BROADCAST` | `255.255.255.255` | IPv4 broadcast address used for Wake-on-LAN magic packets |
+| `AURALAN_WAKE_PORT` | `9` | UDP destination port for Wake-on-LAN packets |
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
@@ -46,6 +50,20 @@ AURALAN_MONITOR_INTERVAL=120
 Set it to `0` to disable background discovery. Positive values below 15 seconds are clamped to 15 seconds to avoid accidental high-frequency scanning.
 
 The monitor uses the same bounded discovery code and local cache/store as normal dashboard refreshes. It does not enable telemetry or send device information anywhere.
+
+## Device presence history
+
+AuraLAN can keep a compact local transition history for each remembered device. The history records only meaningful state changes: when a device has remained unobserved long enough to be considered **not seen**, and when AuraLAN later sees it again.
+
+The default absence grace period is 180 seconds:
+
+```bash
+AURALAN_PRESENCE_MISSING_GRACE=180
+```
+
+A short discovery gap is therefore ignored instead of becoming a misleading timeline event. Positive evidence cancels a pending absence immediately. Set the value to `0` only when immediate transition logging is explicitly wanted.
+
+Presence history is bounded locally to avoid unbounded database growth. AuraLAN keeps at most 200 transitions per device and 5000 transitions overall. These events stay in AuraLAN's SQLite state and are not sent through the webhook notifier.
 
 ## Webhook notifications
 
@@ -80,6 +98,27 @@ AURALAN_WEBHOOK_BEARER_TOKEN=replace-me
 ```
 
 The configured URL and bearer token are never returned by AuraLAN's status, diagnostics, or Prometheus endpoints. The Settings page can send an explicit test event once a webhook is configured.
+
+## Wake-on-LAN
+
+Wake-on-LAN is disabled by default because it is an active network action rather than passive discovery.
+
+Enable it explicitly in the service environment:
+
+```bash
+AURALAN_ENABLE_WAKE_ON_LAN=1
+```
+
+When enabled, AuraLAN exposes a **Wake device** action for remembered devices with a usable unicast MAC address. The action sends one standard WOL magic packet and does not change DHCP, DNS, firewall, switch, router, BIOS, or operating-system settings.
+
+The default packet destination is the limited IPv4 broadcast address on UDP port 9. Networks that require a directed broadcast or another WOL port can override them:
+
+```bash
+AURALAN_WAKE_BROADCAST=192.0.2.255
+AURALAN_WAKE_PORT=9
+```
+
+The target device still needs Wake-on-LAN enabled in its firmware/NIC/operating-system configuration. AuraLAN cannot guarantee that a device will wake merely because the packet was sent.
 
 ## Pi-hole FTL
 

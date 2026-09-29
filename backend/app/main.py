@@ -16,22 +16,28 @@ from .models import (
     DevicesResponse,
     DeviceMetadataUpdate,
     DeviceResponse,
+    ForgetDeviceResponse,
     HealthResponse,
+    HomeAssistantSummaryResponse,
     HostResponse,
     MetaResponse,
     MonitorResponse,
     NetworkResponse,
     NotificationStatusResponse,
+    PresenceHistoryResponse,
     ServicesResponse,
     ServiceResponse,
     StatusResponse,
+    WakeResponse,
 )
+from .home_assistant import home_assistant_summary as build_home_assistant_summary
 from .metrics import render_prometheus
 from .monitor import BackgroundMonitor
 from .notifications import WebhookNotifier
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
+from .wake import select_wake_mac, send_magic_packet, wake_config
 
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
@@ -40,7 +46,9 @@ webhook_notifier = WebhookNotifier(store())
 
 
 def _after_background_snapshot(snapshot: dict) -> None:
-    store().record_watch_transitions(snapshot.get("devices") or [])
+    devices = snapshot.get("devices") or []
+    store().record_presence_transitions(devices)
+    store().record_watch_transitions(devices)
     webhook_notifier.dispatch_pending()
 
 
@@ -103,7 +111,11 @@ async def safety_headers(request: Request, call_next):
 
 @app.get("/api/v1/meta", response_model=MetaResponse)
 def meta() -> dict:
-    return {"brand": brand(), "mode": "local-metadata", "capabilities": APP_CAPABILITIES}
+    return {
+        "brand": brand(),
+        "mode": "local-metadata",
+        "capabilities": {**APP_CAPABILITIES, "wake_on_lan": wake_config().enabled},
+    }
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
@@ -145,6 +157,23 @@ def test_notification() -> dict:
     if not webhook_notifier.send_test():
         raise HTTPException(status_code=502, detail="AuraLAN webhook test delivery failed")
     return _notification_status()
+
+
+@app.get(
+    "/api/v1/integrations/home-assistant",
+    response_model=HomeAssistantSummaryResponse,
+)
+def home_assistant_status() -> dict:
+    snapshot = system_snapshot()
+    metadata = brand()
+    return build_home_assistant_summary(
+        snapshot,
+        version=metadata["version"],
+        api_version=metadata["apiVersion"],
+        monitor=background_monitor.status(),
+        notifications=_notification_status(),
+        wake_on_lan_enabled=wake_config().enabled,
+    )
 
 
 @app.get("/metrics", include_in_schema=False)
@@ -200,6 +229,24 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
         kwargs["note"] = update.note.strip() if update.note else None
     if "favorite" in update.model_fields_set:
         kwargs["favorite"] = update.favorite
+    if "location" in update.model_fields_set:
+        kwargs["location"] = update.location.strip() if update.location else None
+    if "tags" in update.model_fields_set:
+        raw_tags = update.tags or []
+        normalized_tags: list[str] = []
+        seen_tags: set[str] = set()
+        for raw_tag in raw_tags:
+            tag = str(raw_tag).strip()
+            if not tag:
+                continue
+            if len(tag) > 24:
+                raise HTTPException(status_code=422, detail="Device tags must be 24 characters or fewer")
+            key = tag.casefold()
+            if key in seen_tags:
+                continue
+            seen_tags.add(key)
+            normalized_tags.append(tag)
+        kwargs["tags"] = normalized_tags
     try:
         store().update_metadata(device_id, **kwargs)
     except (OSError, sqlite3.Error) as exc:
@@ -209,6 +256,84 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
     if not item:
         raise HTTPException(status_code=404, detail="Device disappeared during update")
     return item
+
+
+@app.delete("/api/v1/devices/{device_id}/memory", response_model=ForgetDeviceResponse)
+def forget_remembered_device(device_id: str) -> dict:
+    """Forget a device only when AuraLAN has no current observation of it."""
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Unknown device")
+    if current.get("state") != "known":
+        raise HTTPException(
+            status_code=409,
+            detail="Only devices that are not currently observed can be forgotten",
+        )
+
+    try:
+        forgotten = store().forget_device(device_id)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
+
+    if not forgotten:
+        raise HTTPException(status_code=404, detail="Device memory was not found")
+
+    system_snapshot(force=True)
+    return {"forgotten": True, "device_id": device_id}
+
+
+@app.post("/api/v1/devices/{device_id}/wake", response_model=WakeResponse)
+def wake_device(device_id: str) -> dict:
+    config = wake_config()
+    if not config.enabled:
+        raise HTTPException(status_code=403, detail="Wake-on-LAN is not enabled")
+
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if not current:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    mac = select_wake_mac(current)
+    if not mac:
+        raise HTTPException(status_code=409, detail="Device has no usable unicast MAC address")
+
+    try:
+        active = send_magic_packet(mac, config)
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail="Wake-on-LAN packet could not be sent") from exc
+
+    return {
+        "sent": True,
+        "device_id": device_id,
+        "mac": mac,
+        "broadcast": active.broadcast,
+        "port": active.port,
+    }
+
+
+@app.get("/api/v1/devices/{device_id}/presence", response_model=PresenceHistoryResponse)
+def device_presence_history(
+    device_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    try:
+        items = store().presence_history(device_id, limit)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
+
+    return {"device_id": device_id, "items": items}
 
 
 @app.get("/api/v1/activity", response_model=ActivityResponse)

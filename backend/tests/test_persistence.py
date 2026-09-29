@@ -5,7 +5,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from app.persistence.device_store import DeviceStore, default_data_dir, watch_missing_grace_seconds
+from app.persistence.device_store import (
+    DeviceStore,
+    default_data_dir,
+    presence_missing_grace_seconds,
+    watch_missing_grace_seconds,
+)
 
 
 class DefaultDataDirTests(unittest.TestCase):
@@ -78,7 +83,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -138,7 +143,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -168,7 +173,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -181,6 +186,217 @@ class DefaultDataDirTests(unittest.TestCase):
 
             self.assertIn("device_watch_state", tables)
             self.assertIn("notification_cursors", tables)
+
+    def test_schema_five_adds_device_location_and_tags_without_losing_metadata(self):
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)")
+                connection.execute("""CREATE TABLE device_metadata (
+                    device_id TEXT PRIMARY KEY,
+                    alias TEXT,
+                    category_override TEXT,
+                    note TEXT,
+                    favorite INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_presence (
+                    device_id TEXT PRIMARY KEY,
+                    first_seen_at INTEGER NOT NULL,
+                    last_seen_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_identity_cache (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    source TEXT,
+                    confidence TEXT,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    display_name TEXT,
+                    ip TEXT,
+                    mac TEXT,
+                    created_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_inventory (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    ip TEXT,
+                    ip_addresses_json TEXT NOT NULL DEFAULT '[]',
+                    mac TEXT,
+                    mac_addresses_json TEXT NOT NULL DEFAULT '[]',
+                    mac_type TEXT,
+                    interface TEXT,
+                    connection_type TEXT,
+                    first_seen_at INTEGER,
+                    last_seen_at INTEGER,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_watch_state (
+                    device_id TEXT PRIMARY KEY,
+                    not_seen INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE notification_cursors (
+                    channel TEXT PRIMARY KEY,
+                    last_event_id INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute(
+                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    ("001122334455", "Printer", "printer", "Upstairs", 1, 100),
+                )
+                connection.execute("PRAGMA user_version = 5")
+                connection.commit()
+            finally:
+                connection.close()
+
+            device_store = DeviceStore(Path(temp_dir))
+            result = device_store.readiness_check()
+            self.assertEqual(result["schema_version"], 7)
+
+            enriched = device_store.enrich(["001122334455"])["001122334455"]
+            self.assertEqual(enriched["alias"], "Printer")
+            self.assertEqual(enriched["note"], "Upstairs")
+            self.assertEqual(enriched["favorite"], 1)
+            self.assertIsNone(enriched["location"])
+            self.assertEqual(enriched["tags"], [])
+
+    def test_schema_six_adds_presence_history_tables_without_touching_existing_state(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            device_store.readiness_check()
+
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("DROP TABLE device_presence_state")
+                connection.execute("DROP TABLE device_presence_history")
+                connection.execute("PRAGMA user_version = 6")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = device_store.readiness_check()
+            self.assertEqual(result["schema_version"], 7)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                }
+            finally:
+                connection.close()
+
+            self.assertIn("device_presence_state", tables)
+            self.assertIn("device_presence_history", tables)
+
+    def test_presence_history_debounces_absence_and_records_return(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_PRESENCE_MISSING_GRACE": "180"},
+            clear=False,
+        ):
+            device_store = DeviceStore(Path(temp_dir))
+            device = {
+                "id": "001122334455",
+                "display_name": "Laptop",
+                "state": "online",
+            }
+
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_presence_transitions([device])
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+            device["state"] = "known"
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_presence_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1180):
+                device_store.record_presence_transitions([device])
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+            with patch("app.persistence.device_store.time.time", return_value=1240):
+                device_store.record_presence_transitions([device])
+
+            history = device_store.presence_history(device["id"])
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["event_type"], "device_not_seen")
+
+            device["state"] = "online"
+            with patch("app.persistence.device_store.time.time", return_value=1300):
+                device_store.record_presence_transitions([device])
+
+            history = device_store.presence_history(device["id"])
+            self.assertEqual(
+                [item["event_type"] for item in history],
+                ["device_seen_again", "device_not_seen"],
+            )
+
+    def test_transient_presence_gap_is_not_persisted(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_PRESENCE_MISSING_GRACE": "180"},
+            clear=False,
+        ):
+            device_store = DeviceStore(Path(temp_dir))
+            device = {"id": "001122334455", "display_name": "Laptop", "state": "online"}
+
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_presence_transitions([device])
+
+            device["state"] = "known"
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_presence_transitions([device])
+
+            device["state"] = "online"
+            with patch("app.persistence.device_store.time.time", return_value=1100):
+                device_store.record_presence_transitions([device])
+
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+    def test_presence_history_limit_and_grace_configuration_are_bounded(self):
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "-1"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "999999"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 86400)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "bad"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 180)
+
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            device = {"id": "001122334455", "display_name": "Laptop", "state": "online"}
+            with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+                with patch("app.persistence.device_store.time.time", return_value=1000):
+                    device_store.record_presence_transitions([device])
+                for index in range(3):
+                    device["state"] = "known"
+                    with patch("app.persistence.device_store.time.time", return_value=1100 + index * 20):
+                        device_store.record_presence_transitions([device])
+                    device["state"] = "online"
+                    with patch("app.persistence.device_store.time.time", return_value=1110 + index * 20):
+                        device_store.record_presence_transitions([device])
+
+            self.assertEqual(len(device_store.presence_history(device["id"], 2)), 2)
 
     def test_favorite_watch_absence_is_debounced_and_return_is_immediate(self):
         with TemporaryDirectory() as temp_dir, patch.dict(
@@ -357,6 +573,108 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertTrue(remembered[0]["metadata"]["favorite"])
 
 
+    def test_forget_device_removes_all_linked_local_memory_but_keeps_global_notification_cursor(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            primary = "001122334455"
+            secondary = "001122334466"
+
+            metadata = device_store.enrich([primary, secondary])
+            record = {
+                "id": primary,
+                "display_name": "Docked laptop",
+                "hostname": "laptop",
+                "vendor": "Example",
+                "model": "Portable",
+                "device_type": "computer",
+                "category": "computer",
+                "icon_key": "laptop",
+                "ip": "192.0.2.20",
+                "ip_addresses": ["192.0.2.20"],
+                "mac": "00:11:22:33:44:55",
+                "mac_addresses": [
+                    "00:11:22:33:44:55",
+                    "00:11:22:33:44:66",
+                ],
+                "mac_type": "global",
+                "interface": "lan0",
+                "connection_type": "ethernet",
+                "online": True,
+                "state": "online",
+                "first_seen_at": metadata[primary]["first_seen_at"],
+                "last_seen_at": metadata[primary]["last_seen_at"],
+                "identity": {
+                    "display_name": {"value": "Docked laptop", "source": "local_hosts", "confidence": "high"},
+                    "vendor": {"value": "Example", "source": "oui_vendor", "confidence": "high"},
+                    "model": {"value": "Portable", "source": "dns_sd", "confidence": "medium"},
+                    "device_type": {"value": "computer", "source": "dns_sd", "confidence": "medium"},
+                    "sources": [],
+                },
+                "metadata": {
+                    "alias": None,
+                    "category_override": None,
+                    "note": None,
+                    "favorite": False,
+                    "location": None,
+                    "tags": [],
+                },
+                "observations": [],
+            }
+
+            device_store.remember_inventory([record])
+            device_store.remember_identities([record])
+            device_store.update_metadata(
+                primary,
+                alias="Laptop",
+                favorite=True,
+                location="Office",
+                tags=["work"],
+            )
+            device_store.record_watch_transitions([{**record, "metadata": {"favorite": True}}])
+            device_store.record_presence_transitions([record])
+
+            record["state"] = "known"
+            with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+                device_store.record_presence_transitions([record])
+
+            latest = device_store.latest_event_id()
+            device_store.set_notification_cursor("webhook", latest)
+
+            self.assertTrue(device_store.forget_device(primary))
+            self.assertFalse(device_store.forget_device(primary))
+            self.assertEqual(device_store.known_devices([]), [])
+            self.assertEqual(device_store.presence_history(primary), [])
+            self.assertEqual(device_store.recent_events(), [])
+            self.assertEqual(device_store.notification_cursor("webhook"), latest)
+
+            connection = sqlite3.connect(device_store.path)
+            try:
+                linked = (primary, secondary)
+                placeholders = ",".join("?" for _ in linked)
+                for table in (
+                    "device_metadata",
+                    "device_presence",
+                    "device_identity_cache",
+                    "device_inventory",
+                    "device_watch_state",
+                    "device_presence_state",
+                    "device_presence_history",
+                ):
+                    count = connection.execute(
+                        f"SELECT COUNT(*) FROM {table} WHERE device_id IN ({placeholders})",
+                        linked,
+                    ).fetchone()[0]
+                    self.assertEqual(count, 0, table)
+
+                events = connection.execute(
+                    f"SELECT COUNT(*) FROM device_events WHERE entity_id IN ({placeholders})",
+                    linked,
+                ).fetchone()[0]
+                self.assertEqual(events, 0)
+            finally:
+                connection.close()
+
+
     def test_first_seen_events_are_persistent_deduplicated_and_follow_aliases(self):
         with TemporaryDirectory() as temp_dir:
             device_store = DeviceStore(Path(temp_dir))
@@ -393,15 +711,21 @@ class DefaultDataDirTests(unittest.TestCase):
                 category_override="printer",
                 note="Upstairs",
                 favorite=True,
+                location="Office",
+                tags=["infrastructure", "laser"],
             )
             self.assertEqual(saved["note"], "Upstairs")
             self.assertTrue(saved["favorite"])
+            self.assertEqual(saved["location"], "Office")
+            self.assertEqual(saved["tags"], ["infrastructure", "laser"])
 
             enriched = device_store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Office printer")
             self.assertEqual(enriched["category_override"], "printer")
             self.assertEqual(enriched["note"], "Upstairs")
             self.assertEqual(enriched["favorite"], 1)
+            self.assertEqual(enriched["location"], "Office")
+            self.assertEqual(enriched["tags"], ["infrastructure", "laser"])
             self.assertIsNotNone(enriched["first_seen_at"])
             self.assertIsNotNone(enriched["last_seen_at"])
 
@@ -410,6 +734,8 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertEqual(preserved["alias"], "Printer")
             self.assertEqual(preserved["note"], "Upstairs")
             self.assertEqual(preserved["favorite"], 1)
+            self.assertEqual(preserved["location"], "Office")
+            self.assertEqual(preserved["tags"], ["infrastructure", "laser"])
 
 
 if __name__ == "__main__":

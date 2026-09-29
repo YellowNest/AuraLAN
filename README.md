@@ -26,9 +26,10 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
-| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, keep previously seen devices visible, and export the inventory as CSV or JSON. |
+| **A device inventory that remembers** | Track first/last seen time and a debounced per-device presence timeline, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, forget stale remembered devices safely, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
-| **Home Assistant & webhook friendly** | Optional reliable webhooks can report new devices and favorite watch-state changes, with network identifiers excluded by default. |
+| **Home Assistant & webhook friendly** | An aggregate REST summary feeds local Home Assistant sensors without device identity data, while optional reliable webhooks report new devices and favorite watch-state changes. |
+| **Safe opt-in actions** | Wake-on-LAN can be enabled explicitly to wake known devices without turning AuraLAN into a router or remote shell. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
@@ -57,25 +58,29 @@ Device identity is deliberately conservative. An OUI can identify an organizatio
 
 ### Device inventory
 
-AuraLAN remembers when a device was first and last observed. You can give devices your own names, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
+AuraLAN remembers when a device was first and last observed. You can give devices your own names, assign a location such as a room or rack, add lightweight tags, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
 
-Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory.
+Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory. Remembered devices that are no longer observed can be explicitly forgotten; AuraLAN removes its own saved identity, metadata, activity, watch state and presence history, and the device will be treated as new if it is discovered again later.
+
+The 0.6 development line also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
 
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
 
 A background monitor performs local discovery every 60 seconds by default, so first/last-seen data, recent discoveries and the favorite-device watchlist continue updating when the web interface is closed. The interval is configurable or can be disabled entirely.
 
-If an operator configures a webhook, AuraLAN can deliver newly persisted device events to Home Assistant or another HTTP(S) receiver. Delivery is ordered and retryable, old history is not replayed when notifications are first enabled, and IP/MAC/internal device IDs are omitted unless explicitly enabled. Favorite-absence events are debounced by default so one transient discovery miss does not create a false alert.
+Home Assistant can poll AuraLAN's aggregate integration summary for device/service counts and monitor health without receiving device names, IDs, IP/MAC addresses, notes, locations or tags. If an operator also configures a webhook, AuraLAN can deliver newly persisted device events to Home Assistant or another HTTP(S) receiver. Delivery is ordered and retryable, old history is not replayed when notifications are first enabled, and IP/MAC/internal device IDs are omitted unless explicitly enabled. Favorite-absence events are debounced by default so one transient discovery miss does not create a false alert.
 
 A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict. Recent-discovery entries are likewise local observations, not security alerts.
 
-The Devices view can export the current inventory as CSV or JSON directly in the browser. Exports can contain private IP/MAC addresses and user notes, so AuraLAN labels that clearly before download. CSV cells that begin like spreadsheet formulas are neutralized before export because network-provided device names are not trusted input.
+The Devices view can search locations and tags, sort by smart order, name, last seen, first seen, location or IP address, and export the current inventory as CSV or JSON directly in the browser. Exports can contain private IP/MAC addresses and user notes, so AuraLAN labels that clearly before download. CSV cells that begin like spreadsheet formulas are neutralized before export because network-provided device names are not trusted input.
 
 ## What AuraLAN does not do
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes and favorites.
+By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes, locations, tags and favorites.
+
+The 0.6 development line also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration.
 
 ## Quick start
 
@@ -110,8 +115,12 @@ See **[Configuration](docs/CONFIGURATION.md)** for:
 - data directory
 - non-standard Pi-hole FTL database location
 - continuous background monitoring interval
-- optional webhook/Home Assistant notifications and privacy controls
+- per-device presence-history absence grace period
+- Home Assistant REST summary, webhook notifications and privacy controls
+- opt-in Wake-on-LAN action and broadcast settings
 - service/deployment overrides
+
+For ready-to-adapt REST sensor and webhook examples, see **[Home Assistant](docs/HOME_ASSISTANT.md)**.
 
 ## Compatibility
 
@@ -148,10 +157,14 @@ GET   /api/v1/network
 GET   /api/v1/devices
 GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
+GET   /api/v1/devices/{id}/presence?limit=50
+DELETE /api/v1/devices/{id}/memory
+POST  /api/v1/devices/{id}/wake
 GET   /api/v1/activity?limit=50
 GET   /api/v1/monitor
 GET   /api/v1/notifications
 POST  /api/v1/notifications/test
+GET   /api/v1/integrations/home-assistant
 GET   /api/v1/services
 GET   /api/v1/services/{id}
 GET   /api/v1/diagnostics
