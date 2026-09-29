@@ -27,6 +27,7 @@ APP_CAPABILITIES = {
     "device_presence_history": True,
     "background_monitor": True,
     "webhook_notifications": True,
+    "home_assistant_summary": True,
     "wake_on_lan": False,
     "dhcp_editing": False,
     "wifi_editing": False,
