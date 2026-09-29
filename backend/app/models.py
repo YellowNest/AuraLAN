@@ -260,4 +260,5 @@ class DiagnosticsResponse(BaseModel):
     host: HostResponse
     network: NetworkResponse
     services: ServicesResponse
+    monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     discovery_errors: list[str] = Field(default_factory=list)
