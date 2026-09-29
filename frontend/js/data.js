@@ -42,6 +42,42 @@ export function groupCurrentDevicesByConnection(items) {
   return groups;
 }
 
+export function inventoryExportRows(items) {
+  return items.map((device) => ({
+    name: device.presentation_name || device.metadata?.alias || device.display_name || device.hostname || 'Network device',
+    hostname: device.hostname || '',
+    vendor: device.vendor || '',
+    model: device.model || '',
+    category: device.category || device.device_type || 'unknown',
+    state: device.state || 'unknown',
+    online: device.online === true ? true : device.online === false ? false : null,
+    connection: device.connection_type || 'unknown',
+    ip_addresses: (device.ip_addresses || [device.ip]).filter((value) => value && value !== '—'),
+    mac_addresses: (device.mac_addresses || [device.mac]).filter((value) => value && value !== '—'),
+    first_seen_at: device.first_seen_at ?? null,
+    last_seen_at: device.last_seen_at ?? null,
+    favorite: Boolean(device.metadata?.favorite),
+    note: device.metadata?.note || '',
+  }));
+}
+
+function csvCell(value) {
+  const text = Array.isArray(value) ? value.join(' | ') : value === null || value === undefined ? '' : String(value);
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+export function inventoryCsv(items) {
+  const rows = inventoryExportRows(items);
+  const columns = [
+    'name', 'hostname', 'vendor', 'model', 'category', 'state', 'online', 'connection',
+    'ip_addresses', 'mac_addresses', 'first_seen_at', 'last_seen_at', 'favorite', 'note',
+  ];
+  return [
+    columns.map(csvCell).join(','),
+    ...rows.map((row) => columns.map((column) => csvCell(row[column])).join(',')),
+  ].join('\n');
+}
+
 export function visibleServiceItems(items) {
   return items.filter((item) => item.detected);
 }
