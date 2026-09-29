@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -103,7 +104,7 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
         kwargs["category_override"] = update.category_override
     try:
         store().update_metadata(device_id, **kwargs)
-    except OSError as exc:
+    except (OSError, sqlite3.Error) as exc:
         raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
     refreshed = system_snapshot(force=True)
     item = next((item for item in refreshed["devices"] if item["id"] == device_id), None)
