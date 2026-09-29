@@ -210,23 +210,43 @@ class DeviceStore:
             finally:
                 connection.close()
 
-    def update_metadata(self, device_id: str, *, alias: str | None | object = ..., category_override: str | None | object = ...) -> dict[str, Any]:
-        """Persist only an alias/category override; no system configuration is touched."""
+    def update_metadata(
+        self,
+        device_id: str,
+        *,
+        alias: str | None | object = ...,
+        category_override: str | None | object = ...,
+        note: str | None | object = ...,
+        favorite: bool | object = ...,
+    ) -> dict[str, Any]:
+        """Persist AuraLAN-local inventory metadata; no system configuration is touched."""
         now = int(time.time())
         with self._lock:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
-                current = connection.execute("SELECT alias, category_override FROM device_metadata WHERE device_id = ?", (device_id,)).fetchone()
+                current = connection.execute(
+                    "SELECT alias, category_override, note, favorite FROM device_metadata WHERE device_id = ?",
+                    (device_id,),
+                ).fetchone()
                 next_alias = current["alias"] if current and alias is ... else (alias if alias is not ... else None)
                 next_category = current["category_override"] if current and category_override is ... else (category_override if category_override is not ... else None)
+                next_note = current["note"] if current and note is ... else (note if note is not ... else None)
+                next_favorite = bool(current["favorite"]) if current and favorite is ... else (bool(favorite) if favorite is not ... else False)
                 connection.execute(
-                    "INSERT INTO device_metadata(device_id, alias, category_override, updated_at) VALUES (?, ?, ?, ?) "
-                    "ON CONFLICT(device_id) DO UPDATE SET alias=excluded.alias, category_override=excluded.category_override, updated_at=excluded.updated_at",
-                    (device_id, next_alias, next_category, now),
+                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                    "ON CONFLICT(device_id) DO UPDATE SET alias=excluded.alias, category_override=excluded.category_override, "
+                    "note=excluded.note, favorite=excluded.favorite, updated_at=excluded.updated_at",
+                    (device_id, next_alias, next_category, next_note, int(next_favorite), now),
                 )
                 connection.commit()
-                return {"alias": next_alias, "category_override": next_category, "updated_at": now}
+                return {
+                    "alias": next_alias,
+                    "category_override": next_category,
+                    "note": next_note,
+                    "favorite": next_favorite,
+                    "updated_at": now,
+                }
             finally:
                 connection.close()
 
