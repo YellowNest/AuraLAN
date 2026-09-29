@@ -78,7 +78,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 4)
+            self.assertEqual(result["schema_version"], 5)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -150,6 +150,92 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
             self.assertIn("device_inventory", tables)
 
+
+
+    def test_schema_four_state_migrates_to_watch_and_notification_tables(self):
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "auralan.db"
+            device_store = DeviceStore(Path(temp_dir))
+            device_store.readiness_check()
+
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("DROP TABLE device_watch_state")
+                connection.execute("DROP TABLE notification_cursors")
+                connection.execute("PRAGMA user_version = 4")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = device_store.readiness_check()
+            self.assertEqual(result["schema_version"], 5)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                }
+            finally:
+                connection.close()
+
+            self.assertIn("device_watch_state", tables)
+            self.assertIn("notification_cursors", tables)
+
+    def test_favorite_watch_transitions_are_evented_once_per_change(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            device = {
+                "id": "001122334455",
+                "display_name": "Front door camera",
+                "ip": "192.0.2.80",
+                "mac": "00:11:22:33:44:55",
+                "state": "online",
+                "metadata": {"favorite": True},
+            }
+
+            device_store.record_watch_transitions([device])
+            self.assertEqual(device_store.recent_events(), [])
+
+            device["state"] = "known"
+            device_store.record_watch_transitions([device])
+            device_store.record_watch_transitions([device])
+
+            events = device_store.recent_events()
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0]["event_type"], "favorite_not_seen")
+
+            device["state"] = "online"
+            device_store.record_watch_transitions([device])
+
+            events = device_store.recent_events()
+            self.assertEqual([event["event_type"] for event in events], [
+                "favorite_seen_again",
+                "favorite_not_seen",
+            ])
+
+    def test_notification_cursor_and_ordered_event_query(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            metadata = device_store.enrich(["001122334455"])["001122334455"]
+            record = {
+                "id": "001122334455",
+                "display_name": "Sample device",
+                "ip": "192.0.2.50",
+                "mac": "00:11:22:33:44:55",
+                "mac_addresses": ["00:11:22:33:44:55"],
+                "first_seen_at": metadata["first_seen_at"],
+            }
+            device_store.record_first_seen([record], {"001122334455"})
+
+            latest = device_store.latest_event_id()
+            self.assertGreater(latest, 0)
+            self.assertIsNone(device_store.notification_cursor("webhook"))
+            self.assertEqual(device_store.events_after(0)[0]["id"], latest)
+
+            device_store.set_notification_cursor("webhook", latest)
+            self.assertEqual(device_store.notification_cursor("webhook"), latest)
+            self.assertEqual(device_store.events_after(latest), [])
 
 
     def test_remembered_devices_survive_current_discovery_and_do_not_duplicate_live_macs(self):
