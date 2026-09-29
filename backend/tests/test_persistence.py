@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from app.persistence.device_store import DeviceStore, default_data_dir
+from app.persistence.device_store import DeviceStore, default_data_dir, watch_missing_grace_seconds
 
 
 class DefaultDataDirTests(unittest.TestCase):
@@ -182,8 +182,12 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertIn("device_watch_state", tables)
             self.assertIn("notification_cursors", tables)
 
-    def test_favorite_watch_transitions_are_evented_once_per_change(self):
-        with TemporaryDirectory() as temp_dir:
+    def test_favorite_watch_absence_is_debounced_and_return_is_immediate(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_WATCH_MISSING_GRACE": "120"},
+            clear=False,
+        ):
             device_store = DeviceStore(Path(temp_dir))
             device = {
                 "id": "001122334455",
@@ -194,25 +198,74 @@ class DefaultDataDirTests(unittest.TestCase):
                 "metadata": {"favorite": True},
             }
 
-            device_store.record_watch_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_watch_transitions([device])
             self.assertEqual(device_store.recent_events(), [])
 
             device["state"] = "known"
-            device_store.record_watch_transitions([device])
-            device_store.record_watch_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_watch_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1120):
+                device_store.record_watch_transitions([device])
+            self.assertEqual(device_store.recent_events(), [])
+
+            with patch("app.persistence.device_store.time.time", return_value=1180):
+                device_store.record_watch_transitions([device])
 
             events = device_store.recent_events()
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0]["event_type"], "favorite_not_seen")
 
+            with patch("app.persistence.device_store.time.time", return_value=1240):
+                device_store.record_watch_transitions([device])
+            self.assertEqual(len(device_store.recent_events()), 1)
+
             device["state"] = "online"
-            device_store.record_watch_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1300):
+                device_store.record_watch_transitions([device])
 
             events = device_store.recent_events()
             self.assertEqual([event["event_type"] for event in events], [
                 "favorite_seen_again",
                 "favorite_not_seen",
             ])
+
+    def test_transient_favorite_discovery_gap_does_not_create_event(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_WATCH_MISSING_GRACE": "120"},
+            clear=False,
+        ):
+            device_store = DeviceStore(Path(temp_dir))
+            device = {
+                "id": "001122334455",
+                "display_name": "Front door camera",
+                "state": "online",
+                "metadata": {"favorite": True},
+            }
+
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_watch_transitions([device])
+
+            device["state"] = "known"
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_watch_transitions([device])
+
+            device["state"] = "online"
+            with patch("app.persistence.device_store.time.time", return_value=1100):
+                device_store.record_watch_transitions([device])
+
+            self.assertEqual(device_store.recent_events(), [])
+
+    def test_watch_missing_grace_configuration_is_safe(self):
+        with patch.dict(os.environ, {"AURALAN_WATCH_MISSING_GRACE": "0"}, clear=False):
+            self.assertEqual(watch_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_WATCH_MISSING_GRACE": "-10"}, clear=False):
+            self.assertEqual(watch_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_WATCH_MISSING_GRACE": "999999"}, clear=False):
+            self.assertEqual(watch_missing_grace_seconds(), 86400)
+        with patch.dict(os.environ, {"AURALAN_WATCH_MISSING_GRACE": "invalid"}, clear=False):
+            self.assertEqual(watch_missing_grace_seconds(), 120)
 
     def test_notification_cursor_and_ordered_event_query(self):
         with TemporaryDirectory() as temp_dir:

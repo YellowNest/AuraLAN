@@ -12,6 +12,26 @@ from typing import Any
 
 SCHEMA_VERSION = 5
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
+DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
+MAX_WATCH_MISSING_GRACE_SECONDS = 86400
+
+WATCH_SEEN = 0
+WATCH_NOT_SEEN = 1
+WATCH_PENDING_NOT_SEEN = 2
+
+
+def watch_missing_grace_seconds() -> int:
+    """Return the configured favorite-watch absence grace period."""
+    raw = os.environ.get(
+        "AURALAN_WATCH_MISSING_GRACE",
+        str(DEFAULT_WATCH_MISSING_GRACE_SECONDS),
+    ).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_WATCH_MISSING_GRACE_SECONDS
+    return max(0, min(value, MAX_WATCH_MISSING_GRACE_SECONDS))
+
 
 
 def default_data_dir() -> Path:
@@ -287,7 +307,13 @@ class DeviceStore:
                 connection.close()
 
     def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
-        """Record state changes for user-favorited devices without guessing offline state."""
+        """Record stable watch-state changes for user-favorited devices.
+
+        A single missed discovery pass is weak evidence. AuraLAN therefore starts
+        a persisted pending state and only emits favorite_not_seen after the
+        configured grace period. A positive observation clears the pending state
+        immediately and confirms a return immediately after a real absence.
+        """
         favorites = [
             record for record in records
             if bool((record.get("metadata") or {}).get("favorite"))
@@ -297,30 +323,63 @@ class DeviceStore:
             return
 
         now = int(time.time())
+        grace_seconds = watch_missing_grace_seconds()
+
         with self._lock:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
                 for record in favorites:
                     device_id = str(record.get("id") or "").strip()
-                    not_seen = int(record.get("state") == "known")
+                    currently_missing = record.get("state") == "known"
                     previous = connection.execute(
-                        "SELECT not_seen FROM device_watch_state WHERE device_id = ?",
+                        "SELECT not_seen, updated_at FROM device_watch_state WHERE device_id = ?",
                         (device_id,),
                     ).fetchone()
 
                     if previous is None:
+                        initial_state = WATCH_PENDING_NOT_SEEN if currently_missing else WATCH_SEEN
                         connection.execute(
                             "INSERT INTO device_watch_state(device_id, not_seen, updated_at) VALUES (?, ?, ?)",
-                            (device_id, not_seen, now),
+                            (device_id, initial_state, now),
                         )
                         continue
 
-                    previous_not_seen = int(previous["not_seen"])
-                    if previous_not_seen == not_seen:
-                        continue
+                    watch_state = int(previous["not_seen"])
+                    state_since = int(previous["updated_at"])
 
-                    event_type = "favorite_not_seen" if not_seen else "favorite_seen_again"
+                    if currently_missing:
+                        if watch_state == WATCH_NOT_SEEN:
+                            continue
+
+                        if watch_state == WATCH_SEEN:
+                            if grace_seconds == 0:
+                                next_state = WATCH_NOT_SEEN
+                            else:
+                                connection.execute(
+                                    "UPDATE device_watch_state SET not_seen = ?, updated_at = ? WHERE device_id = ?",
+                                    (WATCH_PENDING_NOT_SEEN, now, device_id),
+                                )
+                                continue
+                        else:
+                            if now - state_since < grace_seconds:
+                                continue
+                            next_state = WATCH_NOT_SEEN
+
+                        event_type = "favorite_not_seen"
+                    else:
+                        if watch_state == WATCH_SEEN:
+                            continue
+                        if watch_state == WATCH_PENDING_NOT_SEEN:
+                            connection.execute(
+                                "UPDATE device_watch_state SET not_seen = ?, updated_at = ? WHERE device_id = ?",
+                                (WATCH_SEEN, now, device_id),
+                            )
+                            continue
+
+                        next_state = WATCH_SEEN
+                        event_type = "favorite_seen_again"
+
                     display_name = str(record.get("display_name") or "").strip() or None
                     ip = str(record.get("ip") or "").strip() or None
                     mac = str(record.get("mac") or "").strip() or None
@@ -331,8 +390,9 @@ class DeviceStore:
                     )
                     connection.execute(
                         "UPDATE device_watch_state SET not_seen = ?, updated_at = ? WHERE device_id = ?",
-                        (not_seen, now, device_id),
+                        (next_state, now, device_id),
                     )
+
                 connection.commit()
             finally:
                 connection.close()
