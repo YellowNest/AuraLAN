@@ -27,6 +27,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
 | **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, keep previously seen devices visible, and export the inventory as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
+| **Home Assistant & webhook friendly** | Optional reliable webhooks can report new devices and favorite watch-state changes, with network identifiers excluded by default. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
@@ -62,6 +63,8 @@ Once AuraLAN has observed a device, it also keeps a compact last-known presentat
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
 
 A background monitor performs local discovery every 60 seconds by default, so first/last-seen data, recent discoveries and the favorite-device watchlist continue updating when the web interface is closed. The interval is configurable or can be disabled entirely.
+
+If an operator configures a webhook, AuraLAN can deliver newly persisted device events to Home Assistant or another HTTP(S) receiver. Delivery is ordered and retryable, old history is not replayed when notifications are first enabled, and IP/MAC/internal device IDs are omitted unless explicitly enabled.
 
 A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict. Recent-discovery entries are likewise local observations, not security alerts.
 
@@ -106,6 +109,7 @@ See **[Configuration](docs/CONFIGURATION.md)** for:
 - data directory
 - non-standard Pi-hole FTL database location
 - continuous background monitoring interval
+- optional webhook/Home Assistant notifications and privacy controls
 - service/deployment overrides
 
 ## Compatibility
@@ -145,6 +149,8 @@ GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
 GET   /api/v1/activity?limit=50
 GET   /api/v1/monitor
+GET   /api/v1/notifications
+POST  /api/v1/notifications/test
 GET   /api/v1/services
 GET   /api/v1/services/{id}
 GET   /api/v1/diagnostics
@@ -158,6 +164,8 @@ Normal dashboard refreshes use the aggregated status endpoint. Discovery is cach
 Runtime network information stays on the machine running AuraLAN. Device identity is not sent to external lookup services.
 
 The Prometheus endpoint intentionally exposes aggregate counts and host-health gauges only. It does not emit device names, IDs, IP/MAC addresses, notes, or per-device labels.
+
+Webhook delivery is disabled unless explicitly configured. Event payloads omit IP/MAC/internal device IDs by default; the endpoint URL and optional bearer token are never exposed through the browser-facing status, diagnostics, or Prometheus surfaces.
 
 The production systemd example binds to loopback by default. Remote LAN access should be an explicit choice, typically through a reverse proxy or by changing `AURALAN_HOST`.
 
