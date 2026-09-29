@@ -22,9 +22,6 @@ Development target: `0.4.1`.
 
 - Ordinary Linux hosts are no longer marked unhealthy merely because their Wi-Fi interface is a client rather than an access point; AP mode becomes an explicit expectation only when `AURALAN_WIFI_INTERFACE` is configured.
 - dnsmasq is no longer treated as AuraLAN's DHCP source unless it is explicitly scoped to the confirmed access-point interface, preventing unrelated local DNS-cache instances from contributing misleading lease data.
-- Concurrent cache misses now share one discovery refresh instead of launching duplicate discovery passes, and cache age starts when collection finishes.
-- SQLite metadata storage now notices a replaced/restored database file and storage failures during metadata writes return a controlled service-unavailable response instead of an internal error.
-- NetworkManager terse output now handles escaped delimiters in connection names and SSIDs correctly.
 
 ### Changed
 
