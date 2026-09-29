@@ -8,6 +8,10 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 Development target: `0.7.0`.
 
+### Fixed
+
+- Webhook `pending_events` now counts actual persisted events after the delivery cursor instead of subtracting SQLite event IDs, so forgetting a device cannot make deleted event-ID gaps appear as phantom pending notifications.
+
 ## [0.6.0] - 2026-09-29
 
 ### Fixed
