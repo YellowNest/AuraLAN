@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
+  <img alt="Release 0.5.0" src="https://img.shields.io/badge/release-0.5.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -200,7 +201,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN `0.4.0` is the first public pre-1.0 release. The current development line targets `0.5.0`, reflecting the new inventory, monitoring, Prometheus, network-map and webhook capabilities added since 0.4.0. The API is intentionally small and may still evolve before 1.0.
+AuraLAN `0.5.0` is the current public pre-1.0 release. It adds persistent inventory, continuous background monitoring, activity history, an evidence-based network map, CSV/JSON export, Prometheus metrics, favorite-device watch state and reliable opt-in webhooks. The API is intentionally small and may still evolve before 1.0.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
