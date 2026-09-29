@@ -26,7 +26,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
-| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, keep previously seen devices visible, and export the inventory as CSV or JSON. |
+| **A device inventory that remembers** | Track first/last seen time, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, keep previously seen devices visible, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | Optional reliable webhooks can report new devices and favorite watch-state changes, with network identifiers excluded by default. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
@@ -57,7 +57,7 @@ Device identity is deliberately conservative. An OUI can identify an organizatio
 
 ### Device inventory
 
-AuraLAN remembers when a device was first and last observed. You can give devices your own names, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
+AuraLAN remembers when a device was first and last observed. You can give devices your own names, assign a location such as a room or rack, add lightweight tags, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
 
 Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory.
 
@@ -69,7 +69,7 @@ If an operator configures a webhook, AuraLAN can deliver newly persisted device 
 
 A "new" device means **new to this AuraLAN installation within the last 24 hours**; it is an observation aid, not an intrusion verdict. Recent-discovery entries are likewise local observations, not security alerts.
 
-The Devices view can export the current inventory as CSV or JSON directly in the browser. Exports can contain private IP/MAC addresses and user notes, so AuraLAN labels that clearly before download. CSV cells that begin like spreadsheet formulas are neutralized before export because network-provided device names are not trusted input.
+The Devices view can search locations and tags, sort by smart order, name, last seen, first seen, location or IP address, and export the current inventory as CSV or JSON directly in the browser. Exports can contain private IP/MAC addresses and user notes, so AuraLAN labels that clearly before download. CSV cells that begin like spreadsheet formulas are neutralized before export because network-provided device names are not trusted input.
 
 ## What AuraLAN does not do
 
