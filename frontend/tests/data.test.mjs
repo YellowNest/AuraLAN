@@ -45,6 +45,17 @@ test('device inventory supports new, favorite, and note discovery', () => {
   assert.equal(filterDevices(inventory, 'new').length, 1);
   assert.equal(filterDevices(inventory, 'favorites')[0].display_name, 'NAS');
   assert.equal(filterDevices(inventory, 'all', 'backup target')[0].display_name, 'NAS');
+
+  const remembered = {
+    display_name: 'Old camera',
+    category: 'camera',
+    ip: '192.0.2.42',
+    mac: '02:00:00:00:00:06',
+    connection_type: 'wifi',
+    state: 'known',
+    metadata: {},
+  };
+  assert.equal(filterDevices([...inventory, remembered], 'known')[0].display_name, 'Old camera');
 });
 
 test('absent optional integrations are not rendered as offline cards', () => {
