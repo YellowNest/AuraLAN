@@ -60,13 +60,15 @@ It does not change Docker permissions, Pi-hole permissions, firewall rules, Wi-F
 
 ## Production layout
 
-The supplied unit assumes:
+The supplied unit keeps application code, user-owned runtime state, and host-specific configuration separate:
 
 ```text
-/opt/auralan           application
-/var/lib/auralan       AuraLAN-owned runtime data
-/etc/default/auralan   optional environment overrides
+/opt/auralan           application code
+/var/lib/auralan       AuraLAN-owned runtime data and local device metadata
+/etc/default/auralan   optional host-specific environment overrides
 ```
+
+Updating or replacing the application code does not require copying `/var/lib/auralan` into the repository. User aliases, observation history, and identity cache data remain local to that installation. Likewise, host-specific overrides in `/etc/default/auralan` are outside the source tree and are not part of Git merges.
 
 Create a dedicated service account, copy a reviewed release checkout into `/opt/auralan`, create the virtual environment, then install `systemd/auralan.service`.
 
@@ -116,4 +118,4 @@ Do not make the service root merely to unlock optional integrations.
 
 ## Existing development installations
 
-Older development installs may still have a historical service unit name installed on the host. `scripts/deploy-local.sh` detects that installed unit for compatibility. The repository ships only the canonical `auralan.service` for new installations.
+The repository ships only the canonical `auralan.service`. Development checkouts should keep runtime state outside the checkout and use `AURALAN_DATA_DIR` when a custom state location is needed.
