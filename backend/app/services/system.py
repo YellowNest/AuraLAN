@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
 import socket
 import threading
 import time
@@ -14,6 +15,7 @@ from typing import Any, Callable
 from ..discovery.integrations import caddy, docker, pihole, wireguard
 from ..discovery.integrations.base import enrich as enrich_integration
 from ..discovery.network import devices, dnsmasq, iproute, iw, networkmanager
+from ..persistence.device_store import store
 
 CACHE_TTL_SECONDS = 2.0
 _cache_lock = threading.Lock()
@@ -200,7 +202,20 @@ def _collect() -> dict[str, Any]:
         except Exception as exc:
             errors.append(f"{identifier} discovery unavailable: {type(exc).__name__}")
     service_items = [enrich_integration(item) for item in service_items]
-    return {"generated_at": datetime.now(UTC).isoformat(), "system": system_state(network, service_items, errors), "host": host(), "network": network, "devices": device_rows, "services": {"items": service_items}, "errors": errors}
+    try:
+        activity = store().recent_events(20)
+    except (OSError, sqlite3.Error):
+        activity = []
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "system": system_state(network, service_items, errors),
+        "host": host(),
+        "network": network,
+        "devices": device_rows,
+        "services": {"items": service_items},
+        "activity": activity,
+        "errors": errors,
+    }
 
 
 def system_snapshot(force: bool = False) -> dict[str, Any]:

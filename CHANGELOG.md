@@ -21,6 +21,8 @@ Development target: `0.4.1`.
 
 ### Added
 
+- AuraLAN now keeps a compact local first-seen discovery history and shows recent device discoveries on Overview.
+- Device aliases update matching discovery labels, while multi-interface devices only generate a discovery when all observed identities are new, reducing false "new device" entries for an existing machine gaining another adapter.
 - Device inventory now exposes first/last-seen timestamps, local notes and favorites in the device inspector.
 - Device search includes local notes, and the device view can filter favorites and devices first seen by AuraLAN within the last 24 hours.
 - The overview surfaces newly seen devices without treating them as a security verdict; inventory data remains local to AuraLAN.

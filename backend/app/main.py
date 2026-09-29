@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .brand import brand
 from .models import (
+    ActivityResponse,
     DiagnosticsResponse,
     DevicesResponse,
     DeviceMetadataUpdate,
@@ -119,6 +120,11 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
     if not item:
         raise HTTPException(status_code=404, detail="Device disappeared during update")
     return item
+
+
+@app.get("/api/v1/activity", response_model=ActivityResponse)
+def activity_status() -> dict:
+    return {"items": system_snapshot()["activity"]}
 
 
 @app.get("/api/v1/services", response_model=ServicesResponse)

@@ -560,9 +560,11 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
     except (OSError, sqlite3.Error) as exc:
         metadata = {}
         warnings.append(f"AuraLAN device metadata storage is unavailable: {type(exc).__name__}")
+    new_ids = {identifier for identifier, item in metadata.items() if item.get("_new_presence")}
     resolved = resolve_observations(provider_results, metadata)
     try:
         active_store.remember_identities(resolved)
+        active_store.record_first_seen(resolved, new_ids)
     except (OSError, sqlite3.Error):
         pass
     return resolved, warnings

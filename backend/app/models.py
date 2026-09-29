@@ -210,6 +210,20 @@ class ServicesResponse(BaseModel):
     items: list[ServiceResponse] = Field(default_factory=list)
 
 
+class ActivityEventResponse(BaseModel):
+    id: int
+    event_type: Literal["device_first_seen"]
+    entity_id: str
+    display_name: str | None = None
+    ip: str | None = None
+    mac: str | None = None
+    created_at: int
+
+
+class ActivityResponse(BaseModel):
+    items: list[ActivityEventResponse] = Field(default_factory=list)
+
+
 class SystemStateResponse(BaseModel):
     state: HealthState
     title: str
@@ -224,6 +238,7 @@ class StatusResponse(BaseModel):
     network: NetworkResponse
     devices: list[DeviceResponse] = Field(default_factory=list)
     services: ServicesResponse
+    activity: list[ActivityEventResponse] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
 
