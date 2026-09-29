@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, isNewDevice, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -76,7 +76,8 @@ function normalizeStatus(payload) {
     dhcp: Boolean(device.dhcp), lease_expires_at: device.lease_expires_at ?? null, lease: device.lease || { present: Boolean(device.dhcp), expires_at: device.lease_expires_at ?? null },
     first_seen_at: device.first_seen_at ?? null, last_seen_at: device.last_seen_at ?? null,
     identity: device.identity || { display_name: null, vendor: null, model: null, device_type: null, sources: [] },
-    metadata: device.metadata || { alias: null, category_override: null }, observations: Array.isArray(device.observations) ? device.observations : []
+    metadata: { alias: null, category_override: null, note: null, favorite: false, ...(device.metadata || {}) },
+    observations: Array.isArray(device.observations) ? device.observations : []
   }));
   const offlineServices = legacyServices.filter((item) => item.detected && item.state === 'offline').length;
   const fallbackSystem = offlineServices ? {
@@ -202,7 +203,9 @@ function renderDeviceRows(items, compact = false) {
     const presentation = devicePresentation(device);
     const ip = safe(device.ip, '—');
     const mac = safe(device.mac, '—');
-    const listIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
+    const baseIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
+    const inventoryTags = [device.metadata?.favorite ? t('favorite') : '', isNewDevice(device) ? t('newToAuraLAN') : ''].filter(Boolean);
+    const listIdentity = [baseIdentity, ...inventoryTags].filter(Boolean).join(' · ');
     const mobileMeta = [ip !== '—' ? ip : '', presentation.connectionSummary].filter(Boolean).join(' · ');
     return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${listIdentity ? `<small class="device-list-identity">${escapeHtml(listIdentity)}</small>` : ''}<em class="device-mobile-meta">${escapeHtml(mobileMeta)}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
@@ -213,6 +216,7 @@ function renderOverview() {
   const ap = network.access_point || {};
   const detectedServices = visibleServiceItems(serviceItems());
   const onlineDevices = devices().filter((item) => item.online === true).length;
+  const newDevices = devices().filter((item) => isNewDevice(item));
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
@@ -234,6 +238,7 @@ function renderOverview() {
     : '';
 
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
+  ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(devices(), true)}</div></section>
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
 }
@@ -282,6 +287,8 @@ function renderDevices() {
   const result = filteredDevices();
   const unidentified = allDevices.filter((item) => item.category === 'unknown' && !item.vendor && !item.model && !item.hostname && !item.metadata?.alias).length;
   const filters = [['all', t('all')], ['online', t('online')]];
+  if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
+  if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
     if (allDevices.some((item) => item.connection_type === id)) filters.push([id, label]);
   }
@@ -357,11 +364,21 @@ async function saveDeviceMetadata(form) {
   const deviceId = form.dataset.deviceId;
   const data = new FormData(form);
   const alias = String(data.get('alias') || '').trim();
+  const categoryOverride = String(data.get('category_override') || '').trim();
+  const note = String(data.get('note') || '').trim();
+  const favorite = String(data.get('favorite') || 'false') === 'true';
   const submit = form.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
     await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/metadata`, 8000, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alias: alias || null })
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alias: alias || null,
+        category_override: categoryOverride || null,
+        note: note || null,
+        favorite,
+      })
     });
     await refresh(false);
     showDevice(deviceId);
@@ -486,6 +503,8 @@ function showDevice(id) {
       ? [detailRow(t('signal'), `${device.signal_dbm} dBm${presentation.quality ? ` · ${presentation.quality}` : ''}`, 'signal')]
       : []),
     detailRow(t('status'), status, deviceState(device) === 'online' ? 'success' : 'info'),
+    detailRow(t('firstSeen'), formatTimestamp(device.first_seen_at), 'uptime'),
+    detailRow(t('lastSeen'), formatTimestamp(device.last_seen_at), 'uptime'),
   ].join('');
 
   const identityRows = [
@@ -496,6 +515,17 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
+  const categoryOptions = [
+    `<option value="" ${device.metadata?.category_override ? '' : 'selected'}>${escapeHtml(t('automatic'))}</option>`,
+    ...deviceCategories.filter((category) => category !== 'unknown').map((category) =>
+      `<option value="${category}" ${device.metadata?.category_override === category ? 'selected' : ''}>${escapeHtml(categoryLabel(category))}</option>`
+    ),
+  ].join('');
+  const favoriteOptions = [
+    ['false', t('normalPriority')],
+    ['true', t('favorite')],
+  ].map(([value, label]) => `<option value="${value}" ${Boolean(device.metadata?.favorite) === (value === 'true') ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
+
   inspector(
     presentation.name,
     t('device'),
@@ -505,6 +535,9 @@ function showDevice(id) {
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
+        <label><span>${t('category')}</span><select name="category_override">${categoryOptions}</select></label>
+        <label><span>${t('note')}</span><input name="note" maxlength="280" value="${escapeHtml(device.metadata?.note || '')}" placeholder="${escapeHtml(t('notePlaceholder'))}"></label>
+        <label><span>${t('priority')}</span><select name="favorite">${favoriteOptions}</select></label>
         <button class="primary-button" type="submit">${icon('success')}${t('save')}</button>
       </form>`,
     deviceIconKey(device),
