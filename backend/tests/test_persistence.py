@@ -189,6 +189,12 @@ class DefaultDataDirTests(unittest.TestCase):
 
             device_store.remember_inventory([record])
 
+            backfilled_events = device_store.recent_events()
+            self.assertEqual(len(backfilled_events), 1)
+            self.assertEqual(backfilled_events[0]["event_type"], "device_first_seen")
+            self.assertEqual(backfilled_events[0]["entity_id"], "001122334455")
+            self.assertEqual(backfilled_events[0]["created_at"], metadata["first_seen_at"])
+
             remembered = device_store.known_devices([])
             self.assertEqual(len(remembered), 1)
             self.assertEqual(remembered[0]["state"], "known")
