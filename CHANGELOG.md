@@ -10,6 +10,7 @@ Development target: `0.5.0`.
 
 ### Fixed
 
+- The aggregate status endpoint now includes AuraLAN and API version metadata, matching health/diagnostics and making release verification self-contained.
 - Favorite-device absence events are now debounced with a persistent grace period, preventing one transient discovery miss from producing a `favorite_not_seen` webhook or activity event while still reporting a confirmed return immediately.
 - Clean systemd installs now build in an isolated staging directory and remove an incomplete activation automatically, so dependency or first-start failures are safe to retry.
 - Git-backed install and upgrade sources now refuse dirty worktrees, preventing validation from checking files that differ from the archived commit.
