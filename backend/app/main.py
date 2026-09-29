@@ -58,6 +58,10 @@ def meta() -> dict:
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health() -> dict:
     metadata = brand()
+    try:
+        store().readiness_check()
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN metadata storage is unavailable") from exc
     return {"ok": True, "mode": "local-metadata", "api_version": metadata["apiVersion"], "version": metadata["version"]}
 
 

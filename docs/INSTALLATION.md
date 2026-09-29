@@ -54,7 +54,9 @@ From a clean reviewed checkout:
 sudo ./scripts/install.sh
 ```
 
-The installer deliberately performs **clean installs only**. It refuses to overwrite a populated `/opt/auralan`, excludes local runtime/credential files when installing from a non-Git source tree, creates a dedicated unprivileged service account, installs dependencies inside AuraLAN's own virtual environment, installs the canonical systemd unit, starts it bound to loopback, and waits for the health endpoint before reporting success.
+The installer deliberately performs **clean installs only**. It refuses to overwrite a populated `/opt/auralan`, excludes local runtime/credential files when installing from a non-Git source tree, creates a dedicated unprivileged service account, and builds the complete application in an isolated staging directory before activation. A dependency or readiness failure therefore does not leave a partially populated application prefix or a broken enabled unit. Git-backed installs also refuse dirty worktrees so the files validated and archived are the same committed source.
+
+Before activation, the staged runtime opens a disposable AuraLAN state directory. After activation, the installer waits for the state-aware health endpoint; if first startup fails, the incomplete application and unit are removed so the clean install can be retried safely.
 
 It does not change Docker permissions, Pi-hole permissions, firewall rules, Wi-Fi, DHCP, DNS, or reverse-proxy configuration.
 
@@ -99,13 +101,16 @@ sudo ./scripts/upgrade.sh
 
 The upgrader stages the complete new application and Python environment before stopping the running service. It then:
 
+- refuses a dirty Git source before validation or archiving
 - validates the release source and runs backend regression tests before the switch
 - creates a consistent pre-upgrade backup of the AuraLAN SQLite database when one exists
+- runs the staged release against a copy of that database before activation
 - leaves `/etc/default/auralan` and the configured data directory outside the application tree
-- swaps the application directory only after staging succeeds
+- swaps the application directory only after staging and state readiness succeed
 - installs the matching systemd unit
-- waits for the health endpoint
+- waits for the state-aware health endpoint, which opens/prepares the real metadata store
 - restores the previous code, unit, and pre-upgrade database automatically if activation fails
+- diagnoses interrupted-upgrade markers before suggesting a clean install
 
 The canonical application directory is `/opt/auralan`. The updater deliberately refuses to act on an unknown layout rather than guessing.
 

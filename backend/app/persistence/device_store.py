@@ -97,6 +97,25 @@ class DeviceStore:
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         connection.commit()
 
+    def readiness_check(self) -> dict[str, int | bool]:
+        """Verify that AuraLAN can open and prepare its local state database.
+
+        Health and staged upgrades use this deliberately small operation so a
+        process is not considered ready merely because Uvicorn can answer HTTP.
+        """
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                connection.execute("SELECT 1 FROM device_metadata LIMIT 1").fetchone()
+                version_row = connection.execute("PRAGMA user_version").fetchone()
+                return {
+                    "ready": True,
+                    "schema_version": int(version_row[0]) if version_row else 0,
+                }
+            finally:
+                connection.close()
+
     def enrich(self, device_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Return metadata/presence and write a bounded once-per-minute last-seen stamp."""
         if not device_ids:
