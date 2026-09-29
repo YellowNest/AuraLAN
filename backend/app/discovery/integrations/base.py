@@ -26,6 +26,7 @@ APP_CAPABILITIES = {
     "device_presence": True,
     "background_monitor": True,
     "webhook_notifications": True,
+    "wake_on_lan": False,
     "dhcp_editing": False,
     "wifi_editing": False,
     "service_actions": False,

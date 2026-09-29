@@ -29,6 +29,14 @@ class MetaResponse(BaseModel):
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
+class WakeResponse(BaseModel):
+    sent: bool = True
+    device_id: str
+    mac: str
+    broadcast: str
+    port: int
+
+
 class HealthResponse(BaseModel):
     ok: bool
     mode: Literal["local-metadata"] = "local-metadata"

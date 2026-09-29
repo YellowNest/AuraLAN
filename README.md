@@ -29,6 +29,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | **A device inventory that remembers** | Track first/last seen time, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, keep previously seen devices visible, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | Optional reliable webhooks can report new devices and favorite watch-state changes, with network identifiers excluded by default. |
+| **Safe opt-in actions** | Wake-on-LAN can be enabled explicitly to wake known devices without turning AuraLAN into a router or remote shell. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
@@ -75,7 +76,9 @@ The Devices view can search locations and tags, sort by smart order, name, last 
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes and favorites.
+By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes, locations, tags and favorites.
+
+The 0.6 development line also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration.
 
 ## Quick start
 
@@ -111,6 +114,7 @@ See **[Configuration](docs/CONFIGURATION.md)** for:
 - non-standard Pi-hole FTL database location
 - continuous background monitoring interval
 - optional webhook/Home Assistant notifications and privacy controls
+- opt-in Wake-on-LAN action and broadcast settings
 - service/deployment overrides
 
 ## Compatibility
@@ -148,6 +152,7 @@ GET   /api/v1/network
 GET   /api/v1/devices
 GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
+POST  /api/v1/devices/{id}/wake
 GET   /api/v1/activity?limit=50
 GET   /api/v1/monitor
 GET   /api/v1/notifications

@@ -17,6 +17,9 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_WEBHOOK_URL` | unset | Optional HTTP(S) endpoint for new-device and favorite-watch events |
 | `AURALAN_WEBHOOK_BEARER_TOKEN` | unset | Optional bearer token sent only in the webhook Authorization header |
 | `AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS` | off | Opt in to include AuraLAN device ID, IP and MAC in webhook event payloads |
+| `AURALAN_ENABLE_WAKE_ON_LAN` | off | Explicitly enable the Wake-on-LAN action for known devices |
+| `AURALAN_WAKE_BROADCAST` | `255.255.255.255` | IPv4 broadcast address used for Wake-on-LAN magic packets |
+| `AURALAN_WAKE_PORT` | `9` | UDP destination port for Wake-on-LAN packets |
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
@@ -80,6 +83,27 @@ AURALAN_WEBHOOK_BEARER_TOKEN=replace-me
 ```
 
 The configured URL and bearer token are never returned by AuraLAN's status, diagnostics, or Prometheus endpoints. The Settings page can send an explicit test event once a webhook is configured.
+
+## Wake-on-LAN
+
+Wake-on-LAN is disabled by default because it is an active network action rather than passive discovery.
+
+Enable it explicitly in the service environment:
+
+```bash
+AURALAN_ENABLE_WAKE_ON_LAN=1
+```
+
+When enabled, AuraLAN exposes a **Wake device** action for remembered devices with a usable unicast MAC address. The action sends one standard WOL magic packet and does not change DHCP, DNS, firewall, switch, router, BIOS, or operating-system settings.
+
+The default packet destination is the limited IPv4 broadcast address on UDP port 9. Networks that require a directed broadcast or another WOL port can override them:
+
+```bash
+AURALAN_WAKE_BROADCAST=192.0.2.255
+AURALAN_WAKE_PORT=9
+```
+
+The target device still needs Wake-on-LAN enabled in its firmware/NIC/operating-system configuration. AuraLAN cannot guarantee that a device will wake merely because the packet was sent.
 
 ## Pi-hole FTL
 

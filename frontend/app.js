@@ -38,6 +38,7 @@ const state = {
     device_locations: false,
     device_tags: false,
     device_presence: false,
+    wake_on_lan: false,
   },
   mode: 'read-only'
 };
@@ -555,6 +556,16 @@ function downloadInventory(format) {
   toast(t('inventoryExported'));
 }
 
+async function wakeDevice(deviceId) {
+  try {
+    await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/wake`, 8000, { method: 'POST' });
+    toast(t('wakeSent'));
+    setTimeout(() => refresh(false), 2500);
+  } catch {
+    toast(t('wakeFailed'));
+  }
+}
+
 async function sendTestNotification() {
   try {
     const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
@@ -727,6 +738,12 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
+  const wakeAvailable = Boolean(
+    state.capabilities.wake_on_lan
+    && device.online !== true
+    && [...(device.mac_addresses || []), device.mac].some((value) => value && value !== '—')
+  );
+
   const favoriteOptions = [
     ['false', t('normalPriority')],
     ['true', t('favorite')],
@@ -738,6 +755,7 @@ function showDevice(id) {
     `<p class="inspector-summary">${escapeHtml(summary)}</p>
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div></div>
+      ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
@@ -863,6 +881,7 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
+  if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
   if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {
