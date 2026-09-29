@@ -93,12 +93,12 @@ test('inventory export is stable, private-data explicit, and CSV-safe', () => {
   }];
 
   const rows = inventoryExportRows(items);
-  assert.equal(rows[0].name, 'Kitchen "sensor"');
+  assert.equal(rows[0].name, '=HYPERLINK("https://example.invalid","sensor")');
   assert.equal(rows[0].note, 'Kitchen, shelf');
   assert.deepEqual(rows[0].ip_addresses, ['192.0.2.55']);
 
   const csv = inventoryCsv(items);
-  assert.match(csv, /"Kitchen ""sensor"""/);
+  assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.invalid"",""sensor""\)"/);
   assert.match(csv, /"Kitchen, shelf"/);
   assert.match(csv, /"02:00:00:00:00:55"/);
 });
