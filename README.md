@@ -62,7 +62,7 @@ A "new" device means **new to this AuraLAN installation within the last 24 hours
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Its only write operation stores AuraLAN-local device inventory metadata such as aliases, notes and favorites.
+The current release does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes and favorites.
 
 ## Quick start
 
