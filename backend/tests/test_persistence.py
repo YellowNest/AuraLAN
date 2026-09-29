@@ -138,7 +138,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 4)
+            self.assertEqual(result["schema_version"], 5)
 
             connection = sqlite3.connect(db_path)
             try:
