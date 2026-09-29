@@ -126,6 +126,8 @@ class DeviceMetadataResponse(BaseModel):
     category_override: DeviceCategory | None = None
     note: str | None = None
     favorite: bool = False
+    location: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class DeviceObservationResponse(BaseModel):
@@ -145,6 +147,8 @@ class DeviceMetadataUpdate(BaseModel):
     category_override: DeviceCategory | None = None
     note: str | None = Field(default=None, max_length=280)
     favorite: bool = False
+    location: str | None = Field(default=None, max_length=60)
+    tags: list[str] | None = Field(default=None, max_length=8)
 
 
 class DeviceResponse(BaseModel):
