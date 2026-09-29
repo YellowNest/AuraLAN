@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,12 +18,14 @@ from .models import (
     HealthResponse,
     HostResponse,
     MetaResponse,
+    MonitorResponse,
     NetworkResponse,
     ServicesResponse,
     ServiceResponse,
     StatusResponse,
 )
 from .metrics import render_prometheus
+from .monitor import BackgroundMonitor
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
@@ -30,7 +33,25 @@ from .services.system import host, system_snapshot
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
 
-app = FastAPI(title="AuraLAN", version=brand()["version"], docs_url=None, redoc_url=None)
+background_monitor = BackgroundMonitor(system_snapshot)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    background_monitor.start()
+    try:
+        yield
+    finally:
+        background_monitor.stop()
+
+
+app = FastAPI(
+    title="AuraLAN",
+    version=brand()["version"],
+    docs_url=None,
+    redoc_url=None,
+    lifespan=lifespan,
+)
 
 
 @app.middleware("http")
@@ -69,13 +90,19 @@ def health() -> dict:
 
 @app.get("/api/v1/status", response_model=StatusResponse)
 def status() -> dict:
-    return system_snapshot()
+    return {**system_snapshot(), "monitor": background_monitor.status()}
+
+
+@app.get("/api/v1/monitor", response_model=MonitorResponse)
+def monitor_status() -> dict:
+    return background_monitor.status()
 
 
 @app.get("/metrics", include_in_schema=False)
 def metrics() -> Response:
+    snapshot = {**system_snapshot(), "monitor": background_monitor.status()}
     return Response(
-        render_prometheus(system_snapshot()),
+        render_prometheus(snapshot),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
 
@@ -158,7 +185,7 @@ def diagnostics() -> dict:
     return {
         "generated_at": snapshot["generated_at"], "api_version": brand()["apiVersion"],
         "app_version": brand()["version"], "mode": "local-metadata", "host": snapshot["host"],
-        "network": snapshot["network"], "services": snapshot["services"], "discovery_errors": snapshot["errors"],
+        "network": snapshot["network"], "services": snapshot["services"], "monitor": background_monitor.status(), "discovery_errors": snapshot["errors"],
     }
 
 
