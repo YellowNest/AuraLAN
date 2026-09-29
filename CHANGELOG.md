@@ -21,6 +21,7 @@ Development target: `0.4.1`.
 
 ### Added
 
+- A dependency-free Prometheus `/metrics` endpoint now exposes aggregate inventory, service and host-health gauges without device identities, addresses or notes.
 - The Devices view can export the current local inventory as CSV or JSON in-browser, with an explicit privacy warning and spreadsheet-formula neutralization for untrusted network-provided values.
 - The Network view now includes an evidence-based map that groups current devices by confirmed Wi-Fi, Ethernet, VPN or other connection evidence and links each visible node back to its device details.
 - Previously observed devices now remain in the inventory as **Not seen now** when they are absent from the current discovery pass, preserving last-known identity, addressing and presence data without pretending absence proves the device is offline.

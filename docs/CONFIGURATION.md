@@ -58,6 +58,21 @@ Host-specific settings belong in `/etc/default/auralan` for the supplied systemd
 
 Do not place credentials in the repository. Environment overrides containing private paths or deployment-specific values belong on the host.
 
+## Prometheus
+
+AuraLAN exposes aggregate metrics at `/metrics` on the same HTTP listener as the dashboard. No extra dependency or token is required.
+
+Example Prometheus scrape configuration:
+
+```yaml
+scrape_configs:
+  - job_name: auralan
+    static_configs:
+      - targets: ['127.0.0.1:8787']
+```
+
+The endpoint intentionally excludes device names, IDs, IP/MAC addresses, notes, and per-device labels. If AuraLAN is exposed beyond loopback, protect `/metrics` with the same reverse-proxy/access policy as the dashboard.
+
 ## Offline OUI registry
 
 AuraLAN never requires an online MAC-vendor service. It reads common Linux OUI database locations automatically.

@@ -30,6 +30,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
+| **Prometheus-ready** | A dependency-free `/metrics` endpoint exposes aggregate device, service and host health without device names, IP addresses, MAC addresses or notes. |
 | **Works with imperfect systems** | Optional providers fail independently instead of taking down the dashboard. |
 | **Phone to desktop** | Responsive interface with light, dark and system appearance. |
 
@@ -142,6 +143,7 @@ GET   /api/v1/activity
 GET   /api/v1/services
 GET   /api/v1/services/{id}
 GET   /api/v1/diagnostics
+GET   /metrics
 ```
 
 Normal dashboard refreshes use the aggregated status endpoint. Discovery is cached briefly and subprocesses are executed as literal argument lists with bounded timeouts; AuraLAN does not expose an arbitrary shell endpoint.
@@ -149,6 +151,8 @@ Normal dashboard refreshes use the aggregated status endpoint. Discovery is cach
 ## Privacy and security
 
 Runtime network information stays on the machine running AuraLAN. Device identity is not sent to external lookup services.
+
+The Prometheus endpoint intentionally exposes aggregate counts and host-health gauges only. It does not emit device names, IDs, IP/MAC addresses, notes, or per-device labels.
 
 The production systemd example binds to loopback by default. Remote LAN access should be an explicit choice, typically through a reverse proxy or by changing `AURALAN_HOST`.
 
