@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, device_presence_history, health, home_assistant_status, status, update_device_metadata
+from app.main import activity_status, device_presence_history, forget_remembered_device, health, home_assistant_status, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -286,6 +286,54 @@ class PersistenceReliabilityTests(unittest.TestCase):
                     "sample-device",
                     DeviceMetadataUpdate(alias="Sample device"),
                 )
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+
+class ForgetDeviceReliabilityTests(unittest.TestCase):
+    def test_forget_requires_a_remembered_not_current_device(self):
+        live = {"id": "live-device", "state": "online"}
+        with patch("app.main.system_snapshot", return_value={"devices": [live]}):
+            with self.assertRaises(HTTPException) as raised:
+                forget_remembered_device("live-device")
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_forget_removes_remembered_device_and_refreshes_snapshot(self):
+        remembered = {"id": "remembered-device", "state": "known"}
+        metadata_store = unittest.mock.Mock()
+        metadata_store.forget_device.return_value = True
+
+        with (
+            patch(
+                "app.main.system_snapshot",
+                side_effect=[
+                    {"devices": [remembered]},
+                    {"devices": []},
+                ],
+            ) as snapshot,
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            result = forget_remembered_device("remembered-device")
+
+        metadata_store.forget_device.assert_called_once_with("remembered-device")
+        self.assertEqual(snapshot.call_args_list[-1].kwargs, {"force": True})
+        self.assertEqual(
+            result,
+            {"forgotten": True, "device_id": "remembered-device"},
+        )
+
+    def test_forget_reports_storage_failure(self):
+        remembered = {"id": "remembered-device", "state": "known"}
+        metadata_store = unittest.mock.Mock()
+        metadata_store.forget_device.side_effect = sqlite3.OperationalError("locked")
+
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [remembered]}),
+            patch("app.main.store", return_value=metadata_store),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                forget_remembered_device("remembered-device")
 
         self.assertEqual(raised.exception.status_code, 503)
 
