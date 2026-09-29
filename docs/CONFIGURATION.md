@@ -8,11 +8,11 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 |---|---|---|
 | `AURALAN_HOST` | `127.0.0.1` in supplied scripts/unit | HTTP bind address |
 | `AURALAN_PORT` | `8787` | HTTP port |
-| `AURALAN_DATA_DIR` | `/var/lib/auralan` | AuraLAN-owned SQLite/runtime state |
+| `AURALAN_DATA_DIR` | user state directory; `/var/lib/auralan` in supplied systemd unit | AuraLAN-owned SQLite/runtime state |
 | `AURALAN_WIFI_INTERFACE` | automatic | Prefer one wireless interface when several exist |
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
-| `AURALAN_SERVICE` | auto-detected | Service name used by the local deployment helper |
+| `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
 
@@ -40,11 +40,21 @@ The file is opened read-only.
 
 ## Local data
 
-AuraLAN stores only its own metadata, such as user aliases and observation timestamps, in its SQLite database. Set a custom location with:
+AuraLAN stores only its own metadata, such as user aliases, identity cache data, and observation timestamps, in its SQLite database.
+
+Runtime state is deliberately separate from the source checkout:
+
+- the supplied systemd service uses `/var/lib/auralan/auralan.db`
+- an ordinary user process defaults to `$XDG_STATE_HOME/auralan/auralan.db`, or `~/.local/state/auralan/auralan.db` when `XDG_STATE_HOME` is unset
+- `AURALAN_DATA_DIR` can override either location
+
+For example:
 
 ```bash
 AURALAN_DATA_DIR=/srv/auralan
 ```
+
+Host-specific settings belong in `/etc/default/auralan` for the supplied systemd service, or in the process environment for development. They are not stored in the Git checkout.
 
 Do not place credentials in the repository. Environment overrides containing private paths or deployment-specific values belong on the host.
 
