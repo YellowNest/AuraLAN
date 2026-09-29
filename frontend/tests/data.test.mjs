@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, isNewDevice, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -15,6 +15,36 @@ test('device filtering supports friendly names, vendor, category, IP, and MAC', 
   assert.equal(filterDevices(devices, 'all', 'samsung')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'all', 'qe65q70t')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'unknown').length, 1);
+});
+
+test('device inventory supports new, favorite, and note discovery', () => {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const inventory = [
+    {
+      display_name: 'NAS',
+      category: 'server',
+      ip: '192.0.2.40',
+      mac: '02:00:00:00:00:04',
+      connection_type: 'ethernet',
+      first_seen_at: nowSeconds - 3600,
+      metadata: { favorite: true, note: 'Backup target' },
+    },
+    {
+      display_name: 'Old tablet',
+      category: 'tablet',
+      ip: '192.0.2.41',
+      mac: '02:00:00:00:00:05',
+      connection_type: 'wifi',
+      first_seen_at: nowSeconds - (3 * 24 * 60 * 60),
+      metadata: { favorite: false, note: null },
+    },
+  ];
+
+  assert.equal(isNewDevice(inventory[0], nowSeconds * 1000), true);
+  assert.equal(isNewDevice(inventory[1], nowSeconds * 1000), false);
+  assert.equal(filterDevices(inventory, 'new').length, 1);
+  assert.equal(filterDevices(inventory, 'favorites')[0].display_name, 'NAS');
+  assert.equal(filterDevices(inventory, 'all', 'backup target')[0].display_name, 'NAS');
 });
 
 test('absent optional integrations are not rendered as offline cards', () => {
