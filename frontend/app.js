@@ -105,6 +105,9 @@ function normalizeStatus(payload) {
     devices: legacyDevices,
     services: { items: legacyServices },
     activity: Array.isArray(payload.activity) ? payload.activity : [],
+    monitor: payload.monitor && typeof payload.monitor === 'object'
+      ? payload.monitor
+      : { enabled: false, interval_seconds: 0, running: false, last_attempt_at: null, last_success_at: null, last_error: null },
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -394,7 +397,18 @@ function settingSelect(id, label, helper, options, selected) {
 
 function renderSettings() {
   const refreshes = [[5000, t('seconds', { count: 5 })], [15000, t('seconds', { count: 15 })], [30000, t('seconds', { count: 30 })], [60000, t('seconds', { count: 60 })], [0, t('off')]];
-  return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section><section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
+  const monitor = state.data?.monitor || {};
+  const monitorState = monitor.enabled
+    ? (monitor.running ? t('monitorRunning') : t('monitorStopped'))
+    : t('monitorDisabled');
+  const monitorDetail = monitor.enabled
+    ? t('monitorEvery', { count: Number(monitor.interval_seconds || 0) })
+    : t('monitorDisabledHint');
+  const monitorLast = monitor.last_success_at ? formatTimestamp(monitor.last_success_at) : t('notYet');
+
+  return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('monitoring')}</p><h2>${t('continuousMonitoring')}</h2></header><div class="surface settings-list"><div class="setting-row monitor-setting"><div><strong>${escapeHtml(monitorState)}</strong><small>${escapeHtml(monitorDetail)}</small></div><div class="monitor-last"><span>${t('lastSuccessfulRun')}</span><strong>${escapeHtml(monitorLast)}</strong></div></div></div></section>
+  <section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
 }
 
 function renderView() {
