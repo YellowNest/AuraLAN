@@ -21,6 +21,8 @@ APP_CAPABILITIES = {
     "device_category_overrides": True,
     "device_notes": True,
     "device_favorites": True,
+    "device_locations": True,
+    "device_tags": True,
     "device_presence": True,
     "background_monitor": True,
     "webhook_notifications": True,
