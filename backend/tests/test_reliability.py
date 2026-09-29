@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, device_presence_history, health, status, update_device_metadata
+from app.main import activity_status, device_presence_history, health, home_assistant_status, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -59,6 +59,34 @@ class StatusMetadataTests(unittest.TestCase):
 
         self.assertEqual(result["version"], "9.8.7-test")
         self.assertEqual(result["api_version"], "v1")
+
+
+class HomeAssistantReliabilityTests(unittest.TestCase):
+    def test_home_assistant_endpoint_uses_aggregate_snapshot_only(self):
+        snapshot = {
+            "generated_at": "2026-09-29T19:00:00+02:00",
+            "system": {"state": "healthy", "attention_count": 0},
+            "devices": [],
+            "services": {"items": []},
+            "errors": [],
+        }
+        with (
+            patch("app.main.system_snapshot", return_value=snapshot),
+            patch("app.main.brand", return_value={"version": "9.8.7-test", "apiVersion": "v1"}),
+            patch("app.main._notification_status", return_value={"configured": False, "pending_events": 0}),
+            patch("app.main.wake_config") as wake,
+            patch("app.main.background_monitor") as monitor,
+        ):
+            wake.return_value.enabled = False
+            monitor.status.return_value = {"running": True, "last_success_at": 123}
+            result = home_assistant_status()
+
+        self.assertEqual(result["version"], "9.8.7-test")
+        self.assertEqual(result["api_version"], "v1")
+        self.assertEqual(result["devices_total"], 0)
+        self.assertTrue(result["monitor_running"])
+        self.assertFalse(result["webhook_configured"])
+        self.assertFalse(result["wake_on_lan_enabled"])
 
 
 class ActivityReliabilityTests(unittest.TestCase):
