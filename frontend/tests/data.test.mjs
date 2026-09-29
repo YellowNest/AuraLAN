@@ -77,7 +77,7 @@ test('network map groups current devices without reviving remembered devices', (
 
 test('inventory export is stable, private-data explicit, and CSV-safe', () => {
   const items = [{
-    presentation_name: 'Kitchen "sensor"',
+    presentation_name: '=HYPERLINK("https://example.invalid","sensor")',
     hostname: 'sensor.local',
     vendor: 'Example',
     model: 'T1',
