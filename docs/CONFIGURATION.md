@@ -14,6 +14,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
 | `AURALAN_WATCH_MISSING_GRACE` | `120` | Seconds a favorite must remain unobserved before AuraLAN emits `favorite_not_seen`; bounded to 0–86400 |
+| `AURALAN_PRESENCE_MISSING_GRACE` | `180` | Seconds a device must remain unobserved before AuraLAN records a general presence-history absence; bounded to 0–86400 |
 | `AURALAN_WEBHOOK_URL` | unset | Optional HTTP(S) endpoint for new-device and favorite-watch events |
 | `AURALAN_WEBHOOK_BEARER_TOKEN` | unset | Optional bearer token sent only in the webhook Authorization header |
 | `AURALAN_WEBHOOK_INCLUDE_IDENTIFIERS` | off | Opt in to include AuraLAN device ID, IP and MAC in webhook event payloads |
@@ -49,6 +50,20 @@ AURALAN_MONITOR_INTERVAL=120
 Set it to `0` to disable background discovery. Positive values below 15 seconds are clamped to 15 seconds to avoid accidental high-frequency scanning.
 
 The monitor uses the same bounded discovery code and local cache/store as normal dashboard refreshes. It does not enable telemetry or send device information anywhere.
+
+## Device presence history
+
+AuraLAN can keep a compact local transition history for each remembered device. The history records only meaningful state changes: when a device has remained unobserved long enough to be considered **not seen**, and when AuraLAN later sees it again.
+
+The default absence grace period is 180 seconds:
+
+```bash
+AURALAN_PRESENCE_MISSING_GRACE=180
+```
+
+A short discovery gap is therefore ignored instead of becoming a misleading timeline event. Positive evidence cancels a pending absence immediately. Set the value to `0` only when immediate transition logging is explicitly wanted.
+
+Presence history is bounded locally to avoid unbounded database growth. AuraLAN keeps at most 200 transitions per device and 5000 transitions overall. These events stay in AuraLAN's SQLite state and are not sent through the webhook notifier.
 
 ## Webhook notifications
 

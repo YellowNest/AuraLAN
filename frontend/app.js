@@ -38,6 +38,7 @@ const state = {
     device_locations: false,
     device_tags: false,
     device_presence: false,
+    device_presence_history: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -712,6 +713,37 @@ function inspector(title, eyebrow, content, iconName = 'info') {
   $('#inspector-close').focus();
 }
 
+function renderDevicePresenceHistory(items) {
+  if (!items.length) {
+    return `<div class="presence-history-empty">${escapeHtml(t('noPresenceHistory'))}</div>`;
+  }
+
+  return `<div class="presence-history-list">${items.map((event) => {
+    const returned = event.event_type === 'device_seen_again';
+    const label = returned ? t('presenceSeenAgain') : t('presenceNotSeen');
+    const glyph = returned ? 'success' : 'offline';
+    const when = formatTimestamp(event.created_at);
+    const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
+    return `<div class="presence-history-row"><span class="presence-history-icon">${icon(glyph)}</span><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('presenceEventHint'))}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time></div>`;
+  }).join('')}</div>`;
+}
+
+async function loadDevicePresenceHistory(deviceId) {
+  const target = $('#device-presence-history');
+  if (!target || target.dataset.deviceId !== deviceId) return;
+
+  try {
+    const response = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/presence?limit=50`);
+    const current = $('#device-presence-history');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = renderDevicePresenceHistory(response.items || []);
+  } catch {
+    const current = $('#device-presence-history');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = `<div class="presence-history-empty">${escapeHtml(t('presenceHistoryUnavailable'))}</div>`;
+  }
+}
+
 function showDevice(id) {
   const device = devices().find((item) => item.id === id);
   if (!device) return;
@@ -755,6 +787,7 @@ function showDevice(id) {
     `<p class="inspector-summary">${escapeHtml(summary)}</p>
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div></div>
+      ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
       ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
@@ -767,6 +800,10 @@ function showDevice(id) {
       </form>`,
     deviceIconKey(device),
   );
+
+  if (state.capabilities.device_presence_history) {
+    loadDevicePresenceHistory(device.id);
+  }
 }
 
 function serviceFields(service) {

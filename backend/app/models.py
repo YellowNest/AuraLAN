@@ -222,6 +222,19 @@ class ServicesResponse(BaseModel):
     items: list[ServiceResponse] = Field(default_factory=list)
 
 
+class PresenceHistoryEventResponse(BaseModel):
+    id: int
+    device_id: str
+    event_type: Literal["device_not_seen", "device_seen_again"]
+    display_name: str | None = None
+    created_at: int
+
+
+class PresenceHistoryResponse(BaseModel):
+    device_id: str
+    items: list[PresenceHistoryEventResponse] = Field(default_factory=list)
+
+
 class ActivityEventResponse(BaseModel):
     id: int
     event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]

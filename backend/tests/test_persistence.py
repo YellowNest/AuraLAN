@@ -5,7 +5,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from app.persistence.device_store import DeviceStore, default_data_dir, watch_missing_grace_seconds
+from app.persistence.device_store import (
+    DeviceStore,
+    default_data_dir,
+    presence_missing_grace_seconds,
+    watch_missing_grace_seconds,
+)
 
 
 class DefaultDataDirTests(unittest.TestCase):
@@ -78,7 +83,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 6)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -138,7 +143,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 6)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -168,7 +173,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 6)
+            self.assertEqual(result["schema_version"], 7)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -263,7 +268,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             device_store = DeviceStore(Path(temp_dir))
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 6)
+            self.assertEqual(result["schema_version"], 7)
 
             enriched = device_store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Printer")
@@ -271,6 +276,127 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertEqual(enriched["favorite"], 1)
             self.assertIsNone(enriched["location"])
             self.assertEqual(enriched["tags"], [])
+
+    def test_schema_six_adds_presence_history_tables_without_touching_existing_state(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            device_store.readiness_check()
+
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("DROP TABLE device_presence_state")
+                connection.execute("DROP TABLE device_presence_history")
+                connection.execute("PRAGMA user_version = 6")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = device_store.readiness_check()
+            self.assertEqual(result["schema_version"], 7)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                }
+            finally:
+                connection.close()
+
+            self.assertIn("device_presence_state", tables)
+            self.assertIn("device_presence_history", tables)
+
+    def test_presence_history_debounces_absence_and_records_return(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_PRESENCE_MISSING_GRACE": "180"},
+            clear=False,
+        ):
+            device_store = DeviceStore(Path(temp_dir))
+            device = {
+                "id": "001122334455",
+                "display_name": "Laptop",
+                "state": "online",
+            }
+
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_presence_transitions([device])
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+            device["state"] = "known"
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_presence_transitions([device])
+            with patch("app.persistence.device_store.time.time", return_value=1180):
+                device_store.record_presence_transitions([device])
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+            with patch("app.persistence.device_store.time.time", return_value=1240):
+                device_store.record_presence_transitions([device])
+
+            history = device_store.presence_history(device["id"])
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["event_type"], "device_not_seen")
+
+            device["state"] = "online"
+            with patch("app.persistence.device_store.time.time", return_value=1300):
+                device_store.record_presence_transitions([device])
+
+            history = device_store.presence_history(device["id"])
+            self.assertEqual(
+                [item["event_type"] for item in history],
+                ["device_seen_again", "device_not_seen"],
+            )
+
+    def test_transient_presence_gap_is_not_persisted(self):
+        with TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ,
+            {"AURALAN_PRESENCE_MISSING_GRACE": "180"},
+            clear=False,
+        ):
+            device_store = DeviceStore(Path(temp_dir))
+            device = {"id": "001122334455", "display_name": "Laptop", "state": "online"}
+
+            with patch("app.persistence.device_store.time.time", return_value=1000):
+                device_store.record_presence_transitions([device])
+
+            device["state"] = "known"
+            with patch("app.persistence.device_store.time.time", return_value=1060):
+                device_store.record_presence_transitions([device])
+
+            device["state"] = "online"
+            with patch("app.persistence.device_store.time.time", return_value=1100):
+                device_store.record_presence_transitions([device])
+
+            self.assertEqual(device_store.presence_history(device["id"]), [])
+
+    def test_presence_history_limit_and_grace_configuration_are_bounded(self):
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "-1"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 0)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "999999"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 86400)
+        with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "bad"}, clear=False):
+            self.assertEqual(presence_missing_grace_seconds(), 180)
+
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            device = {"id": "001122334455", "display_name": "Laptop", "state": "online"}
+            with patch.dict(os.environ, {"AURALAN_PRESENCE_MISSING_GRACE": "0"}, clear=False):
+                with patch("app.persistence.device_store.time.time", return_value=1000):
+                    device_store.record_presence_transitions([device])
+                for index in range(3):
+                    device["state"] = "known"
+                    with patch("app.persistence.device_store.time.time", return_value=1100 + index * 20):
+                        device_store.record_presence_transitions([device])
+                    device["state"] = "online"
+                    with patch("app.persistence.device_store.time.time", return_value=1110 + index * 20):
+                        device_store.record_presence_transitions([device])
+
+            self.assertEqual(len(device_store.presence_history(device["id"], 2)), 2)
 
     def test_favorite_watch_absence_is_debounced_and_return_is_immediate(self):
         with TemporaryDirectory() as temp_dir, patch.dict(

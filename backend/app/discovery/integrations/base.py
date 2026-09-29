@@ -24,6 +24,7 @@ APP_CAPABILITIES = {
     "device_locations": True,
     "device_tags": True,
     "device_presence": True,
+    "device_presence_history": True,
     "background_monitor": True,
     "webhook_notifications": True,
     "wake_on_lan": False,

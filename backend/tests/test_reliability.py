@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, health, status, update_device_metadata
+from app.main import activity_status, device_presence_history, health, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -76,6 +76,48 @@ class ActivityReliabilityTests(unittest.TestCase):
 
             with self.assertRaises(HTTPException) as raised:
                 activity_status(50)
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+
+class PresenceHistoryReliabilityTests(unittest.TestCase):
+    def test_presence_endpoint_returns_bounded_device_history(self):
+        current = {"id": "sample-device"}
+        history = [
+            {
+                "id": 1,
+                "device_id": "sample-device",
+                "event_type": "device_not_seen",
+                "display_name": "Sample",
+                "created_at": 100,
+            }
+        ]
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [current]}),
+            patch("app.main.store") as store_factory,
+        ):
+            store_factory.return_value.presence_history.return_value = history
+            result = device_presence_history("sample-device", 37)
+
+        store_factory.return_value.presence_history.assert_called_once_with("sample-device", 37)
+        self.assertEqual(result, {"device_id": "sample-device", "items": history})
+
+    def test_presence_endpoint_rejects_unknown_device(self):
+        with patch("app.main.system_snapshot", return_value={"devices": []}):
+            with self.assertRaises(HTTPException) as raised:
+                device_presence_history("missing-device", 50)
+
+        self.assertEqual(raised.exception.status_code, 404)
+
+    def test_presence_endpoint_reports_storage_failure(self):
+        current = {"id": "sample-device"}
+        with (
+            patch("app.main.system_snapshot", return_value={"devices": [current]}),
+            patch("app.main.store") as store_factory,
+        ):
+            store_factory.return_value.presence_history.side_effect = sqlite3.DatabaseError("broken")
+            with self.assertRaises(HTTPException) as raised:
+                device_presence_history("sample-device", 50)
 
         self.assertEqual(raised.exception.status_code, 503)
 
