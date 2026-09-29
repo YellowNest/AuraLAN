@@ -1344,6 +1344,37 @@ textarea{
     font-size:11.5px;
   }
 
+  .network-map{
+    padding:14px;
+    border-radius:var(--mobile-radius);
+  }
+  .topology-root{
+    width:100%;
+    margin:0;
+  }
+  .topology-trunk{
+    height:16px;
+  }
+  .topology-groups{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  .topology-groups::before,
+  .topology-group::before{
+    display:none;
+  }
+  .topology-group{
+    padding:11px;
+    border-radius:13px;
+  }
+  .topology-device{
+    min-height:45px;
+  }
+  .section-hint{
+    max-width:none;
+    font-size:10.5px;
+  }
+
   .summary-stack{
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:9px;
@@ -2036,6 +2067,15 @@ textarea{
   }
   .network-hero-title h2{
     font-size:17px;
+  }
+  .topology-groups{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .topology-device-list{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .topology-more{
+    grid-column:1 / -1;
   }
   .network-facts div{
     padding:8px 6px;
