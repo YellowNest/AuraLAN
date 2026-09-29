@@ -17,6 +17,7 @@ from .models import (
     DeviceMetadataUpdate,
     DeviceResponse,
     HealthResponse,
+    HomeAssistantSummaryResponse,
     HostResponse,
     MetaResponse,
     MonitorResponse,
@@ -28,6 +29,7 @@ from .models import (
     StatusResponse,
     WakeResponse,
 )
+from .home_assistant import home_assistant_summary as build_home_assistant_summary
 from .metrics import render_prometheus
 from .monitor import BackgroundMonitor
 from .notifications import WebhookNotifier
@@ -154,6 +156,23 @@ def test_notification() -> dict:
     if not webhook_notifier.send_test():
         raise HTTPException(status_code=502, detail="AuraLAN webhook test delivery failed")
     return _notification_status()
+
+
+@app.get(
+    "/api/v1/integrations/home-assistant",
+    response_model=HomeAssistantSummaryResponse,
+)
+def home_assistant_status() -> dict:
+    snapshot = system_snapshot()
+    metadata = brand()
+    return build_home_assistant_summary(
+        snapshot,
+        version=metadata["version"],
+        api_version=metadata["apiVersion"],
+        monitor=background_monitor.status(),
+        notifications=_notification_status(),
+        wake_on_lan_enabled=wake_config().enabled,
+    )
 
 
 @app.get("/metrics", include_in_schema=False)
