@@ -21,6 +21,8 @@ Development target: `0.4.1`.
 
 ### Added
 
+- AuraLAN now performs continuous local discovery in the background by default, keeping inventory, first/last-seen timestamps, discovery history and favorite-device watch state current even when no browser is open; the interval is configurable and can be disabled.
+- Settings, diagnostics, Prometheus and `/api/v1/monitor` expose background-monitor health without including device identity data.
 - Favorite devices now double as a local watchlist: Overview highlights favorites that AuraLAN is not currently observing, and the Devices view can filter that exact state without calling the device offline.
 - Device discovery history now backfills from existing first-seen inventory data, adds a full local history inspector, and supports requesting up to 100 entries from `/api/v1/activity`.
 - A dependency-free Prometheus `/metrics` endpoint now exposes aggregate inventory, service and host-health gauges without device identities, addresses or notes.
