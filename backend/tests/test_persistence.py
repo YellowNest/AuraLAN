@@ -20,6 +20,25 @@ class DefaultDataDirTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/tmp/example-home")):
             self.assertEqual(default_data_dir(), Path("/tmp/example-home/.local/state/auralan"))
 
+    def test_readiness_check_bootstraps_and_reopens_state(self):
+        with TemporaryDirectory() as temp_dir:
+            device_store = DeviceStore(Path(temp_dir))
+            first = device_store.readiness_check()
+            second = device_store.readiness_check()
+
+            self.assertTrue(first["ready"])
+            self.assertEqual(first["schema_version"], second["schema_version"])
+            self.assertTrue((Path(temp_dir) / "auralan.db").is_file())
+
+    def test_readiness_check_rejects_a_non_sqlite_database(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "auralan.db"
+            path.write_text("not sqlite", encoding="utf-8")
+            device_store = DeviceStore(Path(temp_dir))
+
+            with self.assertRaises(Exception):
+                device_store.readiness_check()
+
     def test_inventory_metadata_round_trips_and_partial_updates_preserve_fields(self):
         with TemporaryDirectory() as temp_dir:
             device_store = DeviceStore(Path(temp_dir))
