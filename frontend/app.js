@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, isNewDevice, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isNewDevice, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -350,7 +350,7 @@ function renderDevices() {
   if (allDevices.some((item) => !['wifi', 'ethernet', 'vpn'].includes(item.connection_type))) {
     filters.push(['connection_unknown', t('otherConnections')]);
   }
-  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><p>${t('deviceCount', { count: result.length })}</p></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
+  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
 
 function renderServices() {
@@ -416,6 +416,62 @@ async function fetchJson(url, timeout = 8000, options = {}) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } finally { clearTimeout(timer); }
+}
+
+function preparedInventoryForExport() {
+  return devices().map((device) => ({
+    ...device,
+    presentation_name: devicePresentation(device).name,
+  }));
+}
+
+function openInventoryExport() {
+  inspector(
+    t('exportInventory'),
+    t('devices'),
+    `<p class="inspector-summary">${escapeHtml(t('exportInventoryHint'))}</p>
+      <div class="export-actions">
+        <button class="secondary-button" type="button" data-export-inventory="csv">${icon('download')}${t('exportCsv')}</button>
+        <button class="secondary-button" type="button" data-export-inventory="json">${icon('download')}${t('exportJson')}</button>
+      </div>`,
+    'download',
+  );
+}
+
+function downloadInventory(format) {
+  const prepared = preparedInventoryForExport();
+  const date = new Date();
+  const day = date.toISOString().slice(0, 10);
+  let content;
+  let type;
+  let extension;
+
+  if (format === 'json') {
+    content = JSON.stringify({
+      product: state.brand.productName,
+      version: state.brand.version,
+      exported_at: date.toISOString(),
+      devices: inventoryExportRows(prepared),
+    }, null, 2);
+    type = 'application/json;charset=utf-8';
+    extension = 'json';
+  } else {
+    content = inventoryCsv(prepared);
+    type = 'text/csv;charset=utf-8';
+    extension = 'csv';
+  }
+
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `auralan-device-inventory-${day}.${extension}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  closeDialog(inspectorDialog);
+  toast(t('inventoryExported'));
 }
 
 async function saveDeviceMetadata(form) {
@@ -703,6 +759,8 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-theme]')) applyTheme(trigger.dataset.theme);
   if (trigger.matches('[data-open-diagnostics]')) loadDiagnostics(true);
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
+  if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
+  if (trigger.matches('[data-export-inventory]')) downloadInventory(trigger.dataset.exportInventory);
   if (trigger.matches('[data-command-kind]')) {
     const { commandKind, commandId } = trigger.dataset;
     closeDialog(commandDialog);
