@@ -10,6 +10,7 @@ Development target: `0.6.0`.
 
 ### Added
 
+- Optional Wake-on-LAN can now be enabled explicitly for known devices. AuraLAN sends one validated UDP magic packet, prefers a globally administered unicast MAC when multiple NICs are known, and keeps the action disabled by default.
 - Device inventory organization now supports a local location field and up to eight lightweight tags per device. Locations and tags participate in search, survive remembered-device state, and are included in CSV/JSON exports.
 - The Devices view now offers persistent sorting by smart order, name, last seen, first seen, location or IP address.
 
