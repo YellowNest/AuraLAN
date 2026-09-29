@@ -21,6 +21,7 @@ Development target: `0.4.1`.
 
 ### Added
 
+- Favorite devices now double as a local watchlist: Overview highlights favorites that AuraLAN is not currently observing, and the Devices view can filter that exact state without calling the device offline.
 - Device discovery history now backfills from existing first-seen inventory data, adds a full local history inspector, and supports requesting up to 100 entries from `/api/v1/activity`.
 - A dependency-free Prometheus `/metrics` endpoint now exposes aggregate inventory, service and host-health gauges without device identities, addresses or notes.
 - The Devices view can export the current local inventory as CSV or JSON in-browser, with an explicit privacy warning and spreadsheet-formula neutralization for untrusted network-provided values.

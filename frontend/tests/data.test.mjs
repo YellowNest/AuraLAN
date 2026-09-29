@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isNewDevice, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -101,6 +101,20 @@ test('inventory export is stable, private-data explicit, and CSV-safe', () => {
   assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.invalid"",""sensor""\)"/);
   assert.match(csv, /"Kitchen, shelf"/);
   assert.match(csv, /"02:00:00:00:00:55"/);
+});
+
+test('favorite devices become a watchlist only when they are not currently seen', () => {
+  const currentFavorite = { display_name: 'NAS', state: 'online', connection_type: 'ethernet', metadata: { favorite: true } };
+  const missingFavorite = { display_name: 'Camera', state: 'known', connection_type: 'wifi', metadata: { favorite: true } };
+  const ordinaryRemembered = { display_name: 'Tablet', state: 'known', connection_type: 'wifi', metadata: { favorite: false } };
+
+  assert.equal(isFavoriteNotSeen(currentFavorite), false);
+  assert.equal(isFavoriteNotSeen(missingFavorite), true);
+  assert.equal(isFavoriteNotSeen(ordinaryRemembered), false);
+  assert.deepEqual(
+    filterDevices([currentFavorite, missingFavorite, ordinaryRemembered], 'favorite_missing').map((item) => item.display_name),
+    ['Camera'],
+  );
 });
 
 test('absent optional integrations are not rendered as offline cards', () => {
