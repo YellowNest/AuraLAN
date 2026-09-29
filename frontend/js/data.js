@@ -29,6 +29,18 @@ export function filterDevices(items, filter = 'all', query = '') {
   });
 }
 
+export function groupCurrentDevicesByConnection(items) {
+  const groups = { wifi: [], ethernet: [], vpn: [], unknown: [] };
+  for (const device of items) {
+    if (device?.state === 'known') continue;
+    const key = ['wifi', 'ethernet', 'vpn'].includes(device?.connection_type)
+      ? device.connection_type
+      : 'unknown';
+    groups[key].push(device);
+  }
+  return groups;
+}
+
 export function visibleServiceItems(items) {
   return items.filter((item) => item.detected);
 }
