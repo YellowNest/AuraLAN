@@ -129,6 +129,48 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(devices[0]["signal_quality"], "excellent")
         self.assertEqual(devices[0]["connection_type"], "wifi")
 
+    def test_default_route_gateway_is_identified_as_router(self):
+        device = resolve_observations(
+            [
+                self._observation(
+                    interface="lan-uplink",
+                    role="uplink",
+                    ip="192.0.2.1",
+                    neighbour_state="REACHABLE",
+                ),
+            ],
+            default_gateway="192.0.2.1",
+        )[0]
+
+        self.assertEqual(device["category"], "router")
+        self.assertEqual(device["device_type"], "router")
+        self.assertEqual(device["icon_key"], "router")
+        self.assertEqual(device["identity"]["device_type"]["source"], "default_route")
+        self.assertEqual(device["identity"]["device_type"]["confidence"], "high")
+        self.assertIn(
+            {"source": "default_route", "confidence": "high"},
+            device["identity"]["sources"],
+        )
+        self.assertEqual(device["connection_type"], "unknown")
+
+    def test_manual_category_override_still_wins_for_default_gateway(self):
+        device_id = "b8f862000001"
+        device = resolve_observations(
+            [
+                self._observation(
+                    interface="lan-uplink",
+                    role="uplink",
+                    ip="192.0.2.1",
+                    neighbour_state="REACHABLE",
+                ),
+            ],
+            {device_id: {"category_override": "server"}},
+            default_gateway="192.0.2.1",
+        )[0]
+
+        self.assertEqual(device["category"], "server")
+        self.assertEqual(device["identity"]["device_type"]["source"], "manual_alias")
+
     def test_uplink_neighbour_does_not_claim_client_is_ethernet(self):
         device = resolve_observations([
             self._observation(interface="lan-uplink", role="uplink", neighbour_state="REACHABLE"),
