@@ -102,7 +102,7 @@ button { cursor: pointer; }
 .eyebrow { margin: 0 0 7px; color: var(--text-faint); font-size: 10px; font-weight: 760; letter-spacing: .135em; line-height: 1.2; text-transform: uppercase; }
 h1, h2, h3, p { text-wrap: pretty; }
 h1, h2, h3 { letter-spacing: -.035em; }
-h1 { max-width: 700px; margin: 0; font-size: clamp(33px, 3.4vw, 48px); line-height: 1.1; }
+h1 { max-width: 700px; margin: 0; font-size: clamp(33px, 3.4vw, 48px); line-height: 1.04; }
 h2 { margin: 0; font-size: clamp(21px, 2.1vw, 28px); line-height: 1.1; }
 h3 { margin: 0; font-size: 16px; line-height: 1.2; }
 p { margin: 0; }
@@ -1172,7 +1172,7 @@ textarea{
   .page-header h1{
     overflow:hidden;
     font-size:clamp(27px,7.2vw,29px);
-    line-height:1.1;
+    line-height:1.02;
     letter-spacing:-.048em;
     text-overflow:ellipsis;
     white-space:nowrap;
