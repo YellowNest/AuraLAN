@@ -110,7 +110,7 @@ function normalizeStatus(payload) {
       : { enabled: false, interval_seconds: 0, running: false, last_attempt_at: null, last_success_at: null, last_error: null },
     notifications: payload.notifications && typeof payload.notifications === 'object'
       ? payload.notifications
-      : { configured: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
+      : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -416,7 +416,13 @@ function renderSettings() {
   const notifications = state.data?.notifications || {};
   const notificationState = notifications.configured ? t('webhookConfigured') : t('webhookNotConfigured');
   const notificationDetail = notifications.configured
-    ? (notifications.last_error ? t('webhookDeliveryError', { error: notifications.last_error }) : t('webhookConfiguredHint'))
+    ? (
+      notifications.last_error
+        ? t('webhookDeliveryError', { error: notifications.last_error })
+        : notifications.include_identifiers
+          ? t('webhookConfiguredIdentifiersHint')
+          : t('webhookConfiguredHint')
+    )
     : t('webhookConfigurationHint');
   const notificationLast = notifications.last_success_at ? formatTimestamp(notifications.last_success_at) : t('notYet');
 
