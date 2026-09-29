@@ -74,6 +74,7 @@ class WebhookNotifier:
         latest = self.event_store.latest_event_id() if self.enabled else 0
         return {
             "configured": self.enabled,
+            "include_identifiers": self.include_identifiers,
             "last_attempt_at": self.last_attempt_at,
             "last_success_at": self.last_success_at,
             "last_error": self.last_error,
