@@ -29,7 +29,13 @@ const state = {
   deviceFilter: 'all',
   deviceQuery: '',
   lastUpdated: null,
-  capabilities: { device_aliases: false, device_category_overrides: false },
+  capabilities: {
+    device_aliases: false,
+    device_category_overrides: false,
+    device_notes: false,
+    device_favorites: false,
+    device_presence: false,
+  },
   mode: 'read-only'
 };
 let commandSelection = 0;
