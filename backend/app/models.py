@@ -231,6 +231,15 @@ class SystemStateResponse(BaseModel):
     attention_count: int = 0
 
 
+class MonitorResponse(BaseModel):
+    enabled: bool = False
+    interval_seconds: int = 0
+    running: bool = False
+    last_attempt_at: int | None = None
+    last_success_at: int | None = None
+    last_error: str | None = None
+
+
 class StatusResponse(BaseModel):
     generated_at: str
     system: SystemStateResponse
@@ -239,6 +248,7 @@ class StatusResponse(BaseModel):
     devices: list[DeviceResponse] = Field(default_factory=list)
     services: ServicesResponse
     activity: list[ActivityEventResponse] = Field(default_factory=list)
+    monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     errors: list[str] = Field(default_factory=list)
 
 
@@ -250,4 +260,5 @@ class DiagnosticsResponse(BaseModel):
     host: HostResponse
     network: NetworkResponse
     services: ServicesResponse
+    monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     discovery_errors: list[str] = Field(default_factory=list)

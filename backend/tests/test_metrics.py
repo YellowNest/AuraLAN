@@ -41,6 +41,12 @@ class PrometheusMetricsTests(unittest.TestCase):
                 "temperature_celsius": 51.5,
             },
             "errors": ["example warning"],
+            "monitor": {
+                "enabled": True,
+                "running": True,
+                "interval_seconds": 60,
+                "last_success_at": 1_790_000_000,
+            },
         }
 
     def test_metrics_are_aggregate_and_omit_device_identity(self):
@@ -54,6 +60,10 @@ class PrometheusMetricsTests(unittest.TestCase):
         self.assertIn("auralan_services_detected 2", rendered)
         self.assertIn("auralan_services_online 1", rendered)
         self.assertIn("auralan_discovery_errors 1", rendered)
+        self.assertIn("auralan_monitor_enabled 1", rendered)
+        self.assertIn("auralan_monitor_running 1", rendered)
+        self.assertIn("auralan_monitor_interval_seconds 60", rendered)
+        self.assertIn("auralan_monitor_last_success_timestamp_seconds 1790000000", rendered)
         self.assertIn("auralan_host_temperature_celsius 51.5", rendered)
 
         for private_value in (

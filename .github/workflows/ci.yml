@@ -108,11 +108,19 @@ jobs:
                       status = json.load(response)
                   with urllib.request.urlopen(base + "/api/v1/health", timeout=2) as response:
                       health = json.load(response)
-                  if response.status == 200 and health.get("ok") is True and isinstance(status.get("devices"), list):
+                  monitor = status.get("monitor", {})
+                  if (
+                      response.status == 200
+                      and health.get("ok") is True
+                      and isinstance(status.get("devices"), list)
+                      and monitor.get("enabled") is True
+                      and monitor.get("running") is True
+                  ):
                       print(
                           "Smoke OK:",
                           f"system={status.get('system', {}).get('state', 'unknown')}",
                           f"devices={len(status['devices'])}",
+                          f"monitor={monitor.get('interval_seconds')}s",
                       )
                       break
               except (OSError, ValueError, urllib.error.URLError) as exc:

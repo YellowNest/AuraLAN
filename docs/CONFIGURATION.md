@@ -12,6 +12,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_WIFI_INTERFACE` | automatic | Prefer one wireless interface when several exist |
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
+| `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
@@ -27,6 +28,20 @@ AURALAN_WIFI_INTERFACE=hotspot0
 ```
 
 The name is an override, not a built-in assumption.
+
+## Continuous monitoring
+
+AuraLAN keeps discovering the local network even when no browser is open. By default one background discovery pass runs every 60 seconds, which keeps first/last-seen timestamps, remembered devices, activity history and favorite-device watch state useful without depending on dashboard polling.
+
+To change the interval:
+
+```bash
+AURALAN_MONITOR_INTERVAL=120
+```
+
+Set it to `0` to disable background discovery. Positive values below 15 seconds are clamped to 15 seconds to avoid accidental high-frequency scanning.
+
+The monitor uses the same bounded discovery code and local cache/store as normal dashboard refreshes. It does not enable telemetry or send device information anywhere.
 
 ## Pi-hole FTL
 

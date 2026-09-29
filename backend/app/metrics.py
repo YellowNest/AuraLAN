@@ -30,6 +30,7 @@ def render_prometheus(snapshot: dict[str, Any]) -> str:
     services = (snapshot.get("services") or {}).get("items") or []
     host = snapshot.get("host") or {}
     errors = snapshot.get("errors") or []
+    monitor = snapshot.get("monitor") or {}
 
     current_devices = [device for device in devices if device.get("state") != "known"]
     online_devices = [device for device in current_devices if device.get("online") is True]
@@ -46,6 +47,10 @@ def render_prometheus(snapshot: dict[str, Any]) -> str:
     _metric(lines, "auralan_services_detected", "Optional local services detected by AuraLAN.", len(detected_services))
     _metric(lines, "auralan_services_online", "Detected local services reporting online.", len(online_services))
     _metric(lines, "auralan_discovery_errors", "Discovery warnings in the latest AuraLAN snapshot.", len(errors))
+    _metric(lines, "auralan_monitor_enabled", "Whether continuous background monitoring is enabled.", 1 if monitor.get("enabled") else 0)
+    _metric(lines, "auralan_monitor_running", "Whether the background monitor thread is currently running.", 1 if monitor.get("running") else 0)
+    _metric(lines, "auralan_monitor_interval_seconds", "Configured continuous monitoring interval in seconds.", monitor.get("interval_seconds"))
+    _metric(lines, "auralan_monitor_last_success_timestamp_seconds", "Unix timestamp of the latest successful background discovery pass.", monitor.get("last_success_at"))
     _metric(lines, "auralan_host_memory_used_percent", "Host memory currently used, percent.", host.get("memory_used_percent"))
     _metric(lines, "auralan_host_storage_used_percent", "Root filesystem storage currently used, percent.", host.get("storage_used_percent"))
     _metric(lines, "auralan_host_temperature_celsius", "Host temperature in degrees Celsius when available.", host.get("temperature_celsius"))

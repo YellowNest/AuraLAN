@@ -22,6 +22,7 @@ APP_CAPABILITIES = {
     "device_notes": True,
     "device_favorites": True,
     "device_presence": True,
+    "background_monitor": True,
     "dhcp_editing": False,
     "wifi_editing": False,
     "service_actions": False,
