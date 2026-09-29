@@ -6,7 +6,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
-Next development target will be selected after the 0.6.0 release.
+Development target: `0.7.0`.
 
 ## [0.6.0] - 2026-09-29
 
