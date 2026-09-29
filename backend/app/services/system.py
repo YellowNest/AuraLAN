@@ -201,12 +201,18 @@ def _collect() -> dict[str, Any]:
 
 
 def system_snapshot(force: bool = False) -> dict[str, Any]:
+    """Return one bounded snapshot and collapse concurrent cache misses.
+
+    Discovery is the expensive part of AuraLAN. Keep the cache lock across a
+    refresh so simultaneous HTTP requests cannot launch duplicate discovery
+    passes. Timestamp the cache after collection; otherwise a slow-but-valid
+    refresh can already be expired by the time it finishes.
+    """
     global _cache
-    now = time.monotonic()
     with _cache_lock:
+        now = time.monotonic()
         if not force and _cache and now - _cache[0] < CACHE_TTL_SECONDS:
             return _cache[1]
-    snapshot = _collect()
-    with _cache_lock:
-        _cache = (now, snapshot)
-    return snapshot
+        snapshot = _collect()
+        _cache = (time.monotonic(), snapshot)
+        return snapshot
