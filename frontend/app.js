@@ -371,7 +371,6 @@ async function saveDeviceMetadata(form) {
   const deviceId = form.dataset.deviceId;
   const data = new FormData(form);
   const alias = String(data.get('alias') || '').trim();
-  const categoryOverride = String(data.get('category_override') || '').trim();
   const note = String(data.get('note') || '').trim();
   const favorite = String(data.get('favorite') || 'false') === 'true';
   const submit = form.querySelector('[type="submit"]');
@@ -382,7 +381,6 @@ async function saveDeviceMetadata(form) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         alias: alias || null,
-        category_override: categoryOverride || null,
         note: note || null,
         favorite,
       })
@@ -522,12 +520,6 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
-  const categoryOptions = [
-    `<option value="" ${device.metadata?.category_override ? '' : 'selected'}>${escapeHtml(t('automatic'))}</option>`,
-    ...deviceCategories.filter((category) => category !== 'unknown').map((category) =>
-      `<option value="${category}" ${device.metadata?.category_override === category ? 'selected' : ''}>${escapeHtml(categoryLabel(category))}</option>`
-    ),
-  ].join('');
   const favoriteOptions = [
     ['false', t('normalPriority')],
     ['true', t('favorite')],
@@ -542,7 +534,6 @@ function showDevice(id) {
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
         <label><span>${t('displayName')}</span><input name="alias" maxlength="80" value="${escapeHtml(device.metadata?.alias || '')}" placeholder="${escapeHtml(presentation.name)}"></label>
-        <label><span>${t('category')}</span><select name="category_override">${categoryOptions}</select></label>
         <label><span>${t('note')}</span><input name="note" maxlength="280" value="${escapeHtml(device.metadata?.note || '')}" placeholder="${escapeHtml(t('notePlaceholder'))}"></label>
         <label><span>${t('priority')}</span><select name="favorite">${favoriteOptions}</select></label>
         <button class="primary-button" type="submit">${icon('success')}${t('save')}</button>
