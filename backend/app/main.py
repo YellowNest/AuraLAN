@@ -21,12 +21,14 @@ from .models import (
     MetaResponse,
     MonitorResponse,
     NetworkResponse,
+    NotificationStatusResponse,
     ServicesResponse,
     ServiceResponse,
     StatusResponse,
 )
 from .metrics import render_prometheus
 from .monitor import BackgroundMonitor
+from .notifications import WebhookNotifier
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
@@ -34,7 +36,31 @@ from .services.system import host, system_snapshot
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
 
-background_monitor = BackgroundMonitor(system_snapshot)
+webhook_notifier = WebhookNotifier(store())
+
+
+def _after_background_snapshot(snapshot: dict) -> None:
+    store().record_watch_transitions(snapshot.get("devices") or [])
+    webhook_notifier.dispatch_pending()
+
+
+background_monitor = BackgroundMonitor(
+    system_snapshot,
+    after_collect=_after_background_snapshot,
+)
+
+
+def _notification_status() -> dict:
+    try:
+        return webhook_notifier.status()
+    except (OSError, sqlite3.Error):
+        return {
+            "configured": webhook_notifier.enabled,
+            "last_attempt_at": webhook_notifier.last_attempt_at,
+            "last_success_at": webhook_notifier.last_success_at,
+            "last_error": "StorageUnavailable",
+            "pending_events": 0,
+        }
 
 
 @asynccontextmanager
@@ -91,7 +117,11 @@ def health() -> dict:
 
 @app.get("/api/v1/status", response_model=StatusResponse)
 def status() -> dict:
-    return {**system_snapshot(), "monitor": background_monitor.status()}
+    return {
+        **system_snapshot(),
+        "monitor": background_monitor.status(),
+        "notifications": _notification_status(),
+    }
 
 
 @app.get("/api/v1/monitor", response_model=MonitorResponse)
@@ -99,9 +129,27 @@ def monitor_status() -> dict:
     return background_monitor.status()
 
 
+@app.get("/api/v1/notifications", response_model=NotificationStatusResponse)
+def notification_status() -> dict:
+    return _notification_status()
+
+
+@app.post("/api/v1/notifications/test", response_model=NotificationStatusResponse)
+def test_notification() -> dict:
+    if not webhook_notifier.enabled:
+        raise HTTPException(status_code=409, detail="AuraLAN webhook notifications are not configured")
+    if not webhook_notifier.send_test():
+        raise HTTPException(status_code=502, detail="AuraLAN webhook test delivery failed")
+    return _notification_status()
+
+
 @app.get("/metrics", include_in_schema=False)
 def metrics() -> Response:
-    snapshot = {**system_snapshot(), "monitor": background_monitor.status()}
+    snapshot = {
+        **system_snapshot(),
+        "monitor": background_monitor.status(),
+        "notifications": _notification_status(),
+    }
     return Response(
         render_prometheus(snapshot),
         media_type="text/plain; version=0.0.4; charset=utf-8",
@@ -186,7 +234,9 @@ def diagnostics() -> dict:
     return {
         "generated_at": snapshot["generated_at"], "api_version": brand()["apiVersion"],
         "app_version": brand()["version"], "mode": "local-metadata", "host": snapshot["host"],
-        "network": snapshot["network"], "services": snapshot["services"], "monitor": background_monitor.status(), "discovery_errors": snapshot["errors"],
+        "network": snapshot["network"], "services": snapshot["services"],
+        "monitor": background_monitor.status(), "notifications": _notification_status(),
+        "discovery_errors": snapshot["errors"],
     }
 
 
