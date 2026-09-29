@@ -62,7 +62,8 @@ export function inventoryExportRows(items) {
 }
 
 function csvCell(value) {
-  const text = Array.isArray(value) ? value.join(' | ') : value === null || value === undefined ? '' : String(value);
+  let text = Array.isArray(value) ? value.join(' | ') : value === null || value === undefined ? '' : String(value);
+  if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
