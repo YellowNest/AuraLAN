@@ -6,7 +6,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
-Development target: `0.5.0`.
+## [0.5.0] - 2026-09-29
 
 ### Fixed
 
@@ -20,6 +20,8 @@ Development target: `0.5.0`.
 - Concurrent cache misses now collapse into one discovery pass, and cache age starts when collection completes rather than before a slow refresh.
 - SQLite state now re-bootstraps its schema after a database replacement and metadata write failures return a controlled service-unavailable response instead of leaking an internal error.
 - NetworkManager terse output now honors escaped delimiters in connection names and SSIDs.
+- Ordinary Linux hosts are no longer marked unhealthy merely because their Wi-Fi interface is a client rather than an access point; AP mode becomes an explicit expectation only when `AURALAN_WIFI_INTERFACE` is configured.
+- dnsmasq is no longer treated as AuraLAN's DHCP source unless it is explicitly scoped to the confirmed access-point interface, preventing unrelated local DNS-cache instances from contributing misleading lease data.
 
 ### Added
 
@@ -40,11 +42,6 @@ Development target: `0.5.0`.
 - Device search includes local notes, and the device view can filter favorites and devices first seen by AuraLAN within the last 24 hours.
 - The overview surfaces newly seen devices without treating them as a security verdict; inventory data remains local to AuraLAN.
 - Canonical systemd installations now have a staged production upgrader that preserves host configuration and runtime state, creates a consistent SQLite backup, health-checks the new version, and restores code/unit/database state automatically on activation failure.
-
-### Fixed
-
-- Ordinary Linux hosts are no longer marked unhealthy merely because their Wi-Fi interface is a client rather than an access point; AP mode becomes an explicit expectation only when `AURALAN_WIFI_INTERFACE` is configured.
-- dnsmasq is no longer treated as AuraLAN's DHCP source unless it is explicitly scoped to the confirmed access-point interface, preventing unrelated local DNS-cache instances from contributing misleading lease data.
 
 ### Changed
 
