@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, isNewDevice, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, isNewDevice, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -264,6 +264,49 @@ function renderServiceCards(items, compact = false) {
   return `<div class="service-grid ${compact ? 'compact' : ''}">${items.map((service) => `<button class="service-card surface" type="button" data-service="${escapeHtml(service.id)}"><div class="service-card-top"><span class="service-symbol">${serviceMark(service.id)}</span>${statusPill(service.state)}</div><h3>${escapeHtml(service.name)}</h3><p>${escapeHtml(serviceSummary(service))}</p><span class="card-link">${t('details')} ${icon('chevron')}</span></button>`).join('')}</div>`;
 }
 
+function renderNetworkMap(network) {
+  const groups = groupCurrentDevicesByConnection(devices());
+  const definitions = [
+    ['wifi', t('wifi'), 'wifi'],
+    ['ethernet', t('ethernet'), 'ethernet'],
+    ['vpn', t('vpn'), 'vpn'],
+    ['unknown', t('otherConnections'), 'devices'],
+  ];
+  const visibleGroups = definitions.filter(([id]) => groups[id].length);
+  if (!visibleGroups.length) {
+    return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
+  }
+
+  const uplink = network.uplink || {};
+  const ap = network.access_point || {};
+  const rootName = ap.ssid || ap.connection || t('localNetwork');
+  const rootDetail = uplink.gateway ? `${t('gateway')} · ${uplink.gateway}` : t('localNetwork');
+
+  return `<section class="content-section network-map-section">
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapHint')}</p></div></header>
+    <div class="surface network-map">
+      <div class="topology-root"><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(rootDetail)}</small></div></div>
+      <div class="topology-trunk" aria-hidden="true"></div>
+      <div class="topology-groups">
+        ${visibleGroups.map(([id, label, glyph]) => {
+          const items = groups[id];
+          const visible = items.slice(0, 4);
+          return `<article class="topology-group">
+            <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: items.length }))}</small></div></header>
+            <div class="topology-device-list">
+              ${visible.map((device) => {
+                const presentation = devicePresentation(device);
+                return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}"><span>${icon(presentation.iconKey)}</span><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></button>`;
+              }).join('')}
+              ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
+            </div>
+          </article>`;
+        }).join('')}
+      </div>
+    </div>
+  </section>`;
+}
+
 function renderNetwork() {
   const network = state.data.network || {};
   const ap = network.access_point || {};
@@ -284,7 +327,8 @@ function renderNetwork() {
         <header><span class="panel-icon neutral">${icon('dhcp')}</span><div><p class="eyebrow">${t('addressAssignment')}</p><h2>DHCP</h2></div>${statusPill(dhcp.state)}</header>
         <div class="detail-list">${detailRow(t('activeAddresses'), dhcp.lease_count, 'devices')}</div>
       </article>
-    </section>`;
+    </section>
+    ${renderNetworkMap(network)}`;
 }
 
 function filteredDevices() {
