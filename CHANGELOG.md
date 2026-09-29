@@ -8,6 +8,10 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 Development target: `0.6.0`.
 
+### Fixed
+
+- The Home Assistant aggregate summary now counts only services actually detected by AuraLAN, matching the Prometheus metric and the field's documented meaning.
+
 ### Added
 
 - Home Assistant now has a dedicated aggregate REST summary endpoint with device/service counts, monitor health, webhook state and Wake-on-LAN capability while deliberately excluding per-device identity data; ready-to-adapt REST and webhook examples are documented separately.
