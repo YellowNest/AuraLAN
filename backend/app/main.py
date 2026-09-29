@@ -25,6 +25,7 @@ from .models import (
     ServicesResponse,
     ServiceResponse,
     StatusResponse,
+    WakeResponse,
 )
 from .metrics import render_prometheus
 from .monitor import BackgroundMonitor
@@ -32,6 +33,7 @@ from .notifications import WebhookNotifier
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
+from .wake import select_wake_mac, send_magic_packet, wake_config
 
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
@@ -103,7 +105,11 @@ async def safety_headers(request: Request, call_next):
 
 @app.get("/api/v1/meta", response_model=MetaResponse)
 def meta() -> dict:
-    return {"brand": brand(), "mode": "local-metadata", "capabilities": APP_CAPABILITIES}
+    return {
+        "brand": brand(),
+        "mode": "local-metadata",
+        "capabilities": {**APP_CAPABILITIES, "wake_on_lan": wake_config().enabled},
+    }
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
@@ -227,6 +233,37 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
     if not item:
         raise HTTPException(status_code=404, detail="Device disappeared during update")
     return item
+
+
+@app.post("/api/v1/devices/{device_id}/wake", response_model=WakeResponse)
+def wake_device(device_id: str) -> dict:
+    config = wake_config()
+    if not config.enabled:
+        raise HTTPException(status_code=403, detail="Wake-on-LAN is not enabled")
+
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if not current:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    mac = select_wake_mac(current)
+    if not mac:
+        raise HTTPException(status_code=409, detail="Device has no usable unicast MAC address")
+
+    try:
+        active = send_magic_packet(mac, config)
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail="Wake-on-LAN packet could not be sent") from exc
+
+    return {
+        "sent": True,
+        "device_id": device_id,
+        "mac": mac,
+        "broadcast": active.broadcast,
+        "port": active.port,
+    }
 
 
 @app.get("/api/v1/activity", response_model=ActivityResponse)
