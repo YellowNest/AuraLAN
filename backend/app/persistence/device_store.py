@@ -380,6 +380,29 @@ class DeviceStore:
                         updated_at=excluded.updated_at""",
                     rows,
                 )
+
+                # Older AuraLAN installations already have reliable first-seen
+                # timestamps but no event rows. Backfill once from the inventory
+                # so upgrading immediately produces useful local history.
+                for device_id in {str(row[0]) for row in rows}:
+                    connection.execute(
+                        """INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at)
+                           SELECT 'device_first_seen',
+                                  inventory.device_id,
+                                  COALESCE(metadata.alias, inventory.display_name, inventory.hostname, inventory.model),
+                                  inventory.ip,
+                                  inventory.mac,
+                                  COALESCE(inventory.first_seen_at, inventory.updated_at)
+                           FROM device_inventory AS inventory
+                           LEFT JOIN device_metadata AS metadata ON metadata.device_id = inventory.device_id
+                           WHERE inventory.device_id = ?
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM device_events AS event
+                                 WHERE event.event_type = 'device_first_seen'
+                                   AND event.entity_id = inventory.device_id
+                             )""",
+                        (device_id,),
+                    )
                 connection.commit()
             finally:
                 connection.close()
