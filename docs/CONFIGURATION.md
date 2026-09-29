@@ -99,7 +99,7 @@ When enabled, AuraLAN exposes a **Wake device** action for remembered devices wi
 The default packet destination is the limited IPv4 broadcast address on UDP port 9. Networks that require a directed broadcast or another WOL port can override them:
 
 ```bash
-AURALAN_WAKE_BROADCAST=192.168.1.255
+AURALAN_WAKE_BROADCAST=192.0.2.255
 AURALAN_WAKE_PORT=9
 ```
 
