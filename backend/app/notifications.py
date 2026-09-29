@@ -71,14 +71,18 @@ class WebhookNotifier:
 
     def status(self) -> dict[str, Any]:
         cursor = self.event_store.notification_cursor(CHANNEL) if self.enabled else None
-        latest = self.event_store.latest_event_id() if self.enabled else 0
+        pending = (
+            self.event_store.pending_event_count(cursor)
+            if self.enabled and cursor is not None
+            else 0
+        )
         return {
             "configured": self.enabled,
             "include_identifiers": self.include_identifiers,
             "last_attempt_at": self.last_attempt_at,
             "last_success_at": self.last_success_at,
             "last_error": self.last_error,
-            "pending_events": max(0, latest - int(cursor if cursor is not None else latest)),
+            "pending_events": pending,
         }
 
     def _post(self, payload: dict[str, Any]) -> None:
