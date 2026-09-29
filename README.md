@@ -200,7 +200,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN `0.4.0` is the first public pre-1.0 release. The API is intentionally small and may still evolve before 1.0.
+AuraLAN `0.4.0` is the first public pre-1.0 release. The current development line targets `0.5.0`, reflecting the new inventory, monitoring, Prometheus, network-map and webhook capabilities added since 0.4.0. The API is intentionally small and may still evolve before 1.0.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
