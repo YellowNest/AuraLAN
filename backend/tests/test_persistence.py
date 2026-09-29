@@ -16,8 +16,8 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertEqual(default_data_dir(), Path("/tmp/xdg-state/auralan"))
 
     def test_home_state_directory_is_fallback(self):
-        with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/home/example")):
-            self.assertEqual(default_data_dir(), Path("/home/example/.local/state/auralan"))
+        with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/tmp/example-home")):
+            self.assertEqual(default_data_dir(), Path("/tmp/example-home/.local/state/auralan"))
 
 
 if __name__ == "__main__":
