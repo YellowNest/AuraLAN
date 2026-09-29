@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
 MAX_WATCH_MISSING_GRACE_SECONDS = 86400
@@ -93,8 +93,18 @@ class DeviceStore:
             category_override TEXT,
             note TEXT,
             favorite INTEGER NOT NULL DEFAULT 0,
+            location TEXT,
+            tags_json TEXT NOT NULL DEFAULT '[]',
             updated_at INTEGER NOT NULL
         )""")
+        metadata_columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(device_metadata)")
+        }
+        if "location" not in metadata_columns:
+            connection.execute("ALTER TABLE device_metadata ADD COLUMN location TEXT")
+        if "tags_json" not in metadata_columns:
+            connection.execute("ALTER TABLE device_metadata ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'")
         connection.execute("""CREATE TABLE IF NOT EXISTS device_presence (
             device_id TEXT PRIMARY KEY,
             first_seen_at INTEGER NOT NULL,
@@ -209,7 +219,7 @@ class DeviceStore:
                 metadata = {
                     row["device_id"]: dict(row)
                     for row in connection.execute(
-                        f"SELECT device_id, alias, category_override, note, favorite, updated_at FROM device_metadata WHERE device_id IN ({placeholders})", unique
+                        f"SELECT device_id, alias, category_override, note, favorite, location, tags_json, updated_at FROM device_metadata WHERE device_id IN ({placeholders})", unique
                     )
                 }
                 identity_cache = {
@@ -229,6 +239,15 @@ class DeviceStore:
                 result: dict[str, dict[str, Any]] = {}
                 for identifier in unique:
                     item = {**metadata.get(identifier, {}), **refreshed.get(identifier, {})}
+                    try:
+                        item["tags"] = [
+                            str(value)
+                            for value in json.loads(item.pop("tags_json", "[]") or "[]")
+                            if str(value).strip()
+                        ]
+                    except (TypeError, ValueError):
+                        item.pop("tags_json", None)
+                        item["tags"] = []
                     if identifier in identity_cache:
                         cached = dict(identity_cache[identifier])
                         cached.pop("device_id", None)
@@ -604,7 +623,7 @@ class DeviceStore:
                 metadata = {
                     row["device_id"]: dict(row)
                     for row in connection.execute(
-                        "SELECT device_id, alias, category_override, note, favorite "
+                        "SELECT device_id, alias, category_override, note, favorite, location, tags_json "
                         "FROM device_metadata"
                     )
                 }
@@ -634,6 +653,14 @@ class DeviceStore:
                 ip_addresses = []
 
             item_metadata = metadata.get(row["device_id"], {})
+            try:
+                item_tags = [
+                    str(value)
+                    for value in json.loads(item_metadata.get("tags_json") or "[]")
+                    if str(value).strip()
+                ]
+            except (TypeError, ValueError):
+                item_tags = []
             category = item_metadata.get("category_override") or row.get("category") or "unknown"
             icon_key = row.get("icon_key") or "device_generic"
             display_name = row.get("display_name") or row.get("hostname") or row.get("model") or "Network device"
@@ -681,6 +708,8 @@ class DeviceStore:
                     "category_override": item_metadata.get("category_override"),
                     "note": item_metadata.get("note"),
                     "favorite": bool(item_metadata.get("favorite")),
+                    "location": item_metadata.get("location"),
+                    "tags": item_tags,
                 },
                 "observations": [],
             })
@@ -753,6 +782,8 @@ class DeviceStore:
         category_override: str | None | object = ...,
         note: str | None | object = ...,
         favorite: bool | object = ...,
+        location: str | None | object = ...,
+        tags: list[str] | object = ...,
     ) -> dict[str, Any]:
         """Persist AuraLAN-local inventory metadata; no system configuration is touched."""
         now = int(time.time())
@@ -761,18 +792,37 @@ class DeviceStore:
             try:
                 self._ensure_schema(connection)
                 current = connection.execute(
-                    "SELECT alias, category_override, note, favorite FROM device_metadata WHERE device_id = ?",
+                    "SELECT alias, category_override, note, favorite, location, tags_json FROM device_metadata WHERE device_id = ?",
                     (device_id,),
                 ).fetchone()
                 next_alias = current["alias"] if current and alias is ... else (alias if alias is not ... else None)
                 next_category = current["category_override"] if current and category_override is ... else (category_override if category_override is not ... else None)
                 next_note = current["note"] if current and note is ... else (note if note is not ... else None)
                 next_favorite = bool(current["favorite"]) if current and favorite is ... else (bool(favorite) if favorite is not ... else False)
+                next_location = current["location"] if current and location is ... else (location if location is not ... else None)
+                if current and tags is ...:
+                    try:
+                        next_tags = [
+                            str(value)
+                            for value in json.loads(current["tags_json"] or "[]")
+                            if str(value).strip()
+                        ]
+                    except (TypeError, ValueError):
+                        next_tags = []
+                elif tags is ...:
+                    next_tags = []
+                else:
+                    next_tags = list(tags)
                 connection.execute(
-                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, location, tags_json, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                     "ON CONFLICT(device_id) DO UPDATE SET alias=excluded.alias, category_override=excluded.category_override, "
-                    "note=excluded.note, favorite=excluded.favorite, updated_at=excluded.updated_at",
-                    (device_id, next_alias, next_category, next_note, int(next_favorite), now),
+                    "note=excluded.note, favorite=excluded.favorite, location=excluded.location, tags_json=excluded.tags_json, "
+                    "updated_at=excluded.updated_at",
+                    (
+                        device_id, next_alias, next_category, next_note, int(next_favorite),
+                        next_location, json.dumps(next_tags, separators=(",", ":")), now,
+                    ),
                 )
                 if next_alias:
                     connection.execute(
@@ -790,6 +840,8 @@ class DeviceStore:
                     "category_override": next_category,
                     "note": next_note,
                     "favorite": next_favorite,
+                    "location": next_location,
+                    "tags": next_tags,
                     "updated_at": now,
                 }
             finally:
