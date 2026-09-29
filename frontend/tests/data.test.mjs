@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, isNewDevice, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isNewDevice, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -73,6 +73,34 @@ test('network map groups current devices without reviving remembered devices', (
   assert.equal(groups.vpn.length, 1);
   assert.equal(groups.unknown.length, 1);
   assert.equal(filterDevices(items, 'connection_unknown')[0].display_name, 'Mystery');
+});
+
+test('inventory export is stable, private-data explicit, and CSV-safe', () => {
+  const items = [{
+    presentation_name: 'Kitchen "sensor"',
+    hostname: 'sensor.local',
+    vendor: 'Example',
+    model: 'T1',
+    category: 'iot',
+    state: 'known',
+    online: null,
+    connection_type: 'wifi',
+    ip_addresses: ['192.0.2.55'],
+    mac_addresses: ['02:00:00:00:00:55'],
+    first_seen_at: 100,
+    last_seen_at: 200,
+    metadata: { favorite: true, note: 'Kitchen, shelf' },
+  }];
+
+  const rows = inventoryExportRows(items);
+  assert.equal(rows[0].name, 'Kitchen "sensor"');
+  assert.equal(rows[0].note, 'Kitchen, shelf');
+  assert.deepEqual(rows[0].ip_addresses, ['192.0.2.55']);
+
+  const csv = inventoryCsv(items);
+  assert.match(csv, /"Kitchen ""sensor"""/);
+  assert.match(csv, /"Kitchen, shelf"/);
+  assert.match(csv, /"02:00:00:00:00:55"/);
 });
 
 test('absent optional integrations are not rendered as offline cards', () => {
