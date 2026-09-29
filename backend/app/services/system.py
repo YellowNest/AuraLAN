@@ -184,6 +184,12 @@ def _collect() -> dict[str, Any]:
         device_rows = []
         errors.append(f"Network discovery unavailable: {type(exc).__name__}")
     try:
+        historical = store().known_devices(device_rows)
+        device_rows = [*device_rows, *historical]
+    except (OSError, sqlite3.Error, ValueError, TypeError) as exc:
+        errors.append(f"Device inventory unavailable: {type(exc).__name__}")
+
+    try:
         docker_service, containers, docker_error = docker.discover()
         if docker_error:
             errors.append(f"Docker discovery: {docker_error}")
