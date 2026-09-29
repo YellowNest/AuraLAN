@@ -10,6 +10,7 @@ Development target: `0.6.0`.
 
 ### Added
 
+- Home Assistant now has a dedicated aggregate REST summary endpoint with device/service counts, monitor health, webhook state and Wake-on-LAN capability while deliberately excluding per-device identity data; ready-to-adapt REST and webhook examples are documented separately.
 - Per-device presence history now records debounced **Not seen** and **Seen again** transitions in bounded local SQLite state, with a dedicated API and timeline in the device inspector. A single weak discovery miss is ignored by default.
 - Optional Wake-on-LAN can now be enabled explicitly for known devices. AuraLAN sends one validated UDP magic packet, prefers a globally administered unicast MAC when multiple NICs are known, and keeps the action disabled by default.
 - Device inventory organization now supports a local location field and up to eight lightweight tags per device. Locations and tags participate in search, survive remembered-device state, and are included in CSV/JSON exports.
