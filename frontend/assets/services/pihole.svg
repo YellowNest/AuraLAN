@@ -1,0 +1,19 @@
+<!--
+  Pi-hole logo from https://github.com/pi-hole/web/blob/master/img/logo.svg
+  Copyright (C) Pi-hole, LLC. Source project licensed under EUPL-1.2.
+  Used here solely to identify the detected Pi-hole service.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 130">
+  <defs>
+    <linearGradient id="leaf" x1="0" x2=".8" y1="0" y2="0">
+      <stop offset="0" stop-color="#22b225"/>
+      <stop offset="1" stop-color="#29fc2e"/>
+    </linearGradient>
+    <path id="lobe" d="M1 85.459c0-1.717 1.707-16.993 16.907-16.993 9.998-.717 17.766 7.169 27.464 7.169 24.208-1.814 20.952-34.293-.252-34.293-5.3-.014-10.179 2.22-13.929 5.954L6.738 71.747C2.68 75.792 1 80.972 1 85.459"/>
+  </defs>
+  <path fill="url(#leaf)" d="M37.4 40.145C21.18 38.415 4.84 26.155 3.55.215c25.17 0 38.63 14.9 39.93 38.51 4.76-28.32 27.07-25 27.07-25 1.06 16.05-12.12 25.78-27.07 26.59-4.2-8.85-29.36-30.56-29.36-30.56a.07.07 0 0 0-.11.08s24.28 21.15 23.39 30.31"/>
+  <use href="#lobe" fill="#f60d1a" transform="rotate(180 45 85.3)"/>
+  <use href="#lobe" fill="#96060c" transform="rotate(90 45 85.3)"/>
+  <use href="#lobe" fill="#96060c" transform="rotate(-90 45 85.3)"/>
+  <use href="#lobe" fill="#f60d1a"/>
+</svg>

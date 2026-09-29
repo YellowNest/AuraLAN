@@ -1,0 +1,59 @@
+# Changelog
+
+All notable user-facing changes to AuraLAN are tracked here.
+
+AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions may still contain compatibility changes. The canonical version lives in `project.json`; a `-dev` suffix means the version is still under development.
+
+## [Unreleased]
+
+## [0.4.0] - 2026-09-29
+
+### Added
+
+- Portable AP detection across all NetworkManager Wi-Fi connections and direct `iw` interfaces, with an optional `AURALAN_WIFI_INTERFACE` override.
+- Production installation, configuration, compatibility, support, and release-checklist documentation.
+- Canonical `auralan.service` environment overrides with loopback-only binding by default.
+- GitHub issue and pull-request templates that explicitly protect private LAN data.
+- Leaner production dependencies by removing the unused YAML library.
+- Clean systemd installer with an unprivileged service account, local-file exclusion, health verification, and loopback-only default exposure.
+- Public service packaging and local deployment use the canonical `auralan.service`.
+- CI coverage for Python 3.11 and 3.13, frontend Node 24, shell syntax, dependency consistency, Python bytecode compilation, and known-vulnerability auditing.
+- FastAPI, Uvicorn, and Pydantic updated from the original development pins to current stable release-line versions.
+
+- Deeper local identity correlation via the configured host resolver, NetBIOS, SSDP/UPnP friendly names, Pi-hole FTL history when available, and a persistent same-MAC identity cache.
+- Product-family icon normalization driven by local evidence, including Apple TV, robot vacuums, garage doors, heat pumps, and VR headsets.
+- Heat-pump names can now contribute a generic smart-home category without requiring a vendor-specific rule.
+- Full-screen mobile inspector layout with safe-area handling and a persistent close action.
+- Manufacturer + MAC identity in mobile device rows.
+- Contributor guidance for identity rules, UI changes, testing, and release hygiene.
+
+### Fixed
+
+- Removed obsolete service-name compatibility; release validation rejects retired branding anywhere in tracked text.
+
+- Avahi DNS-SD browsing now disables the human service-type database so parsable output contains stable raw service types such as `_airplay._tcp`.
+- Human-facing Apple service instance names are preserved even when they match the device hostname.
+
+- DNS-SD parsing now decodes Avahi decimal escapes as UTF-8 bytes, handles escaped literal punctuation, strips machine-generated instance prefixes, and extracts only the human label from Apple Sleep Proxy instance names.
+
+- Local discovery subprocess output now uses replacement decoding so malformed device-supplied UTF-8 cannot abort DNS-SD/mDNS enrichment.
+
+### Changed
+
+- Brand fallback metadata is now validated against `project.json`, including accent tokens.
+- Generic test fixtures no longer use conventional Linux interface names.
+- Added a full local release check that validates `main`, boots an isolated AuraLAN instance, exercises HTTP endpoints, and prints fresh device-identification evidence without modifying installed AuraLAN metadata.
+
+- Removed deployment-specific Pi-hole filesystem assumptions; non-standard FTL locations now use `AURALAN_PIHOLE_FTL_DB`.
+- Removed the unused YAML configuration placeholder so documented configuration matches actual runtime behavior.
+- Repository presentation and release validation now enforce portable examples and block known local/private fixtures.
+
+- Rotated-phone device lists now reserve enough width for full IP addresses and keep status indicators circular instead of collapsing under tight landscape columns.
+- Devices with the same trusted computer/server/printer hostname can now collapse into one physical-device entry across multiple network adapters; all observed MAC and IP addresses remain available in details/search.
+- Unresolved locally administered MAC addresses are labeled explicitly instead of looking like ordinary vendor-resolvable devices.
+- Mobile device filters now stay single-line; the naming-review action is separated from connection/status filters.
+- Apple TV devices use a locally rendered Apple TV brand mark instead of the generic television/play glyph.
+- Robot-vacuum recognition now considers resolved vendor identity, so Roborock/iRobot/Ecovacs-family devices do not fall back to the generic smart-home icon.
+- Product-specific icon selection remains separate from exact-model inference: AuraLAN still does not guess a hardware model from an OUI.
+
+Formal release history starts with the first public AuraLAN release.

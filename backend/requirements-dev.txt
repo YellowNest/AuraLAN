@@ -1,0 +1,2 @@
+# Optional local test tooling. Production only needs requirements.txt.
+# Tests in backend/tests use the standard library and have no extra dependency.

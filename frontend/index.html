@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F4F7FC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="AuraLAN">
+  <meta name="application-name" content="AuraLAN">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="/assets/brand-theme.css">
+  <title>AuraLAN — Your network, clearly.</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#overview" data-route="overview" aria-label="AuraLAN home">
+        <img src="/assets/assets/icons/logo-mark.svg" width="34" height="34" alt="" aria-hidden="true">
+        <span><strong data-brand-name>AuraLAN</strong><small data-brand-tagline>Your network, clearly.</small></span>
+      </a>
+      <nav class="nav-list" data-nav-desktop><button class="nav-item active" type="button" aria-current="page"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.8 12 4l8 6.8V20H4z"/><path d="M9.5 20v-5h5v5"/></svg><span>Overview</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M7 18V9h10v9M10 9V5h4v4"/></svg><span>Network</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Devices</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM9 2v3M15 2v3M9 19v3M15 19v3"/></svg><span>Services</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12h2M3 12h2M12 3v2M12 19v2"/></svg><span>Settings</span></button></nav>
+      <div class="sidebar-footer">
+        <button class="quiet-control" type="button" data-open-command aria-label="Search everything"></button>
+        <p class="mode-note"><span aria-hidden="true"></span><b data-mode>Read-only</b><small data-version></small></p>
+      </div>
+    </aside>
+
+    <main class="main-content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div class="mobile-topbar">
+          <div class="mobile-product"><img src="/assets/assets/icons/logo-mark.svg" width="25" height="25" alt="" aria-hidden="true"><strong data-brand-name>AuraLAN</strong></div>
+          <span class="connection-state mobile-connection-state" data-connection-state role="status" aria-live="polite" aria-label="Live"><i aria-hidden="true"></i><span>Live</span></span>
+        </div>
+        <div class="page-heading">
+          <p class="eyebrow" id="page-eyebrow">AURALAN</p>
+          <h1 id="page-title">Overview</h1>
+        </div>
+        <div class="header-actions">
+          <button class="search-button" type="button" data-open-command aria-label="Search everything"></button>
+          <button class="icon-button" type="button" id="refresh-button" aria-label="Refresh"></button>
+          <span class="connection-state desktop-connection-state" data-connection-state role="status" aria-live="polite" aria-label="Live"><i aria-hidden="true"></i><span>Live</span></span>
+        </div>
+      </header>
+      <div id="app-view" aria-live="polite" aria-busy="true"><section class="initial-loading surface"><img src="/assets/assets/icons/logo-mark.svg" width="52" height="52" alt=""><div><p class="eyebrow">AuraLAN</p><h2>Loading local status</h2><p>If this remains visible, the local service is unavailable.</p></div></section></div>
+    </main>
+
+    <nav class="mobile-nav" aria-label="Primary navigation" data-nav-mobile><button class="nav-item active" type="button" aria-current="page"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.8 12 4l8 6.8V20H4z"/><path d="M9.5 20v-5h5v5"/></svg><span>Overview</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M7 18V9h10v9M10 9V5h4v4"/></svg><span>Network</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Devices</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM9 2v3M15 2v3M9 19v3M15 19v3"/></svg><span>Services</span></button><button class="nav-item" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12h2M3 12h2M12 3v2M12 19v2"/></svg><span>Settings</span></button></nav>
+  </div>
+
+  <dialog class="command-dialog" id="command-dialog" aria-labelledby="command-title">
+    <section class="command-surface">
+      <header><label class="sr-only" id="command-title" for="command-input">Search everything</label><span id="command-icon"></span><input id="command-input" type="search" autocomplete="off"><button type="button" class="icon-button" data-close-command aria-label="Close" id="command-close"></button></header>
+      <div class="command-results" id="command-results"></div>
+      <footer><kbd>↑↓</kbd> <span>navigate</span><kbd>↵</kbd> <span>open</span><kbd>Esc</kbd> <span>close</span></footer>
+    </section>
+  </dialog>
+
+  <dialog class="inspector-dialog" id="inspector-dialog" aria-labelledby="inspector-title">
+    <article class="inspector-surface">
+      <button type="button" class="icon-button inspector-close" data-close-inspector aria-label="Close" id="inspector-close"></button>
+      <div id="inspector-content"></div>
+    </article>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"><span></span><p id="toast-message"></p></div>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

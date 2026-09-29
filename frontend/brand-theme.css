@@ -1,0 +1,552 @@
+/* AuraLAN Signal Halo brand layer
+   Visual-only overrides. No application behaviour lives in this file. */
+
+:root{
+  --aura-midnight:#0B1220;
+  --aura-midnight-2:#111A2D;
+  --aura-blue:#3B82F6;
+  --aura-blue-bright:#60A5FA;
+  --aura-violet:#8B5CF6;
+  --aura-mint:#22D3A7;
+  --aura-cloud:#E5E7EB;
+  --aura-ice:#F7FAFF;
+  --aura-slate:#64748B;
+
+  --bg:#F4F7FC;
+  --bg-raised:#F9FBFF;
+  --surface:rgba(255,255,255,.88);
+  --surface-muted:#EEF4FC;
+  --surface-strong:#E4ECF8;
+  --text:#0F172A;
+  --text-soft:#526079;
+  --text-faint:#7C8AA3;
+  --line:rgba(59,130,246,.105);
+  --line-strong:rgba(59,130,246,.19);
+  --accent:var(--aura-blue);
+  --accent-2:var(--aura-violet);
+  --accent-3:var(--aura-mint);
+  --accent-soft:#EAF2FF;
+  --accent-wash:rgba(59,130,246,.075);
+  --good:#0F9F7D;
+  --good-soft:#E4F9F3;
+  --attention:#C47A17;
+  --attention-soft:#FFF4DD;
+  --danger:#D24D63;
+  --danger-soft:#FDE9ED;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.035),0 8px 26px rgba(31,54,91,.055);
+  --shadow-lg:0 26px 80px rgba(15,23,42,.16),0 5px 20px rgba(15,23,42,.07);
+  --shadow-float:0 18px 52px rgba(59,130,246,.11);
+}
+
+html[data-theme="dark"]{
+  --bg:#080E19;
+  --bg-raised:#0B1220;
+  --surface:rgba(15,24,42,.90);
+  --surface-muted:#121D31;
+  --surface-strong:#192741;
+  --text:#F4F7FC;
+  --text-soft:#BCC8DB;
+  --text-faint:#8291AA;
+  --line:rgba(96,165,250,.105);
+  --line-strong:rgba(96,165,250,.21);
+  --accent:#60A5FA;
+  --accent-2:#A78BFA;
+  --accent-3:#39E6BA;
+  --accent-soft:#142A4D;
+  --accent-wash:rgba(59,130,246,.105);
+  --good:#39D3AA;
+  --good-soft:#102F2A;
+  --attention:#F2BE63;
+  --attention-soft:#3A2D19;
+  --danger:#FB8FA0;
+  --danger-soft:#3D222A;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.22),0 10px 30px rgba(0,0,0,.20);
+  --shadow-lg:0 30px 90px rgba(0,0,0,.48),0 6px 22px rgba(0,0,0,.26);
+  --shadow-float:0 24px 68px rgba(0,0,0,.38);
+}
+
+@media(prefers-color-scheme:dark){
+  html:not([data-theme="light"]){
+    --bg:#080E19;
+    --bg-raised:#0B1220;
+    --surface:rgba(15,24,42,.90);
+    --surface-muted:#121D31;
+    --surface-strong:#192741;
+    --text:#F4F7FC;
+    --text-soft:#BCC8DB;
+    --text-faint:#8291AA;
+    --line:rgba(96,165,250,.105);
+    --line-strong:rgba(96,165,250,.21);
+    --accent:#60A5FA;
+    --accent-2:#A78BFA;
+    --accent-3:#39E6BA;
+    --accent-soft:#142A4D;
+    --accent-wash:rgba(59,130,246,.105);
+    --good:#39D3AA;
+    --good-soft:#102F2A;
+    --attention:#F2BE63;
+    --attention-soft:#3A2D19;
+    --danger:#FB8FA0;
+    --danger-soft:#3D222A;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.22),0 10px 30px rgba(0,0,0,.20);
+    --shadow-lg:0 30px 90px rgba(0,0,0,.48),0 6px 22px rgba(0,0,0,.26);
+    --shadow-float:0 24px 68px rgba(0,0,0,.38);
+  }
+}
+
+html{background:var(--bg)}
+body{
+  position:relative;
+  isolation:isolate;
+  background:
+    radial-gradient(820px 520px at 94% -8%,rgba(59,130,246,.13),transparent 64%),
+    radial-gradient(760px 540px at 62% 108%,rgba(139,92,246,.09),transparent 66%),
+    radial-gradient(620px 430px at -5% 78%,rgba(34,211,167,.07),transparent 64%),
+    var(--bg);
+}
+body::before{
+  content:"";
+  position:fixed;
+  z-index:-1;
+  width:520px;
+  height:520px;
+  top:-310px;
+  right:-185px;
+  border:1px solid color-mix(in srgb,var(--accent) 16%,transparent);
+  border-radius:50%;
+  box-shadow:
+    0 0 0 74px color-mix(in srgb,var(--accent) 2.8%,transparent),
+    0 0 0 150px color-mix(in srgb,var(--accent-2) 2.2%,transparent);
+  pointer-events:none;
+}
+
+/* Product identity */
+.brand img,.mobile-product img,.initial-loading img{
+  filter:drop-shadow(0 8px 18px rgba(59,130,246,.18));
+}
+.brand strong,.mobile-product strong{
+  color:var(--text);
+  background:linear-gradient(105deg,var(--text) 0 48%,var(--accent) 68%,var(--accent-2) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.brand small{color:var(--text-faint)}
+.brand:hover{background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.05))}
+
+/* Navigation */
+.sidebar{
+  background:color-mix(in srgb,var(--bg-raised) 84%,transparent);
+  border-right-color:color-mix(in srgb,var(--accent) 8%,var(--line));
+  box-shadow:18px 0 55px rgba(20,39,73,.035);
+  backdrop-filter:blur(28px) saturate(1.18);
+  -webkit-backdrop-filter:blur(28px) saturate(1.18);
+}
+.nav-item{border-radius:15px}
+.nav-item:hover{
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 8%,transparent),color-mix(in srgb,var(--accent-2) 5%,transparent));
+}
+.nav-item.active{
+  color:var(--accent);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 15%,var(--surface)),color-mix(in srgb,var(--accent-2) 8%,var(--surface)));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 14%,transparent),0 10px 25px rgba(59,130,246,.07);
+}
+.nav-item.active::before{
+  background:linear-gradient(180deg,var(--accent),var(--accent-2) 58%,var(--accent-3));
+  box-shadow:0 0 12px color-mix(in srgb,var(--accent) 48%,transparent);
+}
+.mode-note>span{
+  background:var(--accent-3);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--accent-3) 12%,transparent),0 0 14px color-mix(in srgb,var(--accent-3) 35%,transparent);
+}
+
+/* Surfaces */
+.surface,.command-surface,.inspector-surface{
+  border-color:var(--line);
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  backdrop-filter:blur(18px) saturate(1.12);
+  -webkit-backdrop-filter:blur(18px) saturate(1.12);
+}
+.search-button,.icon-button,.secondary-button,.text-button{
+  border-color:var(--line);
+  background:color-mix(in srgb,var(--surface) 94%,transparent);
+}
+.search-button:hover,.icon-button:hover,.secondary-button:hover,.text-button:hover{
+  border-color:color-mix(in srgb,var(--accent) 25%,var(--line));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),color-mix(in srgb,var(--accent-2) 4%,var(--surface)));
+}
+.primary-button{
+  border-color:transparent;
+  color:#fff;
+  background:linear-gradient(135deg,var(--aura-blue),#6366F1 58%,var(--aura-violet));
+  box-shadow:0 10px 26px rgba(59,130,246,.22);
+}
+.primary-button:hover{background:linear-gradient(135deg,#4B8EFA,#716CF5 56%,#9868F8)}
+
+/* Page title language */
+.eyebrow{color:color-mix(in srgb,var(--accent) 58%,var(--text-faint));letter-spacing:.145em}
+h1{
+  background:linear-gradient(110deg,var(--text) 0 72%,color-mix(in srgb,var(--accent) 62%,var(--text)) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+/* Overview network hero — the UI equivalent of Signal Halo */
+.overview-network,.network-hero{
+  position:relative;
+  overflow:hidden;
+  border-color:color-mix(in srgb,var(--accent) 14%,var(--line));
+  background:
+    radial-gradient(430px 190px at 12% 0%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 68%),
+    radial-gradient(360px 170px at 100% 100%,color-mix(in srgb,var(--accent-2) 7%,transparent),transparent 70%),
+    var(--surface);
+  box-shadow:var(--shadow-float);
+}
+.overview-network::after,.network-hero::after{
+  content:"";
+  position:absolute;
+  width:220px;
+  height:220px;
+  right:-132px;
+  top:-132px;
+  border:1px solid color-mix(in srgb,var(--accent) 20%,transparent);
+  border-radius:50%;
+  box-shadow:
+    0 0 0 28px color-mix(in srgb,var(--accent) 2.8%,transparent),
+    0 0 0 58px color-mix(in srgb,var(--accent-2) 2%,transparent);
+  pointer-events:none;
+}
+.network-hero-icon{
+  position:relative;
+  overflow:visible;
+  color:#fff;
+  background:linear-gradient(145deg,var(--aura-blue),#6366F1 56%,var(--aura-violet));
+  box-shadow:0 11px 30px rgba(59,130,246,.22),inset 0 0 0 1px rgba(255,255,255,.18);
+}
+.network-hero-icon::after{
+  content:"";
+  position:absolute;
+  inset:-8px;
+  border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+  border-radius:inherit;
+  opacity:.72;
+}
+.network-facts>div{
+  border-color:color-mix(in srgb,var(--accent) 7%,var(--line));
+  background:linear-gradient(145deg,color-mix(in srgb,var(--surface-muted) 84%,transparent),color-mix(in srgb,var(--accent) 3%,var(--surface)));
+}
+
+/* Status language */
+.connection-state,.status-pill.online,.device-status.online{
+  color:var(--good);
+}
+.connection-state,.status-pill.online{
+  background:var(--good-soft);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--good) 14%,transparent);
+}
+.connection-state i,.status-pill.online i,.device-status.online i{
+  background:currentColor;
+  box-shadow:0 0 0 3px color-mix(in srgb,currentColor 10%,transparent),0 0 11px color-mix(in srgb,currentColor 36%,transparent);
+}
+
+/* Cards */
+.summary-card,.service-card,.network-panel,.host-panel,.diagnostic-card,.future-note,.device-toolbar,.list-surface{
+  border-color:color-mix(in srgb,var(--accent) 7%,var(--line));
+}
+.summary-card,.service-card,.network-panel,.diagnostic-card{
+  transition:transform var(--duration) var(--ease),border-color var(--duration) var(--ease),box-shadow var(--duration) var(--ease),background var(--duration) var(--ease);
+}
+.summary-card:hover,.service-card:hover,.network-panel:hover,.diagnostic-card:hover{
+  border-color:color-mix(in srgb,var(--accent) 18%,var(--line));
+  box-shadow:0 16px 42px rgba(35,63,106,.085);
+}
+.service-card:hover{transform:translateY(-2px)}
+.panel-icon,.service-symbol,.inspector-icon,.detail-row-icon,.interface-icon{
+  background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 13%,var(--surface)),color-mix(in srgb,var(--accent-2) 8%,var(--surface)));
+  color:var(--accent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 9%,transparent);
+}
+.panel-icon.neutral{color:var(--accent-2)}
+
+/* Services keep their product identity while staying in the AuraLAN palette */
+.service-symbol:has(.service-mark-docker){color:#2496ED;background:color-mix(in srgb,#2496ED 11%,var(--surface))}
+.service-symbol:has(.service-mark-pihole){color:#E64B5D;background:color-mix(in srgb,#E64B5D 9%,var(--surface))}
+.service-symbol:has(.service-mark-wireguard){color:var(--aura-violet);background:color-mix(in srgb,var(--aura-violet) 11%,var(--surface))}
+.service-symbol:has(.service-mark-caddy){color:var(--aura-mint);background:color-mix(in srgb,var(--aura-mint) 11%,var(--surface))}
+
+/* Devices: category colour is informative, not decorative noise */
+.device-row{
+  border-color:transparent;
+  transition:background var(--duration) var(--ease),transform var(--duration) var(--ease),box-shadow var(--duration) var(--ease);
+}
+.device-row:hover{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),color-mix(in srgb,var(--accent-2) 3%,var(--surface)));
+}
+.device-row:active{transform:scale(.997)}
+.device-symbol{
+  color:var(--aura-blue);
+  background:color-mix(in srgb,var(--aura-blue) 10%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--aura-blue) 9%,transparent);
+}
+.device-symbol.category-phone,.device-symbol.category-tablet,.device-symbol.category-watch{
+  color:#3B82F6;
+  background:color-mix(in srgb,#3B82F6 10%,var(--surface));
+}
+.device-symbol.category-computer{
+  color:#6366F1;
+  background:color-mix(in srgb,#6366F1 10%,var(--surface));
+}
+.device-symbol.category-tv,.device-symbol.category-media_player,.device-symbol.category-console{
+  color:#8B5CF6;
+  background:color-mix(in srgb,#8B5CF6 10%,var(--surface));
+}
+.device-symbol.category-speaker,.device-symbol.category-smart_home,.device-symbol.category-iot{
+  color:#22BFA0;
+  background:color-mix(in srgb,#22D3A7 10%,var(--surface));
+}
+.device-symbol.category-camera{
+  color:#D58A1E;
+  background:color-mix(in srgb,#F59E0B 10%,var(--surface));
+}
+.device-symbol.category-printer{
+  color:#64748B;
+  background:color-mix(in srgb,#64748B 10%,var(--surface));
+}
+.device-symbol.category-router,.device-symbol.category-access_point{
+  color:#0891B2;
+  background:color-mix(in srgb,#06B6D4 10%,var(--surface));
+}
+.device-symbol.category-server{
+  color:#2563EB;
+  background:color-mix(in srgb,#2563EB 10%,var(--surface));
+}
+.device-symbol.category-raspberry_pi{
+  color:#D9468B;
+  background:color-mix(in srgb,#D9468B 10%,var(--surface));
+}
+.device-symbol.category-microcontroller{
+  color:#0EA5A4;
+  background:color-mix(in srgb,#14B8A6 10%,var(--surface));
+}
+.device-symbol.category-unknown{
+  color:var(--text-faint);
+  background:var(--surface-muted);
+}
+.device-symbol:has(.icon-apple_tv){
+  color:#7C6AF2;
+  background:linear-gradient(145deg,color-mix(in srgb,#3B82F6 10%,var(--surface)),color-mix(in srgb,#8B5CF6 12%,var(--surface)));
+}
+.device-symbol:has(.icon-vacuum){color:#14A38B;background:color-mix(in srgb,#22D3A7 10%,var(--surface))}
+.device-symbol:has(.icon-vr_headset){color:#7C3AED;background:color-mix(in srgb,#8B5CF6 11%,var(--surface))}
+.device-symbol:has(.icon-heat_pump){color:#0891B2;background:color-mix(in srgb,#22D3EE 10%,var(--surface))}
+.device-symbol:has(.icon-garage){color:#64748B;background:color-mix(in srgb,#64748B 9%,var(--surface))}
+.device-symbol:has(.icon-raspberry_pi){color:#D9468B;background:color-mix(in srgb,#D9468B 10%,var(--surface))}
+
+/* Inputs, filters and detail views */
+.input-shell{
+  background:color-mix(in srgb,var(--surface-muted) 86%,transparent);
+}
+.input-shell:focus-within{
+  border-color:color-mix(in srgb,var(--accent) 46%,var(--line));
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 9%,transparent);
+}
+.filter-chip{background:var(--surface-muted);border-color:transparent}
+.filter-chip.active{
+  color:var(--accent);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 15%,var(--surface)),color-mix(in srgb,var(--accent-2) 9%,var(--surface)));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 13%,transparent);
+}
+.unidentified-callout{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--attention) 5%,var(--surface)),var(--surface));
+}
+.inspector-dialog::backdrop,.command-dialog::backdrop{
+  background:rgba(5,10,20,.45);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+}
+.inspector-surface{
+  background:
+    radial-gradient(420px 260px at 110% -4%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 68%),
+    var(--surface);
+}
+
+/* Mobile: app-like bottom chrome */
+@media(max-width:760px){
+  body::before{width:360px;height:360px;top:-245px;right:-170px}
+  .mobile-topbar{
+    background:color-mix(in srgb,var(--bg) 74%,transparent);
+    backdrop-filter:blur(22px) saturate(1.2);
+    -webkit-backdrop-filter:blur(22px) saturate(1.2);
+  }
+  .mobile-nav{
+    border-top-color:color-mix(in srgb,var(--accent) 9%,var(--line));
+    background:color-mix(in srgb,var(--bg-raised) 84%,transparent);
+    box-shadow:0 -18px 44px rgba(12,28,55,.085);
+    backdrop-filter:blur(26px) saturate(1.24);
+    -webkit-backdrop-filter:blur(26px) saturate(1.24);
+  }
+  .mobile-nav .nav-item.active{
+    background:transparent;
+    box-shadow:none;
+  }
+  .mobile-nav .nav-item.active::before{
+    width:5px;
+    height:5px;
+    left:50%;
+    top:auto;
+    bottom:4px;
+    border-radius:50%;
+    transform:translateX(-50%);
+    background:var(--accent);
+    box-shadow:0 0 10px color-mix(in srgb,var(--accent) 50%,transparent);
+  }
+  .overview-network,.network-hero{
+    background:
+      radial-gradient(280px 150px at 4% 0%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 68%),
+      var(--surface);
+  }
+}
+
+/* Reduced motion keeps the brand intact without glow animation. */
+@media(prefers-reduced-motion:reduce){
+  .summary-card:hover,.service-card:hover,.network-panel:hover,.diagnostic-card:hover{transform:none}
+}
+
+
+/* About card — compact product identity instead of a generic detail row. */
+.about-card{
+  min-height:88px;
+  padding:14px 16px;
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr) auto;
+  align-items:center;
+  gap:13px;
+  overflow:hidden;
+  border-radius:var(--radius-md);
+  border-color:color-mix(in srgb,var(--accent) 11%,var(--line));
+  background:
+    radial-gradient(190px 110px at 0 0,color-mix(in srgb,var(--accent) 10%,transparent),transparent 76%),
+    radial-gradient(180px 120px at 100% 100%,color-mix(in srgb,var(--accent-2) 7%,transparent),transparent 78%),
+    var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.about-mark{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:16px;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 12%,var(--surface)),color-mix(in srgb,var(--accent-2) 8%,var(--surface)));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 11%,transparent),0 10px 24px rgba(59,130,246,.08);
+}
+.about-mark img{
+  width:34px;
+  height:34px;
+  filter:drop-shadow(0 6px 12px rgba(59,130,246,.22));
+}
+.about-copy{
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+.about-copy strong{
+  overflow:hidden;
+  color:var(--text);
+  font-size:15px;
+  font-weight:780;
+  letter-spacing:-.025em;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.about-copy small{
+  overflow:hidden;
+  color:var(--text-faint);
+  font-size:11.5px;
+  line-height:1.35;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.about-version{
+  min-width:116px;
+  padding:8px 11px;
+  display:grid;
+  justify-items:end;
+  gap:2px;
+  border-radius:12px;
+  background:color-mix(in srgb,var(--surface-muted) 88%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 8%,var(--line));
+}
+.about-version span{
+  color:var(--text-faint);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.about-version strong{
+  color:var(--text-soft);
+  font-size:11.5px;
+  font-weight:760;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;
+}
+
+@media(max-width:760px){
+  .about-section{
+    margin-bottom:8px;
+  }
+  .about-card{
+    min-height:78px;
+    padding:12px 13px;
+    grid-template-columns:42px minmax(0,1fr) auto;
+    gap:11px;
+    border-radius:var(--mobile-radius);
+  }
+  .about-mark{
+    width:42px;
+    height:42px;
+    border-radius:13px;
+  }
+  .about-mark img{
+    width:30px;
+    height:30px;
+  }
+  .about-copy strong{
+    font-size:14px;
+  }
+  .about-copy small{
+    font-size:10.5px;
+  }
+  .about-version{
+    min-width:103px;
+    padding:7px 9px;
+    border-radius:11px;
+  }
+  .about-version strong{
+    font-size:10.5px;
+  }
+}
+
+@media(max-width:390px){
+  .about-card{
+    grid-template-columns:40px minmax(0,1fr);
+  }
+  .about-mark{
+    width:40px;
+    height:40px;
+  }
+  .about-version{
+    grid-column:2;
+    min-width:0;
+    justify-self:start;
+    padding:5px 9px;
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+  }
+  .about-version span{
+    font-size:8.5px;
+  }
+}

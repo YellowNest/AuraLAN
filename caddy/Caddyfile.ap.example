@@ -1,0 +1,7 @@
+# Example only. Replace 192.0.2.1 with the LAN address that should serve AuraLAN.
+# 192.0.2.0/24 is reserved for documentation and is not intended for production use.
+# AuraLAN itself listens on localhost:8787; Caddy provides the clean LAN URL.
+
+http://192.0.2.1 {
+    reverse_proxy 127.0.0.1:8787
+}

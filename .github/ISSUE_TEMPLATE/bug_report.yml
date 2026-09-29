@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible AuraLAN problem
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AuraLAN. Remove hostnames, real MAC addresses, SSIDs, public IPs, tokens and credentials before posting logs or screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: AuraLAN version
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: "Debian 13, Raspberry Pi 5 / x86-64"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant local environment
+      description: List relevant tools/services only. Redact local identifiers.
+      placeholder: "NetworkManager, iw, dnsmasq, Docker, Pi-hole..."
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed or redacted private hostnames, MAC addresses, SSIDs, credentials and other local identifiers.
+          required: true

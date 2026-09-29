@@ -1,0 +1,43 @@
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.bak-*
+.pytest_cache/
+coverage.xml
+node_modules/
+.DS_Store
+
+# Local runtime/configuration
+.env
+.env.*
+!.env.example
+config/config.yaml
+config/local*.yaml
+*.local.yaml
+
+# Runtime state and databases
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.pid
+
+# Captures / diagnostics
+*.pcap
+*.pcapng
+*.har
+
+# Credentials / keys / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets*.yaml
+credentials*.json
+
+# Local UI test output
+screenshots/
+ui-screenshots/
+test-results/

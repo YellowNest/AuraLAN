@@ -1,0 +1,68 @@
+const strings = {
+  en: {
+    overview: 'Overview', network: 'Network', devices: 'Devices', services: 'Services', settings: 'Settings', diagnostics: 'Diagnostics', advanced: 'Advanced', error: 'Issue',
+    search: 'Search', refresh: 'Refresh', live: 'Live', offline: 'Offline', readOnly: 'Read-only', localMetadata: 'Local labels', system: 'System',
+    everythingGood: 'Everything looks good', serviceAttention: '{count} service needs attention', networkNeedsReview: 'Network status needs a look', accessPoint: 'Access point', uplink: 'Internet',
+    healthyOverviewSummary: 'AuraLAN can see your local network. Nothing needs attention right now.', attentionOverviewSummary: 'AuraLAN found something worth checking. Open the affected area for details.', unknownOverviewSummary: 'AuraLAN is running, but the full network status could not be confirmed.',
+    yourNetwork: 'Network', localNetwork: 'Local network', connected: 'Connected', notConfirmed: 'Not confirmed', networkConnectedSummary: 'AuraLAN is connected and watching this local network.', networkUnknownSummary: 'AuraLAN is running, but the active local network could not be confirmed.',
+    connectedDevices: 'Connected devices', activeNow: 'online now', servicesRunning: 'Services', servicesOnlineOfDetected: '{online} of {count} online', host: 'This device',
+    gateway: 'Gateway', interface: 'Interface', channel: 'Channel', band: 'Band', clients: 'clients', openNetwork: 'Open network',
+    recentDevices: 'Recently seen devices', viewAll: 'View all', noDevices: 'No devices found', noDevicesHint: 'Devices appear here as AuraLAN discovers them on your local network.',
+    detectedServices: 'Services on this system', noServices: 'No supported services were detected', state: 'State', runtime: 'Runtime', details: 'Details',
+    serviceDocker: 'Runs isolated applications', servicePihole: 'Blocks unwanted DNS requests', serviceWireguard: 'Provides secure remote network access', serviceCaddy: 'Routes web traffic to local services',
+    online: 'Online', unknown: 'Unknown', detectedState: 'Detected', running: 'running', total: 'total', stopped: 'stopped', unhealthy: 'unhealthy', containers: 'Containers',
+    networkSummary: 'See your local network, internet connection, and technical details when you need them.', apNotDetected: 'No active access point was confirmed.', internetConnection: 'Internet connection', addressAssignment: 'Address assignment', activeAddresses: 'Active addresses', serviceUnit: 'Service', peers: 'Peers', frontend: 'Frontend', kind_page: 'Page', kind_device: 'Device', kind_service: 'Service',
+    dhcp: 'DHCP', leaseCount: 'active leases', routes: 'Routes', interfaces: 'Interfaces', advancedInterfaces: 'Advanced interfaces', show: 'Show', hide: 'Hide',
+    name: 'Name', address: 'Address', role: 'Role', type: 'Type', mtu: 'MTU', accessPointRole: 'Access point', uplinkRole: 'Uplink', vpnRole: 'VPN', containerBridge: 'Container bridge', virtual: 'Virtual',
+    findDevice: 'Search name, vendor, model, IP, MAC, or category', all: 'All', wifi: 'Wi-Fi', ethernet: 'Ethernet', vpn: 'VPN', deviceCount: '{count} devices',
+    noMatches: 'No matching devices', noMatchesHint: 'Try another search or filter.', signal: 'Signal', signal_excellent: 'Excellent signal', signal_good: 'Good signal', signal_fair: 'Fair signal', signal_weak: 'Weak signal', ipAddress: 'IP', macAddressShort: 'MAC', macAddress: 'MAC address', dhcpLease: 'DHCP lease', connection: 'Connection', status: 'Status',
+    recentlySeen: 'Recently seen', unidentified: 'Needs a better name', reviewUnidentified: 'Review and name', unnamedDevice: 'Network device', unnamedDeviceType: '{type}', networkDevice: 'Network device', wifiDevice: 'Wi-Fi device', ethernetDevice: 'Ethernet device', vpnDevice: 'VPN device', networkConnection: 'Local network', viaRouter: 'Via router', espDevice: 'ESP device', identity: 'Identity', vendor: 'Vendor', model: 'Model', detectedType: 'Detected type', privateMac: 'Private MAC address', privateMacShort: 'Private MAC', privateDevice: 'Private-address device', globalMac: 'Global MAC address', macType: 'MAC type', source: 'Source', confidence: 'Confidence', identitySources: 'Identity sources', networkDetails: 'Network details', advancedDetails: 'Advanced details', rename: 'Rename', displayName: 'Display name', save: 'Save', saved: 'Device details saved', saveFailed: 'Could not save device details', firstSeen: 'First seen', lastSeen: 'Last seen', lease: 'Lease', noVendor: 'Vendor unknown', thisHost: 'This host',
+    category_phone: 'Phone', category_tablet: 'Tablet', category_computer: 'Computer', category_tv: 'TV', category_media_player: 'Media player', category_speaker: 'Speaker', category_smart_home: 'Smart device', category_iot: 'Smart device', category_camera: 'Camera', category_printer: 'Printer', category_router: 'Router', category_access_point: 'Access point', category_server: 'Server', category_raspberry_pi: 'Raspberry Pi', category_microcontroller: 'Microcontroller', category_console: 'Console', category_watch: 'Watch', category_unknown: 'Network device',
+    appearance: 'Appearance', theme: 'Theme', systemTheme: 'System', light: 'Light', dark: 'Dark', language: 'Language', refreshInterval: 'Refresh interval', off: 'Off', seconds: '{count} sec',
+    about: 'About', version: 'Version', mode: 'Mode', api: 'API', localOnly: 'This preference stays in this browser.',
+    support: 'Support & diagnostics', copyDiagnostics: 'Copy diagnostics', diagnosticsHint: 'Creates a structured report without device identities, secrets, environment variables, or mounts.', copied: 'Diagnostics copied',
+    backendUnavailable: 'AuraLAN cannot reach its local backend', backendUnavailableHint: 'The interface remains available, but live status could not be loaded. Check the local service and try again.', retry: 'Try again',
+    lastUpdated: 'Updated {time}', updating: 'Updating', commandPlaceholder: 'Search pages, devices, and services', noResults: 'No results', close: 'Close',
+    device: 'Device', service: 'Service', hostMetrics: 'Host health', memory: 'Memory', storage: 'Storage', temperature: 'Temperature', load: 'Load', uptime: 'Uptime',
+    futureActions: 'Safe administration is being prepared', futureActionsHint: 'Future changes will be validated, previewed, backed up, health-checked, and rolled back if needed. This version makes no system changes.',
+    apName: 'SSID', networkProfile: 'Network profile', copy: 'Copy', primaryNavigation: 'Primary navigation', searchEverything: 'Search everything'
+  },
+  sv: {
+    overview: 'Översikt', network: 'Nätverk', devices: 'Enheter', services: 'Tjänster', settings: 'Inställningar', diagnostics: 'Diagnostik', advanced: 'Avancerat', error: 'Fel',
+    search: 'Sök', refresh: 'Uppdatera', live: 'Live', offline: 'Offline', readOnly: 'Endast läsning', localMetadata: 'Lokala etiketter', system: 'System',
+    everythingGood: 'Allt ser bra ut', serviceAttention: '{count} tjänst behöver uppmärksamhet', networkNeedsReview: 'Nätverket behöver granskas', accessPoint: 'Accesspunkt', uplink: 'Internet',
+    healthyOverviewSummary: 'AuraLAN ser ditt lokala nätverk. Inget behöver din uppmärksamhet just nu.', attentionOverviewSummary: 'AuraLAN har hittat något som behöver kontrolleras. Öppna området för detaljer.', unknownOverviewSummary: 'AuraLAN körs, men hela nätverksstatusen kunde inte bekräftas.',
+    yourNetwork: 'Nätverk', localNetwork: 'Lokalt nätverk', connected: 'Ansluten', notConfirmed: 'Inte bekräftat', networkConnectedSummary: 'AuraLAN är anslutet och håller koll på det här lokala nätverket.', networkUnknownSummary: 'AuraLAN kör, men det aktiva lokala nätverket kunde inte bekräftas.',
+    connectedDevices: 'Anslutna enheter', activeNow: 'online nu', servicesRunning: 'Tjänster', servicesOnlineOfDetected: '{online} av {count} online', host: 'Den här enheten',
+    gateway: 'Gateway', interface: 'Gränssnitt', channel: 'Kanal', band: 'Band', clients: 'klienter', openNetwork: 'Visa nätverk',
+    recentDevices: 'Senast sedda enheter', viewAll: 'Visa alla', noDevices: 'Inga enheter hittades', noDevicesHint: 'Enheter visas här när AuraLAN hittar dem på ditt lokala nätverk.',
+    detectedServices: 'Tjänster på systemet', noServices: 'Inga tjänster som stöds upptäcktes', state: 'Status', runtime: 'Driftmiljö', details: 'Detaljer',
+    serviceDocker: 'Kör isolerade applikationer', servicePihole: 'Blockerar oönskade DNS-förfrågningar', serviceWireguard: 'Ger säker nätverksåtkomst på distans', serviceCaddy: 'Dirigerar webbtrafik till lokala tjänster',
+    online: 'Online', unknown: 'Okänd', detectedState: 'Upptäckt', running: 'igång', total: 'totalt', stopped: 'stoppade', unhealthy: 'ohälsosamma', containers: 'Containrar',
+    networkSummary: 'Se ditt lokala nätverk, internetanslutningen och tekniska detaljer när du behöver dem.', apNotDetected: 'Ingen aktiv accesspunkt kunde bekräftas.', internetConnection: 'Internetanslutning', addressAssignment: 'Adressutdelning', activeAddresses: 'Aktiva adresser', serviceUnit: 'Tjänst', peers: 'Peers', frontend: 'Frontend', kind_page: 'Sida', kind_device: 'Enhet', kind_service: 'Tjänst',
+    dhcp: 'DHCP', leaseCount: 'aktiva leases', routes: 'Rutter', interfaces: 'Gränssnitt', advancedInterfaces: 'Avancerade gränssnitt', show: 'Visa', hide: 'Dölj',
+    name: 'Namn', address: 'Adress', role: 'Roll', type: 'Typ', mtu: 'MTU', accessPointRole: 'Accesspunkt', uplinkRole: 'Uplink', vpnRole: 'VPN', containerBridge: 'Containerbrygga', virtual: 'Virtuell',
+    findDevice: 'Sök namn, tillverkare, modell, IP, MAC eller kategori', all: 'Alla', wifi: 'Wi-Fi', ethernet: 'Ethernet', vpn: 'VPN', deviceCount: '{count} enheter',
+    noMatches: 'Inga matchande enheter', noMatchesHint: 'Prova en annan sökning eller ett annat filter.', signal: 'Signal', signal_excellent: 'Utmärkt signal', signal_good: 'Bra signal', signal_fair: 'Okej signal', signal_weak: 'Svag signal', ipAddress: 'IP', macAddressShort: 'MAC', macAddress: 'MAC-adress', dhcpLease: 'DHCP-lease', connection: 'Anslutning', status: 'Status',
+    recentlySeen: 'Nyligen sedd', unidentified: 'Behöver ett bättre namn', reviewUnidentified: 'Granska och namnge', unnamedDevice: 'Nätverksenhet', unnamedDeviceType: '{type}', networkDevice: 'Nätverksenhet', wifiDevice: 'Wi-Fi-enhet', ethernetDevice: 'Ethernet-enhet', vpnDevice: 'VPN-enhet', networkConnection: 'Lokalt nätverk', viaRouter: 'Via router', espDevice: 'ESP-enhet', identity: 'Identitet', vendor: 'Tillverkare', model: 'Modell', detectedType: 'Identifierad typ', privateMac: 'Privat MAC-adress', privateMacShort: 'Privat MAC', privateDevice: 'Enhet med privat MAC', globalMac: 'Global MAC-adress', macType: 'MAC-typ', source: 'Källa', confidence: 'Säkerhet', identitySources: 'Identitetskällor', networkDetails: 'Nätverksdetaljer', advancedDetails: 'Avancerade detaljer', rename: 'Byt namn', displayName: 'Visningsnamn', save: 'Spara', saved: 'Enhetsdetaljer sparade', saveFailed: 'Kunde inte spara enhetsdetaljer', firstSeen: 'Först sedd', lastSeen: 'Senast sedd', lease: 'Lease', noVendor: 'Okänd tillverkare', thisHost: 'Den här värden',
+    category_phone: 'Telefon', category_tablet: 'Surfplatta', category_computer: 'Dator', category_tv: 'TV', category_media_player: 'Mediaspelare', category_speaker: 'Högtalare', category_smart_home: 'Smart enhet', category_iot: 'Smart enhet', category_camera: 'Kamera', category_printer: 'Skrivare', category_router: 'Router', category_access_point: 'Accesspunkt', category_server: 'Server', category_raspberry_pi: 'Raspberry Pi', category_microcontroller: 'Mikrokontroller', category_console: 'Spelkonsol', category_watch: 'Klocka', category_unknown: 'Nätverksenhet',
+    appearance: 'Utseende', theme: 'Tema', systemTheme: 'System', light: 'Ljust', dark: 'Mörkt', language: 'Språk', refreshInterval: 'Uppdateringsintervall', off: 'Av', seconds: '{count} sek',
+    about: 'Om', version: 'Version', mode: 'Läge', api: 'API', localOnly: 'Inställningen sparas bara i den här webbläsaren.',
+    support: 'Support', copyDiagnostics: 'Kopiera diagnostik', diagnosticsHint: 'Skapar en strukturerad rapport utan enhetsidentiteter, hemligheter, miljövariabler eller mounts.', copied: 'Diagnostik kopierad',
+    backendUnavailable: 'AuraLAN når inte sitt lokala backend', backendUnavailableHint: 'Gränssnittet är tillgängligt, men aktuell status kunde inte läsas in. Kontrollera den lokala tjänsten och försök igen.', retry: 'Försök igen',
+    lastUpdated: 'Uppdaterad {time}', updating: 'Uppdaterar', commandPlaceholder: 'Sök sidor, enheter och tjänster', noResults: 'Inga träffar', close: 'Stäng',
+    device: 'Enhet', service: 'Tjänst', hostMetrics: 'Värdhälsa', memory: 'Minne', storage: 'Lagring', temperature: 'Temperatur', load: 'Last', uptime: 'Drifttid',
+    futureActions: 'Säker administration förbereds', futureActionsHint: 'Framtida ändringar ska valideras, förhandsvisas, säkerhetskopieras, hälsokontrolleras och återställas vid behov. Den här versionen gör inga systemändringar.',
+    apName: 'SSID', networkProfile: 'Nätverksprofil', copy: 'Kopiera', primaryNavigation: 'Primär navigering', searchEverything: 'Sök överallt'
+  }
+};
+
+export function preferredLocale(saved) {
+  if (saved === 'sv' || saved === 'en') return saved;
+  return navigator.language?.toLowerCase().startsWith('sv') ? 'sv' : 'en';
+}
+
+export function translate(locale, key, replacements = {}) {
+  const source = strings[locale] || strings.en;
+  return (source[key] || strings.en[key] || key).replace(/\{(\w+)\}/g, (_, name) => String(replacements[name] ?? ''));
+}

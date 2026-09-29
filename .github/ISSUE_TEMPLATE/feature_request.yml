@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a focused improvement to AuraLAN
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AuraLAN prioritizes local-first, evidence-based network visibility. Explain the user problem before proposing an implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is difficult or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Device discovery / identity
+        - Network / access point
+        - Integrations
+        - Frontend / UX
+        - Installation / deployment
+        - API
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Project principles
+      options:
+        - label: This can work without mandatory cloud services or telemetry.
+          required: true

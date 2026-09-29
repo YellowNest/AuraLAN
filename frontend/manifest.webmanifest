@@ -1,0 +1,22 @@
+{
+  "name": "AuraLAN — Your network, clearly.",
+  "short_name": "AuraLAN",
+  "description": "Local-first network visibility for Linux and Raspberry Pi.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1220",
+  "theme_color": "#3B82F6",
+  "icons": [
+    {
+      "src": "/assets/assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/assets/assets/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

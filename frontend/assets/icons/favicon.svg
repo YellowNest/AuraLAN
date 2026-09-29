@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+<defs>
+  <linearGradient id="bg" x1="5" y1="4" x2="58" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#111A2D"/><stop offset="1" stop-color="#080E19"/></linearGradient>
+  <linearGradient id="halo" x1="10" y1="10" x2="54" y2="55" gradientUnits="userSpaceOnUse"><stop stop-color="#60A5FA"/><stop offset=".48" stop-color="#3B82F6"/><stop offset=".77" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3A7"/></linearGradient>
+  <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(29.5 34.5) rotate(45) scale(17)"><stop stop-color="#F8FAFF"/><stop offset=".3" stop-color="#60A5FA"/><stop offset=".72" stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></radialGradient>
+</defs>
+<rect width="64" height="64" rx="18" fill="url(#bg)"/>
+<path d="M10.2 29C12 18.2 20.7 11 32 11s20 7.2 21.8 18" stroke="url(#halo)" stroke-width="4.6" stroke-linecap="round"/>
+<path d="M16 31C17.5 22.7 23.9 17 32 17s14.5 5.7 16 14" stroke="url(#halo)" stroke-width="4" stroke-linecap="round"/>
+<path d="M21.5 37C23.1 31.2 27 27.5 32 27.5s8.9 3.7 10.5 9.5" stroke="url(#halo)" stroke-width="3.7" stroke-linecap="round"/>
+<path d="M21.3 45C24 49 27.6 51 32 51s8-2 10.7-6" stroke="url(#halo)" stroke-width="3" stroke-linecap="round" opacity=".78"/>
+<circle cx="32" cy="39" r="7.7" fill="url(#core)"/><circle cx="32" cy="39" r="2.25" fill="#F8FAFF"/>
+</svg>

@@ -1,0 +1,28 @@
+[Unit]
+Description=AuraLAN local network console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=auralan
+Group=auralan
+WorkingDirectory=/opt/auralan/backend
+Environment=PYTHONUNBUFFERED=1
+Environment=AURALAN_DATA_DIR=/var/lib/auralan
+Environment=AURALAN_HOST=127.0.0.1
+Environment=AURALAN_PORT=8787
+EnvironmentFile=-/etc/default/auralan
+ExecStart=/opt/auralan/backend/.venv/bin/uvicorn app.main:app --host ${AURALAN_HOST} --port ${AURALAN_PORT}
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=auralan
+StateDirectoryMode=0750
+ReadOnlyPaths=/etc /proc /sys
+
+[Install]
+WantedBy=multi-user.target
