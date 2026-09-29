@@ -89,6 +89,36 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now auralan.service
 ```
 
+## Upgrading a systemd installation
+
+For installations created with `scripts/install.sh`, update the source checkout to the reviewed release you want to install and run:
+
+```bash
+sudo ./scripts/upgrade.sh
+```
+
+The upgrader stages the complete new application and Python environment before stopping the running service. It then:
+
+- validates the release source and runs backend regression tests before the switch
+- creates a consistent pre-upgrade backup of the AuraLAN SQLite database when one exists
+- leaves `/etc/default/auralan` and the configured data directory outside the application tree
+- swaps the application directory only after staging succeeds
+- installs the matching systemd unit
+- waits for the health endpoint
+- restores the previous code, unit, and pre-upgrade database automatically if activation fails
+
+The canonical application directory is `/opt/auralan`. The updater deliberately refuses to act on an unknown layout rather than guessing.
+
+If `AURALAN_PORT` is configured in `/etc/default/auralan`, the upgrader uses that port for its loopback health check. Deployments bound only to a specific non-loopback address can provide an explicit health endpoint:
+
+```bash
+sudo AURALAN_HEALTH_URL=http://HOST-IP:PORT/api/v1/health ./scripts/upgrade.sh
+```
+
+Development versions containing a `-dev` suffix are rejected by default. Maintainers can opt into an intentional test upgrade with `AURALAN_ALLOW_DEV_UPGRADE=1`.
+
+`scripts/deploy-local.sh` is intentionally different: it is a maintainer helper for a service that runs directly from the same Git checkout. It now refuses to restart a service whose working directory points somewhere else, so a canonical `/opt/auralan` installation cannot be mistaken for a checkout-backed development deployment.
+
 ## Access from other devices
 
 The production unit binds to `127.0.0.1` by default.

@@ -13,7 +13,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
-| `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment health-check URL |
+| `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
 
 ## Wi-Fi interface selection
