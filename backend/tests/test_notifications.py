@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import unittest
 import urllib.error
 from pathlib import Path
@@ -63,8 +64,32 @@ class WebhookNotificationTests(unittest.TestCase):
                 self.assertEqual(notifier.dispatch_pending(), 0)
 
             self.assertEqual(event_store.notification_cursor("webhook"), initial)
-            self.assertEqual(notifier.status()["pending_events"], next_id - initial)
+            self.assertEqual(notifier.status()["pending_events"], 1)
             self.assertEqual(notifier.status()["last_error"], "URLError")
+
+    def test_pending_count_ignores_deleted_event_id_gaps(self):
+        with TemporaryDirectory() as temp_dir:
+            event_store = DeviceStore(Path(temp_dir))
+            first_id = add_first_seen(event_store, "001122334455", "192.0.2.10")
+            second_id = add_first_seen(event_store, "001122334466", "192.0.2.11")
+            third_id = add_first_seen(event_store, "001122334477", "192.0.2.12")
+            event_store.set_notification_cursor("webhook", first_id)
+
+            with sqlite3.connect(event_store.path) as connection:
+                connection.execute("DELETE FROM device_events WHERE id = ?", (second_id,))
+                connection.commit()
+
+            self.assertGreater(third_id - first_id, 1)
+
+            notifier = WebhookNotifier(event_store, url="http://example.invalid/hook")
+            self.assertEqual(notifier.status()["pending_events"], 1)
+
+            with patch.object(notifier, "_post") as post:
+                self.assertEqual(notifier.dispatch_pending(), 1)
+                post.assert_called_once()
+
+            self.assertEqual(event_store.notification_cursor("webhook"), third_id)
+            self.assertEqual(notifier.status()["pending_events"], 0)
 
     def test_default_payload_omits_network_identifiers(self):
         with TemporaryDirectory() as temp_dir:
