@@ -37,8 +37,9 @@ class HomeAssistantSummaryTests(unittest.TestCase):
             ],
             "services": {
                 "items": [
-                    {"name": "Docker", "state": "online"},
-                    {"name": "Pi-hole", "state": "offline"},
+                    {"name": "Docker", "detected": True, "state": "online"},
+                    {"name": "Pi-hole", "detected": True, "state": "offline"},
+                    {"name": "Caddy", "detected": False, "state": "unknown"},
                 ]
             },
             "errors": ["provider unavailable"],
