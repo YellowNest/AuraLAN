@@ -92,6 +92,66 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertIn("device_inventory", tables)
 
 
+    def test_schema_three_state_migrates_to_known_device_inventory(self):
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)")
+                connection.execute("""CREATE TABLE device_metadata (
+                    device_id TEXT PRIMARY KEY,
+                    alias TEXT,
+                    category_override TEXT,
+                    note TEXT,
+                    favorite INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_presence (
+                    device_id TEXT PRIMARY KEY,
+                    first_seen_at INTEGER NOT NULL,
+                    last_seen_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_identity_cache (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    source TEXT,
+                    confidence TEXT,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    display_name TEXT,
+                    ip TEXT,
+                    mac TEXT,
+                    created_at INTEGER NOT NULL
+                )""")
+                connection.execute("PRAGMA user_version = 3")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = DeviceStore(Path(temp_dir)).readiness_check()
+            self.assertEqual(result["schema_version"], 4)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                }
+            finally:
+                connection.close()
+            self.assertIn("device_inventory", tables)
+
+
+
     def test_remembered_devices_survive_current_discovery_and_do_not_duplicate_live_macs(self):
         with TemporaryDirectory() as temp_dir:
             device_store = DeviceStore(Path(temp_dir))
