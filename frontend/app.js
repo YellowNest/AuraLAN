@@ -223,6 +223,7 @@ function renderOverview() {
   const detectedServices = visibleServiceItems(serviceItems());
   const onlineDevices = devices().filter((item) => item.online === true).length;
   const newDevices = devices().filter((item) => isNewDevice(item));
+  const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
