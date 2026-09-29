@@ -10,6 +10,7 @@ Development target: `0.7.0`.
 
 ### Fixed
 
+- The IPv4 default gateway is now identified as a **Router** with router iconography and shown as the **Default gateway** connection instead of looking like an ordinary device merely seen via the router; manual category overrides still take precedence.
 - Webhook `pending_events` now counts actual persisted events after the delivery cursor instead of subtracting SQLite event IDs, so forgetting a device cannot make deleted event-ID gaps appear as phantom pending notifications.
 
 ## [0.6.0] - 2026-09-29

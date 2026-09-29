@@ -353,6 +353,7 @@ def resolve_observations(
     metadata: dict[str, dict[str, Any]] | None = None,
     *,
     coalesce: bool = True,
+    default_gateway: str | None = None,
 ) -> list[dict[str, Any]]:
     """Resolve MAC identities and conservatively collapse proven multi-NIC hosts."""
     groups: dict[str, list[DeviceObservation]] = {}
@@ -414,6 +415,14 @@ def resolve_observations(
             service_hints=service_hints,
         )
         automatic_category, category_source, category_confidence = inferred.device_type, inferred.evidence, inferred.confidence
+        is_default_gateway = bool(
+            default_gateway
+            and any(str(item.ip or "").strip() == default_gateway for item in evidence)
+        )
+        if is_default_gateway:
+            automatic_category = "router"
+            category_source = "default_route"
+            category_confidence = "high"
         cached_category = cached_identity.get("category")
         if automatic_category == "unknown" and cached_category in CATEGORIES and cached_category != "unknown":
             automatic_category, category_source, category_confidence = cached_category, "identity_cache", "medium"
@@ -473,6 +482,8 @@ def resolve_observations(
             sources.append({"source": source, "confidence": confidence})
         if registry_vendor:
             sources.append({"source": "oui_vendor", "confidence": "high"})
+        if is_default_gateway:
+            sources.append({"source": "default_route", "confidence": "high"})
         if cached_identity and not any(source["source"] == "identity_cache" for source in sources):
             sources.append({"source": "identity_cache", "confidence": "medium"})
         if alias or category_override:
@@ -531,7 +542,14 @@ def signal_quality(signal_dbm: int | None) -> str | None:
     return "weak"
 
 
-def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[dict[str, Any]], signals: dict[str, int], device_store: DeviceStore | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+def collect_devices(
+    interface_rows: list[dict[str, Any]],
+    lease_entries: list[dict[str, Any]],
+    signals: dict[str, int],
+    device_store: DeviceStore | None = None,
+    *,
+    default_gateway: str | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Collect isolated passive providers, merge them, and return human diagnostics."""
     roles = {row["name"]: row["role"] for row in interface_rows}
     access_point = next((name for name, role in roles.items() if role == "access_point"), None)
@@ -567,7 +585,11 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
                 provider_results.extend(future.result())
             except Exception as exc:
                 warnings.append(f"Could not read {provider_name}: {type(exc).__name__}")
-    preliminary = resolve_observations(provider_results, coalesce=False)
+    preliminary = resolve_observations(
+        provider_results,
+        coalesce=False,
+        default_gateway=default_gateway,
+    )
     active_store = device_store or store()
     try:
         active_store.remember_identities(preliminary)
@@ -576,7 +598,11 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
         metadata = {}
         warnings.append(f"AuraLAN device metadata storage is unavailable: {type(exc).__name__}")
     new_ids = {identifier for identifier, item in metadata.items() if item.get("_new_presence")}
-    resolved = resolve_observations(provider_results, metadata)
+    resolved = resolve_observations(
+        provider_results,
+        metadata,
+        default_gateway=default_gateway,
+    )
     try:
         active_store.remember_identities(resolved)
         active_store.remember_inventory(resolved)
@@ -586,6 +612,19 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
     return resolved, warnings
 
 
-def build_devices(interface_rows: list[dict[str, Any]], lease_entries: list[dict[str, Any]], signals: dict[str, int], device_store: DeviceStore | None = None) -> list[dict[str, Any]]:
+def build_devices(
+    interface_rows: list[dict[str, Any]],
+    lease_entries: list[dict[str, Any]],
+    signals: dict[str, int],
+    device_store: DeviceStore | None = None,
+    *,
+    default_gateway: str | None = None,
+) -> list[dict[str, Any]]:
     """Compatibility convenience wrapper for callers that need only records."""
-    return collect_devices(interface_rows, lease_entries, signals, device_store)[0]
+    return collect_devices(
+        interface_rows,
+        lease_entries,
+        signals,
+        device_store,
+        default_gateway=default_gateway,
+    )[0]

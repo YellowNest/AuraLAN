@@ -148,7 +148,14 @@ function devicePresentation(device) {
     ? (iconKey === 'apple_tv' ? categoryLabel('tv') : '')
     : categoryLabel(rawCategory);
   const uplinkInterface = state.data?.network?.uplink?.interface || null;
-  const connection = device.connection_type === 'wifi'
+  const defaultGateway = state.data?.network?.uplink?.gateway || null;
+  const isDefaultGateway = Boolean(
+    defaultGateway
+    && (device.ip === defaultGateway || (device.ip_addresses || []).includes(defaultGateway))
+  );
+  const connection = isDefaultGateway
+    ? t('defaultGateway')
+    : device.connection_type === 'wifi'
     ? t('wifi')
     : device.connection_type === 'ethernet'
       ? t('ethernet')

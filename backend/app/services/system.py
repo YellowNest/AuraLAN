@@ -151,7 +151,12 @@ def discover_network() -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]
 
     dhcp, lease_entries = dnsmasq.discover(access_point["interface"])
     signals = iw.station_signals(access_point["interface"]) if access_point["available"] else {}
-    device_rows, device_errors = devices.collect_devices(interface_rows, lease_entries, signals)
+    device_rows, device_errors = devices.collect_devices(
+        interface_rows,
+        lease_entries,
+        signals,
+        default_gateway=default["gateway"],
+    )
     errors.extend(device_errors)
 
     if ap_expected and not access_point["available"]:
