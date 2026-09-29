@@ -14,7 +14,16 @@ PRESENCE_WRITE_INTERVAL_SECONDS = 60
 
 
 def default_data_dir() -> Path:
-    return Path(os.environ.get("AURALAN_DATA_DIR", "/var/lib/auralan"))
+    """Return a writable per-installation state directory outside the source tree."""
+    configured = os.environ.get("AURALAN_DATA_DIR")
+    if configured:
+        return Path(configured).expanduser()
+
+    xdg_state_home = os.environ.get("XDG_STATE_HOME")
+    if xdg_state_home:
+        return Path(xdg_state_home).expanduser() / "auralan"
+
+    return Path.home() / ".local" / "state" / "auralan"
 
 
 class DeviceStore:
