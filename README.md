@@ -25,7 +25,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
-| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, and review recent discoveries. |
+| **A device inventory that remembers** | Track first/last seen time, add aliases, keep private notes, mark important devices, filter new devices, review recent discoveries, and keep previously seen devices visible when they disappear from the live LAN view. |
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
@@ -53,6 +53,8 @@ Device identity is deliberately conservative. An OUI can identify an organizatio
 ### Device inventory
 
 AuraLAN remembers when a device was first and last observed. You can give devices your own names, keep a short local note and mark important devices as favorites. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
+
+Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory.
 
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact recent-discovery history when a physical device is first observed, so the Overview can answer "what showed up recently?" without sending device data anywhere.
 
