@@ -33,7 +33,6 @@ class DeviceStore:
         self.data_dir = data_dir or default_data_dir()
         self.path = self.data_dir / "auralan.db"
         self._lock = threading.Lock()
-        self._ready = False
 
     def _connect(self) -> sqlite3.Connection:
         self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o750)
@@ -42,8 +41,29 @@ class DeviceStore:
         return connection
 
     def _ensure_schema(self, connection: sqlite3.Connection) -> None:
-        if self._ready:
-            return
+        """Bootstrap or repair the expected tables for the current database file.
+
+        Each operation opens a fresh SQLite connection. Checking user_version
+        notices when an administrator replaces or restores the database while
+        AuraLAN is running, unlike a process-global readiness flag.
+        """
+        version_row = connection.execute("PRAGMA user_version").fetchone()
+        version = int(version_row[0]) if version_row else 0
+        required_tables = {
+            "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
+        }
+        if version == SCHEMA_VERSION:
+            existing_tables = {
+                str(row[0])
+                for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            if required_tables.issubset(existing_tables):
+                return
+        if version > SCHEMA_VERSION:
+            raise sqlite3.DatabaseError(
+                f"AuraLAN database schema {version} is newer than supported schema {SCHEMA_VERSION}"
+            )
+
         connection.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)")
         connection.execute("""CREATE TABLE IF NOT EXISTS device_metadata (
             device_id TEXT PRIMARY KEY,
@@ -74,8 +94,8 @@ class DeviceStore:
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
         )
+        connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         connection.commit()
-        self._ready = True
 
     def enrich(self, device_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Return metadata/presence and write a bounded once-per-minute last-seen stamp."""
