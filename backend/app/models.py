@@ -226,6 +226,7 @@ class ActivityResponse(BaseModel):
 
 class NotificationStatusResponse(BaseModel):
     configured: bool = False
+    include_identifiers: bool = False
     last_attempt_at: int | None = None
     last_success_at: int | None = None
     last_error: str | None = None
