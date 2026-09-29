@@ -200,6 +200,24 @@ def update_device_metadata(device_id: str, update: DeviceMetadataUpdate) -> dict
         kwargs["note"] = update.note.strip() if update.note else None
     if "favorite" in update.model_fields_set:
         kwargs["favorite"] = update.favorite
+    if "location" in update.model_fields_set:
+        kwargs["location"] = update.location.strip() if update.location else None
+    if "tags" in update.model_fields_set:
+        raw_tags = update.tags or []
+        normalized_tags: list[str] = []
+        seen_tags: set[str] = set()
+        for raw_tag in raw_tags:
+            tag = str(raw_tag).strip()
+            if not tag:
+                continue
+            if len(tag) > 24:
+                raise HTTPException(status_code=422, detail="Device tags must be 24 characters or fewer")
+            key = tag.casefold()
+            if key in seen_tags:
+                continue
+            seen_tags.add(key)
+            normalized_tags.append(tag)
+        kwargs["tags"] = normalized_tags
     try:
         store().update_metadata(device_id, **kwargs)
     except (OSError, sqlite3.Error) as exc:
