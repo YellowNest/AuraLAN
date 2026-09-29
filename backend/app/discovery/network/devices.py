@@ -564,6 +564,7 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
     resolved = resolve_observations(provider_results, metadata)
     try:
         active_store.remember_identities(resolved)
+        active_store.remember_inventory(resolved)
         active_store.record_first_seen(resolved, new_ids)
     except (OSError, sqlite3.Error):
         pass
