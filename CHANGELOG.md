@@ -8,6 +8,11 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 Development target: `0.6.0`.
 
+### Added
+
+- Device inventory organization now supports a local location field and up to eight lightweight tags per device. Locations and tags participate in search, survive remembered-device state, and are included in CSV/JSON exports.
+- The Devices view now offers persistent sorting by smart order, name, last seen, first seen, location or IP address.
+
 ## [0.5.0] - 2026-09-29
 
 ### Fixed
