@@ -16,7 +16,7 @@ Development target: `0.4.1`.
 
 ### Added
 
-- Device inventory now exposes first/last-seen timestamps, local notes, favorites and category overrides in the device inspector.
+- Device inventory now exposes first/last-seen timestamps, local notes and favorites in the device inspector.
 - Device search includes local notes, and the device view can filter favorites and devices first seen by AuraLAN within the last 24 hours.
 - The overview surfaces newly seen devices without treating them as a security verdict; inventory data remains local to AuraLAN.
 - Canonical systemd installations now have a staged production upgrader that preserves host configuration and runtime state, creates a consistent SQLite backup, health-checks the new version, and restores code/unit/database state automatically on activation failure.
