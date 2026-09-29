@@ -212,7 +212,7 @@ class ServicesResponse(BaseModel):
 
 class ActivityEventResponse(BaseModel):
     id: int
-    event_type: Literal["device_first_seen"]
+    event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]
     entity_id: str
     display_name: str | None = None
     ip: str | None = None
@@ -222,6 +222,14 @@ class ActivityEventResponse(BaseModel):
 
 class ActivityResponse(BaseModel):
     items: list[ActivityEventResponse] = Field(default_factory=list)
+
+
+class NotificationStatusResponse(BaseModel):
+    configured: bool = False
+    last_attempt_at: int | None = None
+    last_success_at: int | None = None
+    last_error: str | None = None
+    pending_events: int = 0
 
 
 class SystemStateResponse(BaseModel):
@@ -249,6 +257,7 @@ class StatusResponse(BaseModel):
     services: ServicesResponse
     activity: list[ActivityEventResponse] = Field(default_factory=list)
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
+    notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     errors: list[str] = Field(default_factory=list)
 
 
@@ -261,4 +270,5 @@ class DiagnosticsResponse(BaseModel):
     network: NetworkResponse
     services: ServicesResponse
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
+    notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     discovery_errors: list[str] = Field(default_factory=list)
