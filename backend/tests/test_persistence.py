@@ -78,7 +78,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 6)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -138,7 +138,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 6)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -168,7 +168,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 5)
+            self.assertEqual(result["schema_version"], 6)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -181,6 +181,96 @@ class DefaultDataDirTests(unittest.TestCase):
 
             self.assertIn("device_watch_state", tables)
             self.assertIn("notification_cursors", tables)
+
+    def test_schema_five_adds_device_location_and_tags_without_losing_metadata(self):
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)")
+                connection.execute("""CREATE TABLE device_metadata (
+                    device_id TEXT PRIMARY KEY,
+                    alias TEXT,
+                    category_override TEXT,
+                    note TEXT,
+                    favorite INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_presence (
+                    device_id TEXT PRIMARY KEY,
+                    first_seen_at INTEGER NOT NULL,
+                    last_seen_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_identity_cache (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    source TEXT,
+                    confidence TEXT,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    display_name TEXT,
+                    ip TEXT,
+                    mac TEXT,
+                    created_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_inventory (
+                    device_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    hostname TEXT,
+                    vendor TEXT,
+                    model TEXT,
+                    category TEXT,
+                    icon_key TEXT,
+                    ip TEXT,
+                    ip_addresses_json TEXT NOT NULL DEFAULT '[]',
+                    mac TEXT,
+                    mac_addresses_json TEXT NOT NULL DEFAULT '[]',
+                    mac_type TEXT,
+                    interface TEXT,
+                    connection_type TEXT,
+                    first_seen_at INTEGER,
+                    last_seen_at INTEGER,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE device_watch_state (
+                    device_id TEXT PRIMARY KEY,
+                    not_seen INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute("""CREATE TABLE notification_cursors (
+                    channel TEXT PRIMARY KEY,
+                    last_event_id INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )""")
+                connection.execute(
+                    "INSERT INTO device_metadata(device_id, alias, category_override, note, favorite, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    ("001122334455", "Printer", "printer", "Upstairs", 1, 100),
+                )
+                connection.execute("PRAGMA user_version = 5")
+                connection.commit()
+            finally:
+                connection.close()
+
+            device_store = DeviceStore(Path(temp_dir))
+            result = device_store.readiness_check()
+            self.assertEqual(result["schema_version"], 6)
+
+            enriched = device_store.enrich(["001122334455"])["001122334455"]
+            self.assertEqual(enriched["alias"], "Printer")
+            self.assertEqual(enriched["note"], "Upstairs")
+            self.assertEqual(enriched["favorite"], 1)
+            self.assertIsNone(enriched["location"])
+            self.assertEqual(enriched["tags"], [])
 
     def test_favorite_watch_absence_is_debounced_and_return_is_immediate(self):
         with TemporaryDirectory() as temp_dir, patch.dict(
@@ -393,15 +483,21 @@ class DefaultDataDirTests(unittest.TestCase):
                 category_override="printer",
                 note="Upstairs",
                 favorite=True,
+                location="Office",
+                tags=["infrastructure", "laser"],
             )
             self.assertEqual(saved["note"], "Upstairs")
             self.assertTrue(saved["favorite"])
+            self.assertEqual(saved["location"], "Office")
+            self.assertEqual(saved["tags"], ["infrastructure", "laser"])
 
             enriched = device_store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Office printer")
             self.assertEqual(enriched["category_override"], "printer")
             self.assertEqual(enriched["note"], "Upstairs")
             self.assertEqual(enriched["favorite"], 1)
+            self.assertEqual(enriched["location"], "Office")
+            self.assertEqual(enriched["tags"], ["infrastructure", "laser"])
             self.assertIsNotNone(enriched["first_seen_at"])
             self.assertIsNotNone(enriched["last_seen_at"])
 
@@ -410,6 +506,8 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertEqual(preserved["alias"], "Printer")
             self.assertEqual(preserved["note"], "Upstairs")
             self.assertEqual(preserved["favorite"], 1)
+            self.assertEqual(preserved["location"], "Office")
+            self.assertEqual(preserved["tags"], ["infrastructure", "laser"])
 
 
 if __name__ == "__main__":
