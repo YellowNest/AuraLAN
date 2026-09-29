@@ -249,7 +249,7 @@ def _merge_device_records(records: list[dict[str, Any]]) -> dict[str, Any]:
         # User-owned labels explicitly distinguish these records.
         return {}
 
-    def score(item: dict[str, Any]) -> tuple[int, int, int, int, int, int, int, str]:
+    def score(item: dict[str, Any]) -> tuple[int, int, int, int, int, int, int, int, int, str]:
         metadata = item.get("metadata") or {}
         return (
             1 if metadata.get("alias") else 0,
