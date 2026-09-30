@@ -15,7 +15,7 @@ AuraLAN is provider-based: the application remains usable when optional discover
 | SSDP / UPnP | local UDP/HTTP | Optional |
 | Docker status | Docker CLI/socket | Optional |
 | Pi-hole | service/container + optional FTL DB | Optional |
-| MAC vendor names | local ieee-data/nmap/arp-scan OUI registry | Optional |
+| MAC vendor names | local systemd/udev hwdb or ieee-data/nmap/arp-scan OUI registry | Optional |
 | WireGuard | kernel interfaces / `wg` | Optional |
 | Caddy | systemd or Docker | Optional |
 
