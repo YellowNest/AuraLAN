@@ -20,6 +20,7 @@ class DeviceObservation:
     lease_expires_at: int | None = None
     service_name: str | None = None
     service_types: tuple[str, ...] = ()
+    profile_hints: tuple[str, ...] = ()
     model: str | None = None
     manufacturer: str | None = None
 
