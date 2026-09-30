@@ -26,6 +26,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
+| **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
 | **A device inventory that remembers** | Track first/last seen time and a debounced per-device presence timeline, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, forget stale remembered devices safely, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | An aggregate REST summary feeds local Home Assistant sensors without device identity data, while optional reliable webhooks report new devices and favorite watch-state changes. |
@@ -52,9 +53,10 @@ AuraLAN can combine local evidence from:
 - NetBIOS names
 - SSDP/UPnP device descriptions from already-known LAN clients
 - Pi-hole FTL history when readable
-- local/offline OUI registries installed on the host
+- local/offline OUI registries installed on the host, including systemd/udev hwdb when available
+- standards-based HomeKit category and Matter service hints
 
-Device identity is deliberately conservative. An OUI can identify an organization; it cannot prove an exact model. AuraLAN keeps the raw evidence separate from the friendly presentation.
+Device identity is deliberately conservative. An OUI can identify an organization; it cannot prove an exact model. AuraLAN keeps the raw evidence separate from the friendly presentation. The Devices view also summarizes identity coverage and the evidence sources behind each device so a user can immediately see which identities are well supported and which still need a useful local name.
 
 ### Device inventory
 
@@ -62,7 +64,7 @@ AuraLAN remembers when a device was first and last observed. You can give device
 
 Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory. Remembered devices that are no longer observed can be explicitly forgotten; AuraLAN removes its own saved identity, metadata, activity, watch state and presence history, and the device will be treated as new if it is discovered again later.
 
-The 0.6 development line also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
+AuraLAN also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
 
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
 
@@ -80,7 +82,7 @@ AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VP
 
 By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes, locations, tags and favorites.
 
-The 0.6 development line also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration.
+AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration.
 
 ## Quick start
 
