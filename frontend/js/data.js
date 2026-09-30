@@ -12,6 +12,51 @@ export function isFavoriteNotSeen(device) {
   return Boolean(device?.metadata?.favorite) && device?.state === 'known';
 }
 
+export function identityQuality(device) {
+  const identity = device?.identity || {};
+  const display = identity.display_name || {};
+  const sourceConfidence = Array.isArray(identity.sources)
+    ? identity.sources.map((item) => item?.confidence)
+    : [];
+
+  let score = 0;
+  if (device?.metadata?.alias) {
+    score += 45;
+  } else if (display.confidence === 'high') {
+    score += 35;
+  } else if (display.confidence === 'medium') {
+    score += 25;
+  } else if (display.confidence === 'low') {
+    score += 5;
+  }
+
+  if (device?.vendor || identity.vendor?.value) score += 20;
+  if (device?.model || identity.model?.value) score += 20;
+  if ((device?.category || device?.device_type || 'unknown') !== 'unknown') score += 20;
+  if (device?.hostname) score += 10;
+
+  if (sourceConfidence.includes('high')) score += 10;
+  else if (sourceConfidence.includes('medium')) score += 5;
+
+  score = Math.max(0, Math.min(100, score));
+  const level = score >= 70 ? 'strong' : score >= 40 ? 'useful' : 'limited';
+  return { score, level };
+}
+
+export function identityCoverage(items) {
+  const prepared = Array.isArray(items) ? items : [];
+  if (!prepared.length) return { score: 0, strong: 0, useful: 0, limited: 0, total: 0 };
+
+  const qualities = prepared.map(identityQuality);
+  return {
+    score: Math.round(qualities.reduce((sum, item) => sum + item.score, 0) / qualities.length),
+    strong: qualities.filter((item) => item.level === 'strong').length,
+    useful: qualities.filter((item) => item.level === 'useful').length,
+    limited: qualities.filter((item) => item.level === 'limited').length,
+    total: qualities.length,
+  };
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
   const normalizedQuery = query.trim().toLowerCase();
   return items.filter((device) => {
@@ -19,6 +64,7 @@ export function filterDevices(items, filter = 'all', query = '') {
     const matchesFilter = filter === 'all'
       || (filter === 'online' && device.online === true)
       || (filter === 'unknown' && unidentified)
+      || (filter === 'identity_limited' && identityQuality(device).level === 'limited')
       || (filter === 'new' && isNewDevice(device))
       || (filter === 'favorites' && Boolean(device.metadata?.favorite))
       || (filter === 'favorite_missing' && isFavoriteNotSeen(device))
