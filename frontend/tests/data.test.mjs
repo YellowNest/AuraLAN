@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -15,6 +15,52 @@ test('device filtering supports friendly names, vendor, category, IP, and MAC', 
   assert.equal(filterDevices(devices, 'all', 'samsung')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'all', 'qe65q70t')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'unknown').length, 1);
+});
+
+test('identity quality distinguishes evidence-rich and unidentified devices', () => {
+  const strong = {
+    display_name: 'Living Room TV',
+    hostname: 'living-room-tv',
+    vendor: 'Example',
+    model: 'MediaBox X',
+    category: 'tv',
+    metadata: {},
+    identity: {
+      display_name: { value: 'Living Room TV', source: 'dns_sd', confidence: 'medium' },
+      sources: [{ source: 'dns_sd', confidence: 'medium' }, { source: 'oui_vendor', confidence: 'high' }],
+    },
+  };
+  const limited = {
+    display_name: 'Network device',
+    hostname: null,
+    vendor: null,
+    model: null,
+    category: 'unknown',
+    metadata: {},
+    identity: {
+      display_name: { value: 'Network device', source: 'heuristic', confidence: 'low' },
+      sources: [{ source: 'ip_neigh', confidence: 'medium' }],
+    },
+  };
+
+  assert.equal(identityQuality(strong).level, 'strong');
+  assert.equal(identityQuality(limited).level, 'limited');
+  assert.equal(identityQuality({
+    display_name: 'My device',
+    category: 'unknown',
+    metadata: { alias: 'My device' },
+    identity: {
+      display_name: { value: 'My device', source: 'manual_alias', confidence: 'high' },
+      sources: [{ source: 'manual_alias', confidence: 'high' }],
+    },
+  }).level, 'strong');
+  assert.equal(filterDevices([strong, limited], 'identity_limited').length, 1);
+
+  const coverage = identityCoverage([strong, limited]);
+  assert.equal(coverage.total, 2);
+  assert.equal(coverage.strong, 1);
+  assert.equal(coverage.limited, 1);
+  assert.ok(coverage.score > 0 && coverage.score < 100);
 });
 
 test('device inventory supports new, favorite, and note discovery', () => {
