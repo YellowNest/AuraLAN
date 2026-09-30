@@ -13,9 +13,15 @@ Discovery adapters return normalized data and do not know about markup or browse
 
 Every adapter is read-only. `services/system.py` catches a failing subsystem, records a sanitized discovery error, and still returns the remaining snapshot.
 
+## Identity evidence
+
+Device identity is assembled from independently collected local evidence rather than from a cloud fingerprinting service. Host names, DNS-SD/mDNS, SSDP/UPnP descriptions, DHCP, NetBIOS, Pi-hole history, route roles and offline OUI registries remain separate evidence sources. HomeKit category metadata and Matter service advertisements contribute broad device-class hints without claiming an exact hardware model.
+
+AuraLAN also reads the host's systemd/udev OUI hardware database when present, in addition to conventional ieee-data, nmap and arp-scan registries. The frontend's Identity Intelligence score describes how complete the locally observed identity is; it is not a probability or a claim that an inferred model is correct.
+
 ## Health state
 
-`healthy` requires a confirmed AP with no detected offline services or discovery errors. An absent optional integration is neutral. A detected but offline service is `degraded`; a missing AP or partial discovery source is `warning`.
+`healthy` means AuraLAN completed its available local discovery without a reported provider error and no detected service is offline. An absent optional integration is neutral. A detected but offline service is `degraded`; a partial discovery failure is `warning`. Access-point mode is only treated as an explicit expectation when `AURALAN_WIFI_INTERFACE` is configured, so an ordinary Linux host acting as a Wi-Fi client is not marked unhealthy merely because it is not an AP.
 
 ## Frontend
 
