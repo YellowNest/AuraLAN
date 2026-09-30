@@ -81,6 +81,32 @@ def _merge_system_oui(prefixes: dict[str, str], path: Path) -> None:
             prefixes.setdefault(prefix, vendor)
 
 
+def _merge_systemd_oui_hwdb(prefixes: dict[str, str], path: Path) -> None:
+    """Read systemd/udev's local OUI hardware database when available."""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return
+
+    current_prefix: str | None = None
+    for raw in lines:
+        line = raw.strip()
+        pattern = re.fullmatch(r"OUI:([0-9A-Fa-f]{6,9})\*", line)
+        if pattern:
+            current_prefix = pattern.group(1).upper()
+            continue
+        if not current_prefix:
+            continue
+        property_match = re.fullmatch(r"ID_OUI_FROM_DATABASE=(.+)", line)
+        if property_match:
+            vendor = property_match.group(1).strip()
+            if vendor:
+                prefixes.setdefault(current_prefix, vendor)
+            current_prefix = None
+        elif line and not raw[:1].isspace() and not line.startswith("#"):
+            current_prefix = None
+
+
 @lru_cache(maxsize=1)
 def _oui_prefixes() -> dict[str, str]:
     """Load standard offline host OUI registries, optionally with one explicit override."""
@@ -100,6 +126,16 @@ def _oui_prefixes() -> dict[str, str]:
             continue
         seen.add(candidate)
         _merge_system_oui(prefixes, candidate)
+
+    for candidate in (
+        Path("/usr/lib/udev/hwdb.d/20-OUI.hwdb"),
+        Path("/lib/udev/hwdb.d/20-OUI.hwdb"),
+        Path("/usr/lib/systemd/hwdb/hwdb.d/20-OUI.hwdb"),
+    ):
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        _merge_systemd_oui_hwdb(prefixes, candidate)
     return prefixes
 
 
@@ -393,7 +429,7 @@ def resolve_observations(
         service_hints = tuple(dict.fromkeys(
             hint
             for item in evidence
-            for hint in (*item.service_types, item.service_name or "", item.model or "", item.manufacturer or "")
+            for hint in (*item.service_types, *item.profile_hints, item.service_name or "", item.model or "", item.manufacturer or "")
             if hint
         ))
         registry_vendor = oui_vendor(mac)
@@ -452,7 +488,7 @@ def resolve_observations(
         elif cached_identity.get("display_name"):
             display = _field(cached_identity["display_name"], "identity_cache", "medium")
         elif model_display:
-            display = _field(model_display, "identity_cache", "medium")
+            display = _field(model_display, model_source or "heuristic", "medium")
         elif cleaned_hostname:
             display = _field(cleaned_hostname, "identity_cache", "medium")
         else:
