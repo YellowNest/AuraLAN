@@ -45,6 +45,15 @@ test('identity quality distinguishes evidence-rich and unidentified devices', ()
 
   assert.equal(identityQuality(strong).level, 'strong');
   assert.equal(identityQuality(limited).level, 'limited');
+  assert.equal(identityQuality({
+    display_name: 'My device',
+    category: 'unknown',
+    metadata: { alias: 'My device' },
+    identity: {
+      display_name: { value: 'My device', source: 'manual_alias', confidence: 'high' },
+      sources: [{ source: 'manual_alias', confidence: 'high' }],
+    },
+  }).level, 'strong');
   assert.equal(filterDevices([strong, limited], 'identity_limited').length, 1);
 
   const coverage = identityCoverage([strong, limited]);
