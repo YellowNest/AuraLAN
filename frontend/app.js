@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceListIdentity, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -141,6 +141,53 @@ const deviceStateLabel = (device) => {
 const signalQualityLabel = (quality) => quality ? t(`signal_${String(quality).toLowerCase()}`) : '';
 const formatTimestamp = (timestamp) => timestamp ? new Date(timestamp * 1000).toLocaleString(state.locale, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
+function identitySourceLabel(source) {
+  const labels = {
+    manual_alias: t('sourceManual'),
+    dhcp_lease: 'DHCP',
+    wifi_station: 'Wi-Fi',
+    local_hosts: 'hosts',
+    mdns_name: 'mDNS',
+    dns_sd: 'DNS-SD',
+    local_resolver: 'DNS',
+    netbios_name: 'NetBIOS',
+    ssdp: 'SSDP / UPnP',
+    pihole_network: 'Pi-hole',
+    oui_vendor: 'OUI',
+    default_route: t('defaultGateway'),
+    identity_cache: t('sourceCached'),
+    inventory_cache: t('sourceRemembered'),
+    ip_neigh: t('sourceNeighbor'),
+  };
+  return labels[source] || String(source || '').replaceAll('_', ' ');
+}
+
+function renderIdentityEvidence(device) {
+  const quality = identityQuality(device);
+  const levelLabel = {
+    strong: t('identityStrong'),
+    useful: t('identityUseful'),
+    limited: t('identityLimited'),
+  }[quality.level];
+  const sources = [];
+  const seen = new Set();
+  for (const item of device.identity?.sources || []) {
+    const source = String(item?.source || '');
+    if (!source || seen.has(source)) continue;
+    seen.add(source);
+    sources.push({ source, label: identitySourceLabel(source), confidence: item?.confidence || 'medium' });
+  }
+  const chips = sources.length
+    ? `<div class="identity-evidence-chips">${sources.map((item) => `<span class="identity-evidence-chip confidence-${escapeHtml(item.confidence)}">${escapeHtml(item.label)}</span>`).join('')}</div>`
+    : `<p class="identity-evidence-empty">${escapeHtml(t('identityNoEvidence'))}</p>`;
+
+  return `<div class="identity-quality-card level-${escapeHtml(quality.level)}">
+    <div class="identity-quality-head"><div><span>${escapeHtml(t('identityCompleteness'))}</span><strong>${escapeHtml(levelLabel)}</strong></div><b>${quality.score}%</b></div>
+    <div class="identity-progress" role="progressbar" aria-label="${escapeHtml(t('identityCompleteness'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${quality.score}"><i style="width:${quality.score}%"></i></div>
+    <p>${escapeHtml(t('identityEvidenceHint'))}</p>
+    ${chips}
+  </div>`;
+}
 function devicePresentation(device) {
   const rawCategory = device.category || device.device_type || 'unknown';
   const iconKey = deviceIconKey(device);
@@ -148,7 +195,14 @@ function devicePresentation(device) {
     ? (iconKey === 'apple_tv' ? categoryLabel('tv') : '')
     : categoryLabel(rawCategory);
   const uplinkInterface = state.data?.network?.uplink?.interface || null;
-  const connection = device.connection_type === 'wifi'
+  const defaultGateway = state.data?.network?.uplink?.gateway || null;
+  const isDefaultGateway = Boolean(
+    defaultGateway
+    && (device.ip === defaultGateway || (device.ip_addresses || []).includes(defaultGateway))
+  );
+  const connection = isDefaultGateway
+    ? t('defaultGateway')
+    : device.connection_type === 'wifi'
     ? t('wifi')
     : device.connection_type === 'ethernet'
       ? t('ethernet')
@@ -390,8 +444,10 @@ function filteredDevices() {
 function renderDevices() {
   const allDevices = devices();
   const result = filteredDevices();
+  const identity = identityCoverage(allDevices);
   const unidentified = allDevices.filter((item) => item.category === 'unknown' && !item.vendor && !item.model && !item.hostname && !item.metadata?.alias).length;
   const filters = [['all', t('all')], ['online', t('online')]];
+  if (identity.limited) filters.push(['identity_limited', t('identityNeedsReview')]);
   if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
   if (allDevices.some((item) => isFavoriteNotSeen(item))) filters.push(['favorite_missing', t('favoriteNotSeenShort')]);
   if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
@@ -410,7 +466,13 @@ function renderDevices() {
     ['location', t('sortLocation')],
     ['ip', t('sortIp')],
   ];
-  return `<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
+  const identityOverview = allDevices.length ? `<section class="identity-overview surface">
+    <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityCoverage')}</h2><small>${t('identityCoverageHint')}</small></div></div>
+    <div class="identity-overview-score"><strong>${identity.score}%</strong><span>${t('identityCompleteness')}</span></div>
+    <div class="identity-progress identity-overview-progress" role="progressbar" aria-label="${escapeHtml(t('identityCoverage'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${identity.score}"><i style="width:${identity.score}%"></i></div>
+    <div class="identity-breakdown"><span><b>${identity.strong}</b> ${t('identityStrong')}</span><span><b>${identity.useful}</b> ${t('identityUseful')}</span><span><b>${identity.limited}</b> ${t('identityNeedsReview')}</span></div>
+  </section>` : '';
+  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
 
 function renderServices() {
@@ -805,7 +867,7 @@ function showDevice(id) {
     t('device'),
     `<p class="inspector-summary">${escapeHtml(summary)}</p>
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
-      <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div></div>
+      <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div>${renderIdentityEvidence(device)}</div>
       ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
       ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
       ${forgetAvailable ? `<div class="detail-section device-actions danger-zone"><h3>${t('forgetDevice')}</h3><button class="secondary-button danger-button" type="button" data-forget-device="${escapeHtml(device.id)}" data-forget-name="${escapeHtml(presentation.name)}">${icon('trash')}${t('forgetDevice')}</button><p class="action-hint">${escapeHtml(t('forgetDeviceHint'))}</p></div>` : ''}

@@ -6,7 +6,20 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
-Next development target will be selected after the 0.6.0 release.
+## [0.7.0] - 2026-09-30
+
+### Added
+
+- **Identity Intelligence** gives the Devices view a local identity-coverage score, evidence strength, readable discovery-source chips and a dedicated filter for devices that still need identification.
+- Device identity can now use the systemd/udev offline OUI hardware database in addition to ieee-data, nmap and arp-scan registries, improving manufacturer coverage on common Linux installations without any cloud lookup.
+- HomeKit accessory-category hints, Matter service signatures, Apple Companion-Link model metadata, NAS signatures and Android/Google TV signatures add standards-based local evidence for friendlier device classification.
+
+### Fixed
+
+- Model-only SSDP identities now preserve SSDP as their evidence source instead of being mislabeled as cache-derived.
+
+- The IPv4 default gateway is now identified as a **Router** with router iconography and shown as the **Default gateway** connection instead of looking like an ordinary device merely seen via the router; manual category overrides still take precedence.
+- Webhook `pending_events` now counts actual persisted events after the delivery cursor instead of subtracting SQLite event IDs, so forgetting a device cannot make deleted event-ID gaps appear as phantom pending notifications.
 
 ## [0.6.0] - 2026-09-29
 

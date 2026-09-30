@@ -14,7 +14,7 @@ from app.discovery.integrations.wireguard import parse_wg_dump
 from app.discovery.network.iproute import classify_interface
 from app.discovery.network import networkmanager
 from app.discovery.network.iw import parse_iw_dev, parse_iw_info
-from app.discovery.network.devices import _merge_system_oui, build_devices, mac_type, oui_vendor, resolve_observations
+from app.discovery.network.devices import _merge_system_oui, _merge_systemd_oui_hwdb, build_devices, mac_type, oui_vendor, resolve_observations
 from app.discovery.device_discovery.base import DeviceObservation
 from app.discovery.device_discovery import dhcp, dns_sd, local_names, mdns, netbios, pihole_network, resolver, ssdp
 from app.discovery.command import CommandResult, run_command
@@ -129,6 +129,48 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(devices[0]["signal_quality"], "excellent")
         self.assertEqual(devices[0]["connection_type"], "wifi")
 
+    def test_default_route_gateway_is_identified_as_router(self):
+        device = resolve_observations(
+            [
+                self._observation(
+                    interface="lan-uplink",
+                    role="uplink",
+                    ip="192.0.2.1",
+                    neighbour_state="REACHABLE",
+                ),
+            ],
+            default_gateway="192.0.2.1",
+        )[0]
+
+        self.assertEqual(device["category"], "router")
+        self.assertEqual(device["device_type"], "router")
+        self.assertEqual(device["icon_key"], "router")
+        self.assertEqual(device["identity"]["device_type"]["source"], "default_route")
+        self.assertEqual(device["identity"]["device_type"]["confidence"], "high")
+        self.assertIn(
+            {"source": "default_route", "confidence": "high"},
+            device["identity"]["sources"],
+        )
+        self.assertEqual(device["connection_type"], "unknown")
+
+    def test_manual_category_override_still_wins_for_default_gateway(self):
+        device_id = "b8f862000001"
+        device = resolve_observations(
+            [
+                self._observation(
+                    interface="lan-uplink",
+                    role="uplink",
+                    ip="192.0.2.1",
+                    neighbour_state="REACHABLE",
+                ),
+            ],
+            {device_id: {"category_override": "server"}},
+            default_gateway="192.0.2.1",
+        )[0]
+
+        self.assertEqual(device["category"], "server")
+        self.assertEqual(device["identity"]["device_type"]["source"], "manual_alias")
+
     def test_uplink_neighbour_does_not_claim_client_is_ethernet(self):
         device = resolve_observations([
             self._observation(interface="lan-uplink", role="uplink", neighbour_state="REACHABLE"),
@@ -185,6 +227,23 @@ class DeviceIdentityTests(unittest.TestCase):
             self.assertEqual(oui_vendor("70:B3:D5:CA:00:01"), "Specific MA-M Vendor")
             self.assertEqual(oui_vendor("70:B3:D5:10:00:01"), "IEEE Registration Authority")
 
+    def test_systemd_hwdb_can_supply_offline_oui_vendor(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "20-OUI.hwdb"
+            path.write_text(
+                "# fixture\n"
+                "OUI:A1B2C3*\n"
+                " ID_OUI_FROM_DATABASE=Example Devices Ltd.\n"
+                "\n"
+                "OUI:DDEEFF1*\n"
+                " ID_OUI_FROM_DATABASE=Specific Networks\n",
+                encoding="utf-8",
+            )
+            prefixes = {}
+            _merge_systemd_oui_hwdb(prefixes, path)
+        self.assertEqual(prefixes["A1B2C3"], "Example Devices Ltd.")
+        self.assertEqual(prefixes["DDEEFF1"], "Specific Networks")
+
     def test_oui_and_conservative_microcontroller_inference(self):
         with patch("app.discovery.network.devices._oui_prefixes", return_value={"B8F862": "Espressif Inc."}):
             device = resolve_observations([self._observation()])[0]
@@ -221,6 +280,22 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(renderer.device_type, "media_player")
         self.assertEqual(renderer.confidence, "high")
         self.assertEqual(gateway.device_type, "router")
+
+    def test_standard_profiles_improve_device_type(self):
+        camera = infer_device_type(
+            hostname=None,
+            vendor=None,
+            service_hints=("_hap._tcp", "homekit-camera"),
+        )
+        matter = infer_device_type(
+            hostname=None,
+            vendor=None,
+            service_hints=("_matter._tcp",),
+        )
+        nas = infer_device_type(hostname="sample-synology", vendor=None)
+        self.assertEqual((camera.device_type, camera.confidence), ("camera", "high"))
+        self.assertEqual((matter.device_type, matter.confidence), ("smart_home", "high"))
+        self.assertEqual((nas.device_type, nas.confidence), ("server", "high"))
 
     def test_apple_tv_identity_normalizes_name_and_icon(self):
         mac = "02:00:00:00:00:17"
@@ -498,6 +573,32 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(observations[0].manufacturer, "Example Labs")
         self.assertIn("_googlecast._tcp", observations[0].service_types)
 
+    def test_dns_sd_extracts_homekit_profile_hint(self):
+        seed = [self._observation(mac="02:00:00:00:00:25", ip="192.0.2.75")]
+        output = '=;wifi-ap;IPv4;Front\\032Door;_hap._tcp;local;front-door.local;192.0.2.75;1234;"ci=17" "md=Camera\\032Pro"'
+        with (
+            patch.object(dns_sd, "_cached_rows", []),
+            patch.object(dns_sd, "_cached_at", -1e9),
+            patch("app.discovery.device_discovery.dns_sd.command_exists", return_value=True),
+            patch("app.discovery.device_discovery.dns_sd.run_command", return_value=CommandResult(0, output)),
+        ):
+            observations = dns_sd.observations(seed)
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].model, "Camera Pro")
+        self.assertIn("homekit-camera", observations[0].profile_hints)
+
+    def test_dns_sd_accepts_apple_companion_model_key(self):
+        seed = [self._observation(mac="02:00:00:00:00:26", ip="192.0.2.76")]
+        output = '=;wifi-ap;IPv4;Living\\032Room;_companion-link._tcp;local;living-room.local;192.0.2.76;49153;"rpMd=AppleTV14,1"'
+        with (
+            patch.object(dns_sd, "_cached_rows", []),
+            patch.object(dns_sd, "_cached_at", -1e9),
+            patch("app.discovery.device_discovery.dns_sd.command_exists", return_value=True),
+            patch("app.discovery.device_discovery.dns_sd.run_command", return_value=CommandResult(0, output)),
+        ):
+            observations = dns_sd.observations(seed)
+        self.assertEqual(observations[0].model, "AppleTV14,1")
+
     def test_dns_sd_name_and_service_type_improve_identity(self):
         mac = "02:00:00:00:00:13"
         device = resolve_observations([
@@ -562,6 +663,20 @@ class DeviceIdentityTests(unittest.TestCase):
         ])[0]
         self.assertEqual(device["display_name"], "Network device")
         self.assertEqual(device["category"], "unknown")
+
+    def test_ssdp_model_keeps_real_identity_source(self):
+        device = resolve_observations([
+            self._observation(mac="02:00:00:00:00:31", ip="192.0.2.81"),
+            self._observation(
+                "ssdp",
+                mac="02:00:00:00:00:31",
+                ip="192.0.2.81",
+                model="MediaBox X",
+                neighbour_state=None,
+            ),
+        ])[0]
+        self.assertEqual(device["display_name"], "MediaBox X")
+        self.assertEqual(device["identity"]["display_name"]["source"], "ssdp")
 
     def test_same_trusted_pc_hostname_coalesces_multiple_network_adapters(self):
         devices = resolve_observations([

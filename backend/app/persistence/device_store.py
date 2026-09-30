@@ -579,6 +579,20 @@ class DeviceStore:
             finally:
                 connection.close()
 
+    def pending_event_count(self, event_id: int) -> int:
+        """Count actual persisted events after a notification cursor."""
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                row = connection.execute(
+                    "SELECT COUNT(*) FROM device_events WHERE id > ?",
+                    (int(event_id),),
+                ).fetchone()
+                return int(row[0]) if row else 0
+            finally:
+                connection.close()
+
     def events_after(self, event_id: int, limit: int = 50) -> list[dict[str, Any]]:
         bounded_limit = max(1, min(int(limit), 100))
         with self._lock:

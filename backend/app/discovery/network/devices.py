@@ -81,6 +81,32 @@ def _merge_system_oui(prefixes: dict[str, str], path: Path) -> None:
             prefixes.setdefault(prefix, vendor)
 
 
+def _merge_systemd_oui_hwdb(prefixes: dict[str, str], path: Path) -> None:
+    """Read systemd/udev's local OUI hardware database when available."""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return
+
+    current_prefix: str | None = None
+    for raw in lines:
+        line = raw.strip()
+        pattern = re.fullmatch(r"OUI:([0-9A-Fa-f]{6,9})\*", line)
+        if pattern:
+            current_prefix = pattern.group(1).upper()
+            continue
+        if not current_prefix:
+            continue
+        property_match = re.fullmatch(r"ID_OUI_FROM_DATABASE=(.+)", line)
+        if property_match:
+            vendor = property_match.group(1).strip()
+            if vendor:
+                prefixes.setdefault(current_prefix, vendor)
+            current_prefix = None
+        elif line and not raw[:1].isspace() and not line.startswith("#"):
+            current_prefix = None
+
+
 @lru_cache(maxsize=1)
 def _oui_prefixes() -> dict[str, str]:
     """Load standard offline host OUI registries, optionally with one explicit override."""
@@ -100,6 +126,16 @@ def _oui_prefixes() -> dict[str, str]:
             continue
         seen.add(candidate)
         _merge_system_oui(prefixes, candidate)
+
+    for candidate in (
+        Path("/usr/lib/udev/hwdb.d/20-OUI.hwdb"),
+        Path("/lib/udev/hwdb.d/20-OUI.hwdb"),
+        Path("/usr/lib/systemd/hwdb/hwdb.d/20-OUI.hwdb"),
+    ):
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        _merge_systemd_oui_hwdb(prefixes, candidate)
     return prefixes
 
 
@@ -353,6 +389,7 @@ def resolve_observations(
     metadata: dict[str, dict[str, Any]] | None = None,
     *,
     coalesce: bool = True,
+    default_gateway: str | None = None,
 ) -> list[dict[str, Any]]:
     """Resolve MAC identities and conservatively collapse proven multi-NIC hosts."""
     groups: dict[str, list[DeviceObservation]] = {}
@@ -392,7 +429,7 @@ def resolve_observations(
         service_hints = tuple(dict.fromkeys(
             hint
             for item in evidence
-            for hint in (*item.service_types, item.service_name or "", item.model or "", item.manufacturer or "")
+            for hint in (*item.service_types, *item.profile_hints, item.service_name or "", item.model or "", item.manufacturer or "")
             if hint
         ))
         registry_vendor = oui_vendor(mac)
@@ -414,6 +451,14 @@ def resolve_observations(
             service_hints=service_hints,
         )
         automatic_category, category_source, category_confidence = inferred.device_type, inferred.evidence, inferred.confidence
+        is_default_gateway = bool(
+            default_gateway
+            and any(str(item.ip or "").strip() == default_gateway for item in evidence)
+        )
+        if is_default_gateway:
+            automatic_category = "router"
+            category_source = "default_route"
+            category_confidence = "high"
         cached_category = cached_identity.get("category")
         if automatic_category == "unknown" and cached_category in CATEGORIES and cached_category != "unknown":
             automatic_category, category_source, category_confidence = cached_category, "identity_cache", "medium"
@@ -443,7 +488,7 @@ def resolve_observations(
         elif cached_identity.get("display_name"):
             display = _field(cached_identity["display_name"], "identity_cache", "medium")
         elif model_display:
-            display = _field(model_display, "identity_cache", "medium")
+            display = _field(model_display, model_source or "heuristic", "medium")
         elif cleaned_hostname:
             display = _field(cleaned_hostname, "identity_cache", "medium")
         else:
@@ -473,6 +518,8 @@ def resolve_observations(
             sources.append({"source": source, "confidence": confidence})
         if registry_vendor:
             sources.append({"source": "oui_vendor", "confidence": "high"})
+        if is_default_gateway:
+            sources.append({"source": "default_route", "confidence": "high"})
         if cached_identity and not any(source["source"] == "identity_cache" for source in sources):
             sources.append({"source": "identity_cache", "confidence": "medium"})
         if alias or category_override:
@@ -531,7 +578,14 @@ def signal_quality(signal_dbm: int | None) -> str | None:
     return "weak"
 
 
-def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[dict[str, Any]], signals: dict[str, int], device_store: DeviceStore | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+def collect_devices(
+    interface_rows: list[dict[str, Any]],
+    lease_entries: list[dict[str, Any]],
+    signals: dict[str, int],
+    device_store: DeviceStore | None = None,
+    *,
+    default_gateway: str | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Collect isolated passive providers, merge them, and return human diagnostics."""
     roles = {row["name"]: row["role"] for row in interface_rows}
     access_point = next((name for name, role in roles.items() if role == "access_point"), None)
@@ -567,7 +621,11 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
                 provider_results.extend(future.result())
             except Exception as exc:
                 warnings.append(f"Could not read {provider_name}: {type(exc).__name__}")
-    preliminary = resolve_observations(provider_results, coalesce=False)
+    preliminary = resolve_observations(
+        provider_results,
+        coalesce=False,
+        default_gateway=default_gateway,
+    )
     active_store = device_store or store()
     try:
         active_store.remember_identities(preliminary)
@@ -576,7 +634,11 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
         metadata = {}
         warnings.append(f"AuraLAN device metadata storage is unavailable: {type(exc).__name__}")
     new_ids = {identifier for identifier, item in metadata.items() if item.get("_new_presence")}
-    resolved = resolve_observations(provider_results, metadata)
+    resolved = resolve_observations(
+        provider_results,
+        metadata,
+        default_gateway=default_gateway,
+    )
     try:
         active_store.remember_identities(resolved)
         active_store.remember_inventory(resolved)
@@ -586,6 +648,19 @@ def collect_devices(interface_rows: list[dict[str, Any]], lease_entries: list[di
     return resolved, warnings
 
 
-def build_devices(interface_rows: list[dict[str, Any]], lease_entries: list[dict[str, Any]], signals: dict[str, int], device_store: DeviceStore | None = None) -> list[dict[str, Any]]:
+def build_devices(
+    interface_rows: list[dict[str, Any]],
+    lease_entries: list[dict[str, Any]],
+    signals: dict[str, int],
+    device_store: DeviceStore | None = None,
+    *,
+    default_gateway: str | None = None,
+) -> list[dict[str, Any]]:
     """Compatibility convenience wrapper for callers that need only records."""
-    return collect_devices(interface_rows, lease_entries, signals, device_store)[0]
+    return collect_devices(
+        interface_rows,
+        lease_entries,
+        signals,
+        device_store,
+        default_gateway=default_gateway,
+    )[0]

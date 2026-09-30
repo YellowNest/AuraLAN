@@ -16,6 +16,36 @@ from .base import DeviceObservation
 
 CACHE_TTL_SECONDS = 120.0
 
+HOMEKIT_CATEGORY_HINTS = {
+    "2": "homekit-bridge",
+    "3": "homekit-fan",
+    "4": "homekit-garage-door",
+    "5": "homekit-light",
+    "6": "homekit-lock",
+    "7": "homekit-outlet",
+    "8": "homekit-switch",
+    "9": "homekit-thermostat",
+    "10": "homekit-sensor",
+    "11": "homekit-security-system",
+    "12": "homekit-door",
+    "13": "homekit-window",
+    "14": "homekit-window-covering",
+    "15": "homekit-programmable-switch",
+    "17": "homekit-camera",
+    "18": "homekit-video-doorbell",
+    "19": "homekit-air-purifier",
+    "20": "homekit-heater",
+    "21": "homekit-air-conditioner",
+    "22": "homekit-humidifier",
+    "23": "homekit-dehumidifier",
+    "28": "homekit-sprinkler",
+    "29": "homekit-faucet",
+    "30": "homekit-shower-system",
+    "31": "homekit-television",
+    "33": "homekit-router",
+    "34": "homekit-audio-receiver",
+}
+
 HUMAN_NAME_SERVICE_TYPES = {
     "_airplay._tcp",
     "_raop._tcp",
@@ -23,7 +53,7 @@ HUMAN_NAME_SERVICE_TYPES = {
 }
 _lock = threading.Lock()
 _cached_at = 0.0
-_cached_rows: list[tuple[str, str, str, str, str, str | None, str | None, str | None]] = []
+_cached_rows: list[tuple[str, str, str, str, str, str | None, str | None, str | None, tuple[str, ...]]] = []
 
 
 def _unescape(value: str) -> str:
@@ -46,7 +76,7 @@ def _unescape(value: str) -> str:
         index += 1
     return payload.decode("utf-8", errors="replace").strip().strip('"')
 
-def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None, str | None]]:
+def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None, str | None, tuple[str, ...]]]:
     result = run_command(
         ["avahi-browse", "--all", "--resolve", "--terminate", "--parsable", "--no-db-lookup"],
         timeout=2.2,
@@ -54,8 +84,8 @@ def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None
     if result.code != 0 or not result.output:
         return []
 
-    rows: list[tuple[str, str, str, str, str, str | None, str | None, str | None]] = []
-    model_keys = {"model", "md", "ty", "am", "product"}
+    rows: list[tuple[str, str, str, str, str, str | None, str | None, str | None, tuple[str, ...]]] = []
+    model_keys = {"model", "modelname", "md", "rpmd", "ty", "am", "product"}
     manufacturer_keys = {"manufacturer", "mf", "vendor"}
     friendly_name_keys = {"fn", "name", "device_name"}
 
@@ -74,6 +104,7 @@ def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None
         model = None
         manufacturer = None
         friendly_name = None
+        profile_hints: list[str] = []
         txt_blob = ";".join(fields[9:]) if len(fields) > 9 else ""
         for raw_txt in re.findall(r'"([^"]*)"', txt_blob):
             txt = _unescape(raw_txt)
@@ -90,12 +121,16 @@ def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None
                 manufacturer = value
             elif key in friendly_name_keys and friendly_name is None:
                 friendly_name = value
+            elif key == "ci" and service_type in {"_hap._tcp", "_homekit._tcp"}:
+                hint = HOMEKIT_CATEGORY_HINTS.get(value)
+                if hint and hint not in profile_hints:
+                    profile_hints.append(hint)
 
-        rows.append((ip, interface, service_name, service_type, hostname, model, manufacturer, friendly_name))
+        rows.append((ip, interface, service_name, service_type, hostname, model, manufacturer, friendly_name, tuple(profile_hints)))
     return rows
 
 
-def _cached_browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None, str | None]]:
+def _cached_browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None, str | None, tuple[str, ...]]]:
     global _cached_at, _cached_rows
     now = time.monotonic()
     with _lock:
@@ -161,7 +196,7 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
         return []
 
     grouped: dict[str, dict[str, object]] = {}
-    for ip, interface, service_name, service_type, hostname, model, manufacturer, friendly_name in _cached_browse_rows():
+    for ip, interface, service_name, service_type, hostname, model, manufacturer, friendly_name, profile_hints in _cached_browse_rows():
         base = by_ip.get(ip)
         if base is None:
             continue
@@ -172,6 +207,7 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
             "service_types": [],
             "models": [],
             "manufacturers": [],
+            "profile_hints": [],
             "interface": interface or base.interface,
         })
         if hostname and not row["hostname"]:
@@ -194,6 +230,9 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
             row["models"].append(model)
         if manufacturer and manufacturer not in row["manufacturers"]:
             row["manufacturers"].append(manufacturer)
+        for hint in profile_hints:
+            if hint not in row["profile_hints"]:
+                row["profile_hints"].append(hint)
 
     result: list[DeviceObservation] = []
     for ip, row in grouped.items():
@@ -211,6 +250,7 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
             hostname=row["hostname"],
             service_name=service_name,
             service_types=tuple(row["service_types"]),
+            profile_hints=tuple(row["profile_hints"]),
             model=models[0] if models else None,
             manufacturer=manufacturers[0] if manufacturers else None,
         ))
