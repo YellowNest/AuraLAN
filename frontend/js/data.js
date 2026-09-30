@@ -21,7 +21,7 @@ export function identityQuality(device) {
 
   let score = 0;
   if (device?.metadata?.alias) {
-    score += 45;
+    score += 60;
   } else if (display.confidence === 'high') {
     score += 35;
   } else if (display.confidence === 'medium') {
@@ -32,7 +32,12 @@ export function identityQuality(device) {
 
   if (device?.vendor || identity.vendor?.value) score += 20;
   if (device?.model || identity.model?.value) score += 20;
-  if ((device?.category || device?.device_type || 'unknown') !== 'unknown') score += 20;
+  if ((device?.category || device?.device_type || 'unknown') !== 'unknown') {
+    score += 20;
+    const typeConfidence = identity.device_type?.confidence;
+    if (typeConfidence === 'high') score += 15;
+    else if (typeConfidence === 'medium') score += 8;
+  }
   if (device?.hostname) score += 10;
 
   if (sourceConfidence.includes('high')) score += 10;
