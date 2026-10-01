@@ -61,6 +61,14 @@ try {
             const visible = nodes.find((node) => getComputedStyle(node).display !== 'none');
             return visible?.getBoundingClientRect().width || 0;
           })(),
+          baselineRadius: (() => {
+            const node = document.querySelector('.baseline-card');
+            return node ? Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) : null;
+          })(),
+          baselineOverflow: (() => {
+            const node = document.querySelector('.baseline-card');
+            return node ? getComputedStyle(node).overflow : null;
+          })(),
           mobile: isMobile,
         };
       }, viewport.width < 760);
@@ -70,6 +78,10 @@ try {
       assert.ok(report.appWidth <= report.width + 1, `${viewport.name}/${route}: app shell exceeds viewport`);
       assert.ok(report.bodyWidth <= report.width + 1, `${viewport.name}/${route}: body exceeds viewport`);
       assert.ok(report.bodyFontSize >= 15, `${viewport.name}/${route}: base typography is too small`);
+      if (route === 'overview' && report.baselineRadius !== null) {
+        assert.ok(report.baselineRadius >= 14, `${viewport.name}/overview: network baseline card lost the shared rounded-card geometry`);
+        assert.equal(report.baselineOverflow, 'hidden', `${viewport.name}/overview: network baseline card can paint outside its rounded corners`);
+      }
       if (report.pageTitleFontSize !== null) {
         assert.ok(report.pageTitleFontSize >= 27 && report.pageTitleFontSize <= 42, `${viewport.name}/${route}: page title scale is out of range`);
       }
