@@ -8,7 +8,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Changed
 
-- Device list presentation is now tuned as one responsive system: iPhone rows keep device name, identity, full IP and full MAC readable in a compact three-line hierarchy, while wide desktops gain a stable dedicated MAC column and intermediate widths collapse cleanly without clipping.
+- Device list presentation is now tuned as one responsive system: iPhone rows use a compact three-line hierarchy for name, concise manufacturer/MAC identity and IP/connection details, while desktop keeps stable aligned columns with denser spacing and larger primary text.
 
 ### Added
 
