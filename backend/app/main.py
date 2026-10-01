@@ -15,6 +15,7 @@ from .models import (
     DiagnosticsResponse,
     DevicesResponse,
     DeviceMetadataUpdate,
+    DeviceProbeResponse,
     DeviceResponse,
     ForgetDeviceResponse,
     HealthResponse,
@@ -38,6 +39,7 @@ from .notifications import WebhookNotifier
 from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
+from .probe import ProbeUnavailable, probe_available, probe_device as run_device_probe
 from .wake import select_wake_mac, send_magic_packet, wake_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,7 +137,11 @@ def meta() -> dict:
     return {
         "brand": brand(),
         "mode": "local-metadata",
-        "capabilities": {**APP_CAPABILITIES, "wake_on_lan": wake_config().enabled},
+        "capabilities": {
+            **APP_CAPABILITIES,
+            "device_probe": probe_available(),
+            "wake_on_lan": wake_config().enabled,
+        },
     }
 
 
@@ -331,6 +337,23 @@ def forget_remembered_device(device_id: str) -> dict:
 
     system_snapshot(force=True)
     return {"forgotten": True, "device_id": device_id}
+
+
+@app.post("/api/v1/devices/{device_id}/probe", response_model=DeviceProbeResponse)
+def probe_device_reachability(device_id: str) -> dict:
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if not current:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    try:
+        return run_device_probe(current)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ProbeUnavailable as exc:
+        raise HTTPException(status_code=503, detail="ICMP reachability check is unavailable on this host") from exc
 
 
 @app.post("/api/v1/devices/{device_id}/wake", response_model=WakeResponse)
