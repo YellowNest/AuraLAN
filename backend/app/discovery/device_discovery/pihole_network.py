@@ -17,6 +17,7 @@ from pathlib import Path
 from .base import DeviceObservation
 
 CACHE_TTL_SECONDS = 60.0
+MAX_CACHED_ROWS = 512
 _env_path = os.environ.get("AURALAN_PIHOLE_FTL_DB")
 CANDIDATE_DATABASES = tuple(
     ([Path(_env_path)] if _env_path else [])
@@ -29,6 +30,8 @@ CANDIDATE_DATABASES = tuple(
 _lock = threading.Lock()
 _cached_at = 0.0
 _cached_rows: list[dict[str, object]] = []
+_cached_macs: set[str] = set()
+_cached_ips: set[str] = set()
 
 
 def _normalise_mac(value: str | None) -> str:
@@ -56,8 +59,8 @@ def _table_columns(connection: sqlite3.Connection, table: str) -> dict[str, str]
     }
 
 
-def _read_rows(path: Path) -> list[dict[str, object]]:
-    if not path.is_file():
+def _read_rows(path: Path, known_macs: set[str], known_ips: set[str]) -> list[dict[str, object]]:
+    if not path.is_file() or not (known_macs or known_ips):
         return []
     try:
         connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.25)
@@ -85,35 +88,54 @@ def _read_rows(path: Path) -> list[dict[str, object]]:
         name_expr = f'a.{_quote_identifier(addresses["name"])}' if "name" in addresses else "NULL"
         vendor_expr = f'n.{_quote_identifier(network["macvendor"])}' if "macvendor" in network else "NULL"
         last_seen = _quote_identifier(addresses["lastseen"]) if "lastseen" in addresses else None
+
+        conditions: list[str] = []
+        params: list[str | int] = []
+        if known_macs:
+            placeholders = ",".join("?" for _ in known_macs)
+            normalized_mac = f"UPPER(REPLACE(REPLACE(n.{n_mac}, ':', ''), '-', ''))"
+            conditions.append(f"{normalized_mac} IN ({placeholders})")
+            params.extend(sorted(known_macs))
+        if known_ips:
+            placeholders = ",".join("?" for _ in known_ips)
+            conditions.append(f"a.{a_ip} IN ({placeholders})")
+            params.extend(sorted(known_ips))
+
         order_clause = f" ORDER BY a.{last_seen} DESC" if last_seen else ""
         query = (
             f"SELECT n.{n_mac} AS mac, a.{a_ip} AS ip, "
             f"{name_expr} AS name, {vendor_expr} AS vendor "
-            f"FROM network n JOIN network_addresses a ON a.{a_network_id}=n.{n_id}"
-            f"{order_clause}"
+            f"FROM network n JOIN network_addresses a ON a.{a_network_id}=n.{n_id} "
+            f"WHERE {' OR '.join(conditions)}"
+            f"{order_clause} LIMIT ?"
         )
-        return [dict(row) for row in connection.execute(query)]
+        params.append(MAX_CACHED_ROWS)
+        return [dict(row) for row in connection.execute(query, params)]
     except sqlite3.Error:
         return []
     finally:
         connection.close()
 
 
-def _rows() -> list[dict[str, object]]:
-    global _cached_at, _cached_rows
+def _rows(known_macs: set[str], known_ips: set[str]) -> list[dict[str, object]]:
+    global _cached_at, _cached_rows, _cached_macs, _cached_ips
     now = time.monotonic()
     with _lock:
-        if now - _cached_at < CACHE_TTL_SECONDS:
+        cache_fresh = now - _cached_at < CACHE_TTL_SECONDS
+        targets_cached = known_macs.issubset(_cached_macs) and known_ips.issubset(_cached_ips)
+        if cache_fresh and targets_cached:
             return list(_cached_rows)
 
     rows: list[dict[str, object]] = []
     for path in CANDIDATE_DATABASES:
-        rows = _read_rows(path)
+        rows = _read_rows(path, known_macs, known_ips)
         if rows:
             break
 
     with _lock:
         _cached_rows = rows
+        _cached_macs = set(known_macs)
+        _cached_ips = set(known_ips)
         _cached_at = now
         return list(_cached_rows)
 
@@ -137,9 +159,14 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
         if item.ip and item.ip not in by_ip:
             by_ip[item.ip] = item
 
+    known_macs = set(by_mac)
+    known_ips = set(by_ip)
+    if not known_macs and not known_ips:
+        return []
+
     result: list[DeviceObservation] = []
     seen: set[tuple[str, str]] = set()
-    for row in _rows():
+    for row in _rows(known_macs, known_ips):
         row_mac = _normalise_mac(str(row.get("mac") or ""))
         row_ip = str(row.get("ip") or "")
         base = by_mac.get(row_mac)
