@@ -17,6 +17,8 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Fixed
 
+- The Network Baseline overview card now uses the same rounded surface geometry and subtle border treatment as the surrounding AuraLAN cards instead of appearing as a sharp rectangular panel.
+
 - Background monitoring now reuses a just-completed cached snapshot instead of forcing an identical back-to-back full discovery pass when dashboard/API polling happens at the same time, removing avoidable CPU and subprocess bursts.
 - mDNS, resolver, and NetBIOS caches now expire entries independently and use a hard size bound, preventing long-running device/MAC churn from extending stale entries or growing process memory indefinitely while still retaining short-lived disappear/reappear cache hits.
 - Pi-hole FTL identity enrichment now queries only MAC/IP identities AuraLAN already knows and caps cached result rows, avoiding a recurring full historical network-table read on long-running Pi-hole installations.

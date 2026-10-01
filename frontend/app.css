@@ -2318,13 +2318,23 @@ textarea{
 }
 
 /* Network baseline */
-.baseline-card { margin-top: 16px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.baseline-card {
+  margin-top:16px;
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  overflow:hidden;
+  border-radius:var(--radius-md);
+  border-color:color-mix(in srgb,var(--accent) 6%,var(--line));
+}
 .baseline-card-copy { min-width: 0; display: flex; align-items: center; gap: 13px; }
 .baseline-card-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 13px; background: var(--accent-soft); color: var(--accent); }
 .baseline-card-icon .icon { width: 20px; height: 20px; }
 .baseline-card-copy h2 { margin-top: 2px; font-size: 16px; }
 .baseline-card-copy p:last-child { margin-top: 4px; max-width: 660px; color: var(--text-soft); font-size: 11px; line-height: 1.45; }
-.baseline-card.has-changes { border-color: color-mix(in srgb, var(--attention) 24%, var(--line)); }
+.baseline-card.has-changes { border-color: color-mix(in srgb, var(--attention) 11%, var(--line)); }
 .baseline-card.has-changes .baseline-card-icon { background: var(--attention-soft); color: var(--attention); }
 .baseline-card.is-matched .baseline-card-icon { background: var(--good-soft); color: var(--good); }
 .baseline-metrics { display: flex; align-items: stretch; gap: 8px; flex: none; }
