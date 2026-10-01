@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Your network, clearly.</strong><br>
-  A local-first network console for Linux and Raspberry Pi.
+  A self-hosted, local-first LAN inventory and network monitoring console for Linux and Raspberry Pi.
 </p>
 
 <p align="center">
@@ -28,6 +28,7 @@ It answers the useful questions first: **what is connected, what each device pro
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
 | **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
 | **Network Baseline** | Capture the devices you expect to see and let AuraLAN highlight what appeared or disappeared since that reference point, entirely locally and without pretending a change is automatically a threat. |
+| **One-click reachability check** | From any known device, send one local ICMP echo and see whether a reply came back plus round-trip latency when available. No cloud service and no continuous ping loop. |
 | **A device inventory that remembers** | Track first/last seen time and a debounced per-device presence timeline, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, forget stale remembered devices safely, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | An aggregate REST summary feeds local Home Assistant sensors without device identity data, while optional reliable webhooks report new devices and favorite watch-state changes. |
@@ -67,6 +68,8 @@ Once AuraLAN has observed a device, it also keeps a compact last-known presentat
 
 A local **Network Baseline** can capture the devices AuraLAN currently observes. Later, the Overview and Devices filters show what is new since that baseline and which baseline devices are not currently seen. Multi-interface devices are matched across their known MAC identities so an adapter-order change does not create a false new device. The baseline is local state and can be replaced or removed without deleting inventory history.
 
+When the host provides the standard `ping` utility, each device inspector also gets an on-demand **Check reachability** action. AuraLAN sends exactly one ICMP echo to a known IPv4 address and reports the reply and round-trip latency when available. The result is intentionally phrased as a ping observation: a device can be online while refusing ICMP.
+
 AuraLAN also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
 
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
@@ -85,7 +88,7 @@ AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VP
 
 By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes, locations, tags and favorites.
 
-AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration.
+AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration. The reachability action sends one on-demand ICMP echo only; AuraLAN does not run a continuous ping loop or port scanner.
 
 ## Quick start
 
@@ -168,6 +171,7 @@ PATCH /api/v1/devices/{id}/metadata
 GET   /api/v1/devices/{id}/presence?limit=50
 DELETE /api/v1/devices/{id}/memory
 POST  /api/v1/devices/{id}/wake
+POST  /api/v1/devices/{id}/probe
 GET   /api/v1/activity?limit=50
 GET   /api/v1/monitor
 GET   /api/v1/notifications
@@ -222,7 +226,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN `0.7.0` is the current public pre-1.0 release. It adds Identity Intelligence for locally explainable device recognition, expands offline identity evidence through system OUI data, HomeKit and Matter, and includes the 0.6 inventory, Home Assistant, presence-history and Wake-on-LAN capabilities. The API is intentionally small and may still evolve before 1.0.
+AuraLAN is an actively developed public pre-1.0 project. The main branch carries the 0.8 code line, including Network Baseline, local Identity Intelligence, persistent inventory, Home Assistant integration, presence history, Wake-on-LAN, and on-demand device reachability checks. The API is intentionally small and may still evolve before 1.0.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 

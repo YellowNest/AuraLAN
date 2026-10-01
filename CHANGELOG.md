@@ -6,6 +6,15 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
+### Added
+
+- **On-demand device reachability checks** add a one-click ICMP probe in the device inspector. AuraLAN sends one local echo request to a known IPv4 address, reports round-trip latency when a reply is available, hides the action when the host has no `ping` utility, and never treats a missing ICMP reply as proof that the device is offline.
+- README discovery wording now describes AuraLAN as a self-hosted LAN inventory and network monitoring console, making the project's purpose clearer to people searching GitHub for Raspberry Pi and local network tooling.
+
+### Fixed
+
+- The README project-status section no longer claims that 0.7.0 is the current code line after the 0.8.0 release commit landed.
+
 ## [0.8.0] - 2026-10-01
 
 ### Added

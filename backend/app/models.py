@@ -198,6 +198,14 @@ class DevicesResponse(BaseModel):
     items: list[DeviceResponse] = Field(default_factory=list)
 
 
+class DeviceProbeResponse(BaseModel):
+    device_id: str
+    ip: str
+    reply_received: bool
+    latency_ms: float | None = None
+    checked_at: int
+
+
 class ContainerResponse(BaseModel):
     name: str
     image: str

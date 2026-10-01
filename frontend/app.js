@@ -41,6 +41,7 @@ const state = {
     device_presence_history: false,
     forget_remembered_devices: false,
     network_baseline: false,
+    device_probe: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -679,6 +680,30 @@ async function wakeDevice(deviceId) {
   }
 }
 
+async function probeDevice(deviceId, button) {
+  const result = $('#device-probe-result');
+  if (!result) return;
+
+  button.disabled = true;
+  result.hidden = false;
+  result.className = 'probe-result pending';
+  result.textContent = t('probeChecking');
+
+  try {
+    const probe = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/probe`, 5000, { method: 'POST' });
+    const latency = Number(probe.latency_ms);
+    result.className = `probe-result ${probe.reply_received ? 'success' : 'warning'}`;
+    result.textContent = probe.reply_received
+      ? (Number.isFinite(latency) ? t('probeReplyLatency', { ip: probe.ip, latency: latency.toFixed(latency < 10 ? 1 : 0) }) : t('probeReply', { ip: probe.ip }))
+      : t('probeNoReply', { ip: probe.ip });
+  } catch {
+    result.className = 'probe-result warning';
+    result.textContent = t('probeFailed');
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function captureNetworkBaseline() {
   const baseline = state.data?.baseline || {};
   const prompt = baseline.configured ? t('replaceBaselineConfirm') : t('createBaselineConfirm');
@@ -908,6 +933,10 @@ function showDevice(id) {
     detailRow(t('macAddress'), (device.mac_addresses?.length ? device.mac_addresses : [device.mac]).join(', '), 'mac'),
   ].join('');
 
+  const probeAvailable = Boolean(
+    state.capabilities.device_probe
+    && [...(device.ip_addresses || []), device.ip].some((value) => value && value !== '—')
+  );
   const wakeAvailable = Boolean(
     state.capabilities.wake_on_lan
     && device.online !== true
@@ -930,7 +959,7 @@ function showDevice(id) {
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div>${renderIdentityEvidence(device)}</div>
       ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
-      ${wakeAvailable ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button><p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p></div>` : ''}
+      ${(probeAvailable || wakeAvailable) ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><div class="device-action-row">${probeAvailable ? `<button class="secondary-button wake-button" type="button" data-probe-device="${escapeHtml(device.id)}">${icon('network')}${t('checkReachability')}</button>` : ''}${wakeAvailable ? `<button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button>` : ''}</div>${probeAvailable ? `<p class="action-hint">${escapeHtml(t('checkReachabilityHint'))}</p><div class="probe-result" id="device-probe-result" aria-live="polite" hidden></div>` : ''}${wakeAvailable ? `<p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p>` : ''}</div>` : ''}
       ${forgetAvailable ? `<div class="detail-section device-actions danger-zone"><h3>${t('forgetDevice')}</h3><button class="secondary-button danger-button" type="button" data-forget-device="${escapeHtml(device.id)}" data-forget-name="${escapeHtml(presentation.name)}">${icon('trash')}${t('forgetDevice')}</button><p class="action-hint">${escapeHtml(t('forgetDeviceHint'))}</p></div>` : ''}
       <form class="metadata-form detail-section" id="device-metadata-form" data-device-id="${escapeHtml(device.id)}">
         <h3>${t('rename')}</h3>
@@ -1063,6 +1092,7 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
   if (trigger.matches('[data-capture-baseline]')) captureNetworkBaseline();
   if (trigger.matches('[data-clear-baseline]')) clearNetworkBaseline();
+  if (trigger.matches('[data-probe-device]')) probeDevice(trigger.dataset.probeDevice, trigger);
   if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
   if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
