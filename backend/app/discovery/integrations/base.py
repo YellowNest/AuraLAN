@@ -25,6 +25,7 @@ APP_CAPABILITIES = {
     "device_tags": True,
     "device_presence": True,
     "device_presence_history": True,
+    "network_baseline": True,
     "forget_remembered_devices": True,
     "background_monitor": True,
     "webhook_notifications": True,
