@@ -263,6 +263,17 @@ class NotificationStatusResponse(BaseModel):
     pending_events: int = 0
 
 
+class NetworkBaselineResponse(BaseModel):
+    configured: bool = False
+    captured_at: int | None = None
+    device_count: int = 0
+    current_count: int = 0
+    new_count: int = 0
+    missing_count: int = 0
+    new_device_ids: list[str] = Field(default_factory=list)
+    missing_device_ids: list[str] = Field(default_factory=list)
+
+
 class SystemStateResponse(BaseModel):
     state: HealthState
     title: str
@@ -291,6 +302,7 @@ class StatusResponse(BaseModel):
     activity: list[ActivityEventResponse] = Field(default_factory=list)
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
+    baseline: NetworkBaselineResponse = Field(default_factory=NetworkBaselineResponse)
     errors: list[str] = Field(default_factory=list)
 
 

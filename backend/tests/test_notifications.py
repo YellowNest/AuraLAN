@@ -2,6 +2,7 @@ import os
 import sqlite3
 import unittest
 import urllib.error
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -75,7 +76,7 @@ class WebhookNotificationTests(unittest.TestCase):
             third_id = add_first_seen(event_store, "001122334477", "192.0.2.12")
             event_store.set_notification_cursor("webhook", first_id)
 
-            with sqlite3.connect(event_store.path) as connection:
+            with closing(sqlite3.connect(event_store.path)) as connection:
                 connection.execute("DELETE FROM device_events WHERE id = ?", (second_id,))
                 connection.commit()
 

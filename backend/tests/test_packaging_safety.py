@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 
@@ -40,6 +41,31 @@ class PackagingSafetyContractTests(unittest.TestCase):
         self.assertLess(backup, readiness)
         self.assertLess(readiness, switch)
         self.assertIn('"$READINESS_DIR/auralan.db"', source)
+
+    def test_sqlite_connections_are_not_used_as_bare_context_managers(self):
+        offenders = []
+        for path in (ROOT / "backend").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.With):
+                    continue
+                for item in node.items:
+                    expression = item.context_expr
+                    if (
+                        isinstance(expression, ast.Call)
+                        and isinstance(expression.func, ast.Attribute)
+                        and isinstance(expression.func.value, ast.Name)
+                        and expression.func.value.id == "sqlite3"
+                        and expression.func.attr == "connect"
+                    ):
+                        offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+
+        self.assertEqual(
+            offenders,
+            [],
+            "sqlite3.Connection context managers do not close connections; "
+            "wrap sqlite3.connect(...) in contextlib.closing",
+        )
 
     def test_upgrade_rollback_restores_application_unit_and_database(self):
         source = (ROOT / "scripts" / "upgrade.sh").read_text(encoding="utf-8")

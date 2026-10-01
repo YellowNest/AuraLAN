@@ -6,6 +6,12 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-01
+
+### Added
+
+- **Network Baseline** lets users capture the devices AuraLAN can see now and then highlights additions and absences against that local reference point. Matching uses all known MAC identities for multi-interface devices, stays entirely local, and deliberately reports change rather than making a security verdict.
+
 ## [0.7.0] - 2026-09-30
 
 ### Added

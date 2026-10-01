@@ -73,6 +73,8 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'new' && isNewDevice(device))
       || (filter === 'favorites' && Boolean(device.metadata?.favorite))
       || (filter === 'favorite_missing' && isFavoriteNotSeen(device))
+      || (filter === 'baseline_new' && device.baseline_state === 'new')
+      || (filter === 'baseline_missing' && device.baseline_state === 'missing')
       || (filter === 'known' && device.state === 'known')
       || (filter === 'connection_unknown' && !['wifi', 'ethernet', 'vpn'].includes(device.connection_type))
       || device.connection_type === filter;
@@ -158,6 +160,7 @@ export function inventoryExportRows(items) {
     location: device.metadata?.location || '',
     tags: device.metadata?.tags || [],
     note: device.metadata?.note || '',
+    baseline_state: device.baseline_state || '',
   }));
 }
 
@@ -171,7 +174,7 @@ export function inventoryCsv(items) {
   const rows = inventoryExportRows(items);
   const columns = [
     'name', 'hostname', 'vendor', 'model', 'category', 'state', 'online', 'connection',
-    'ip_addresses', 'mac_addresses', 'first_seen_at', 'last_seen_at', 'favorite', 'location', 'tags', 'note',
+    'ip_addresses', 'mac_addresses', 'first_seen_at', 'last_seen_at', 'favorite', 'location', 'tags', 'note', 'baseline_state',
   ];
   return [
     columns.map(csvCell).join(','),

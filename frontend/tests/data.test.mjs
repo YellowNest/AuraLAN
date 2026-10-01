@@ -106,6 +106,17 @@ test('device inventory supports new, favorite, and note discovery', () => {
   assert.equal(filterDevices([...inventory, remembered], 'known')[0].display_name, 'Old camera');
 });
 
+test('baseline filters distinguish new and missing devices', () => {
+  const items = [
+    { display_name: 'Known', category: 'computer', connection_type: 'ethernet', baseline_state: 'member', metadata: {} },
+    { display_name: 'New', category: 'phone', connection_type: 'wifi', baseline_state: 'new', metadata: {} },
+    { display_name: 'Missing', category: 'camera', connection_type: 'wifi', baseline_state: 'missing', metadata: {} },
+  ];
+
+  assert.deepEqual(filterDevices(items, 'baseline_new').map((item) => item.display_name), ['New']);
+  assert.deepEqual(filterDevices(items, 'baseline_missing').map((item) => item.display_name), ['Missing']);
+});
+
 test('device sorting supports name, recency, location, and IP without mutating source order', () => {
   const source = [
     { display_name: 'Zulu', presentation_name: 'Zulu', ip: '192.0.2.20', first_seen_at: 100, last_seen_at: 200, metadata: { location: 'Office' } },
