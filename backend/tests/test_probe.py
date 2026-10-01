@@ -13,19 +13,19 @@ from app.probe import ProbeUnavailable, probe_device, select_probe_ip
 class DeviceProbeTests(unittest.TestCase):
     def test_select_probe_ip_prefers_first_usable_ipv4(self):
         device = {
-            "ip_addresses": ["—", "127.0.0.1", "ff02::1", "192.168.1.44"],
-            "ip": "192.168.1.55",
+            "ip_addresses": ["—", "127.0.0.1", "ff02::1", "192.0.2.44"],
+            "ip": "192.0.2.55",
         }
-        self.assertEqual(select_probe_ip(device), "192.168.1.44")
+        self.assertEqual(select_probe_ip(device), "192.0.2.44")
 
     def test_probe_reports_reply_and_latency(self):
         completed = subprocess.CompletedProcess(
             args=["ping"],
             returncode=0,
-            stdout="64 bytes from 192.168.1.44: icmp_seq=1 ttl=64 time=4.21 ms\n",
+            stdout="64 bytes from 192.0.2.44: icmp_seq=1 ttl=64 time=4.21 ms\n",
             stderr="",
         )
-        device = {"id": "sample", "ip_addresses": ["192.168.1.44"], "ip": "192.168.1.44"}
+        device = {"id": "sample", "ip_addresses": ["192.0.2.44"], "ip": "192.0.2.44"}
 
         with (
             patch("app.probe.shutil.which", return_value="/usr/bin/ping"),
@@ -38,7 +38,7 @@ class DeviceProbeTests(unittest.TestCase):
         self.assertEqual(result["latency_ms"], 4.21)
         self.assertEqual(result["checked_at"], 1234567890)
         runner.assert_called_once_with(
-            ["/usr/bin/ping", "-n", "-c", "1", "-W", "1", "192.168.1.44"],
+            ["/usr/bin/ping", "-n", "-c", "1", "-W", "1", "192.0.2.44"],
             capture_output=True,
             text=True,
             timeout=2.5,
@@ -56,7 +56,7 @@ class DeviceProbeTests(unittest.TestCase):
             patch("app.probe.shutil.which", return_value="/usr/bin/ping"),
             patch("app.probe.subprocess.run", return_value=completed),
         ):
-            result = probe_device({"id": "quiet", "ip": "10.0.0.8", "ip_addresses": []})
+            result = probe_device({"id": "quiet", "ip": "198.51.100.8", "ip_addresses": []})
 
         self.assertFalse(result["reply_received"])
         self.assertIsNone(result["latency_ms"])
@@ -64,7 +64,7 @@ class DeviceProbeTests(unittest.TestCase):
     def test_probe_requires_ping_and_usable_ipv4(self):
         with patch("app.probe.shutil.which", return_value=None):
             with self.assertRaises(ProbeUnavailable):
-                probe_device({"id": "sample", "ip": "192.168.1.44"})
+                probe_device({"id": "sample", "ip": "192.0.2.44"})
 
         with patch("app.probe.shutil.which", return_value="/usr/bin/ping"):
             with self.assertRaises(ValueError):
@@ -79,12 +79,12 @@ class DeviceProbeTests(unittest.TestCase):
     def test_probe_endpoint_only_targets_a_known_device(self):
         result = {
             "device_id": "sample",
-            "ip": "192.168.1.44",
+            "ip": "192.0.2.44",
             "reply_received": True,
             "latency_ms": 1.2,
             "checked_at": 123,
         }
-        device = {"id": "sample", "ip": "192.168.1.44", "ip_addresses": ["192.168.1.44"]}
+        device = {"id": "sample", "ip": "192.0.2.44", "ip_addresses": ["192.0.2.44"]}
 
         with (
             patch("app.main.system_snapshot", return_value={"devices": [device]}),
