@@ -818,113 +818,164 @@ body.modal-open{
 .detail-row-icon .service-mark-pihole{width:12px;height:18px}
 
 
-/* Device list: stable columns, identity first, useful technical context second. */
+/* Device list: dense, stable, and readable from iPhone Pro Max to desktop. */
 .device-results{
-  --device-columns:42px minmax(280px,1fr) 118px 124px 112px;
+  --device-columns:42px minmax(240px,1fr) 126px 156px 124px 110px;
 }
 .device-list-head{
-  min-height:38px;
-  padding:9px 17px 8px;
+  min-height:36px;
+  padding:8px 16px;
   display:grid;
   grid-template-columns:var(--device-columns);
   align-items:center;
-  gap:16px;
+  gap:14px;
   border-bottom:1px solid var(--line);
-  background:color-mix(in srgb,var(--surface-muted) 58%,var(--surface));
+  background:color-mix(in srgb,var(--surface-muted) 62%,var(--surface));
   color:var(--text-faint);
-  font-size:var(--type-micro);
-  font-weight:760;
-  letter-spacing:.045em;
+  font-size:10px;
+  font-weight:780;
+  letter-spacing:.05em;
   text-transform:uppercase;
 }
 .device-row{
+  min-height:76px;
+  padding:10px 16px;
   grid-template-columns:var(--device-columns);
-  gap:16px;
+  align-items:center;
+  gap:14px;
+}
+.device-symbol{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+}
+.device-symbol .icon{
+  width:21px;
+  height:21px;
+}
+.device-name{
+  min-width:0;
+}
+.device-name strong,
+.device-context,
+.device-mobile-identity,
+.device-mobile-meta,
+.device-meta strong,
+.device-meta small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .device-name strong{
+  display:block;
   color:var(--text);
-  font-size:14.5px;
+  font-size:15px;
   font-weight:770;
+  line-height:1.18;
   letter-spacing:-.025em;
 }
-.device-name small{
+.device-context{
+  display:block;
   margin-top:4px;
   color:var(--text-soft);
-  font-size:var(--type-caption);
+  font-size:11.5px;
+  font-weight:560;
+  line-height:1.25;
 }
+.device-mobile-identity,
 .device-mobile-meta{
   display:none;
 }
 .device-ip,
-.device-meta{
+.device-mac{
   min-width:0;
-}
-.device-ip{
   overflow:hidden;
   color:var(--text-soft);
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:var(--type-caption);
-  font-weight:680;
+  font-size:11.5px;
+  font-variant-numeric:tabular-nums;
+  font-weight:650;
+  letter-spacing:-.015em;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
 .device-meta{
+  min-width:0;
   justify-self:start;
-  padding:0;
-  background:transparent;
-  box-shadow:none;
 }
 .device-meta strong{
+  display:block;
   color:var(--text-soft);
-  font-size:var(--type-caption);
+  font-size:11.5px;
   font-weight:720;
 }
 .device-meta small{
+  display:block;
   margin-top:3px;
   color:var(--text-faint);
-  font-size:var(--type-micro);
+  font-size:10px;
 }
 .device-status{
   width:100%;
   min-width:0;
   justify-self:stretch;
   justify-content:flex-end;
+  gap:6px;
+  color:var(--text-faint);
+  font-size:11px;
+  font-weight:740;
   white-space:nowrap;
 }
+.device-status i{
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+}
+.device-status>.icon{
+  width:14px;
+  height:14px;
+  margin-left:1px;
+}
 .device-list.compact .device-row{
-  grid-template-columns:42px minmax(0,1fr) auto;
-  gap:13px;
+  grid-template-columns:40px minmax(0,1fr) auto;
+  gap:12px;
 }
 .device-list.compact .device-ip,
+.device-list.compact .device-mac,
 .device-list.compact .device-meta{
   display:none;
 }
 .device-list.compact .device-mobile-meta{
-  display:block;
+  display:flex;
 }
 .device-list.compact .device-name strong{
-  font-size:13.5px;
-}
-.device-name em{
-  color:var(--text-faint);
-  font-weight:550;
+  font-size:14px;
 }
 
-@media(max-width:1080px) and (min-width:761px){
+@media(max-width:1180px) and (min-width:761px){
   .device-results{
-    --device-columns:40px minmax(190px,1fr) 92px 84px 78px;
+    --device-columns:40px minmax(180px,1fr) 126px 104px 100px;
   }
   .device-list-head,
   .device-row{
-    gap:11px;
+    gap:10px;
   }
   .device-list-head{
-    padding-right:13px;
-    padding-left:13px;
+    padding-right:12px;
+    padding-left:12px;
   }
   .device-row{
-    padding-right:13px;
-    padding-left:13px;
+    min-height:74px;
+    padding-right:12px;
+    padding-left:12px;
+  }
+  .device-list-head .device-mac-head,
+  .device-results .device-mac{
+    display:none;
+  }
+  .device-ip{
+    overflow:visible;
+    text-overflow:clip;
   }
   .device-status{
     font-size:10.5px;
@@ -937,36 +988,19 @@ body.modal-open{
     padding-left:20px;
   }
   .device-results{
-    --device-columns:40px minmax(170px,1fr) 126px 92px 112px;
+    --device-columns:40px minmax(170px,1fr) 126px 96px 106px;
   }
   .device-list-head,
   .device-row{
-    gap:10px;
+    gap:9px;
   }
-  .device-list-head{
-    padding-right:12px;
-    padding-left:12px;
+  .device-name strong{
+    font-size:14px;
   }
-  .device-row{
-    padding-right:12px;
-    padding-left:12px;
-  }
-  .device-ip{
-    overflow:visible;
-    text-overflow:clip;
-  }
-  .device-status{
-    gap:6px;
+  .device-context{
     font-size:11px;
   }
-  .device-status>span{
-    min-width:0;
-  }
 }
-
-
-
-
 
 /* Human-first overview pass. */
 .network-hero-summary{
@@ -1568,52 +1602,99 @@ textarea{
 
   .device-row,
   .device-list.compact .device-row{
-    min-height:80px;
-    padding:10px 11px;
-    grid-template-columns:42px minmax(0,1fr) auto;
-    gap:11px;
+    min-height:78px;
+    padding:9px 10px;
+    grid-template-columns:40px minmax(0,1fr) 24px;
+    gap:10px;
   }
   .device-symbol{
-    width:42px;
-    height:42px;
-    border-radius:13px;
+    width:40px;
+    height:40px;
+    border-radius:12px;
   }
   .device-symbol .icon{
-    width:21.5px;
-    height:21.5px;
+    width:21px;
+    height:21px;
+  }
+  .device-name{
+    align-self:center;
   }
   .device-name strong{
-    font-size:14px;
-    line-height:1.2;
+    font-size:15px;
+    line-height:1.16;
   }
-  .device-name small{
-    margin-top:3px;
-    font-size:11.5px;
+  .device-context{
+    display:none;
   }
-  .device-list-identity{
-    font-variant-numeric:tabular-nums;
-  }
-  .device-name em{
+  .device-mobile-identity{
     display:block;
     margin-top:3px;
+    color:var(--text-soft);
     font-size:11.5px;
+    font-weight:570;
+    line-height:1.2;
+  }
+  .device-mobile-meta,
+  .device-list.compact .device-mobile-meta{
+    min-width:0;
+    margin-top:4px;
+    display:flex;
+    align-items:center;
+    overflow:hidden;
+    color:var(--text-faint);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;
+    font-style:normal;
+    font-variant-numeric:tabular-nums;
+    font-weight:620;
+    letter-spacing:-.02em;
+    line-height:1.15;
+    white-space:nowrap;
+  }
+  .device-mobile-meta>span{
+    min-width:0;
+    flex:0 0 auto;
+  }
+  .device-mobile-meta>span+span::before{
+    margin:0 5px;
+    color:color-mix(in srgb,var(--text-faint) 72%,transparent);
+    content:"·";
+  }
+  .device-mobile-connection{
+    overflow:hidden;
+    flex:1 1 auto !important;
+    text-overflow:ellipsis;
   }
   .device-list-head,
   .device-ip,
+  .device-mac,
   .device-meta{
     display:none;
   }
   .device-status{
+    width:24px;
     align-self:center;
+    justify-self:end;
+    justify-content:flex-end;
     margin-top:0;
-    gap:5px;
+    gap:4px;
   }
   .device-status>span{
     display:none;
   }
+  .device-status i{
+    width:7px;
+    height:7px;
+    flex-basis:7px;
+  }
   .device-status>.icon{
-    width:15px;
-    height:15px;
+    width:14px;
+    height:14px;
+    margin-left:0;
+  }
+  @media(max-width:390px){
+    .device-mobile-connection{display:none}
+    .device-mobile-meta>span.device-mobile-mac::before{margin-left:4px;margin-right:4px}
   }
 
   .host-panel{
