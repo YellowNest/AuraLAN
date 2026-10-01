@@ -824,7 +824,7 @@ function scheduleRefresh(rate) {
 
 function syncRefreshVisibility() {
   restartRefreshTimer();
-  if (!document.hidden) refresh(false);
+  if (!document.hidden && state.refreshRate) refresh(false);
 }
 
 function setLocale(locale) {
