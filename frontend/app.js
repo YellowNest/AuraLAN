@@ -40,6 +40,7 @@ const state = {
     device_presence: false,
     device_presence_history: false,
     forget_remembered_devices: false,
+    network_baseline: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -91,6 +92,23 @@ function normalizeStatus(payload) {
     metadata: { alias: null, category_override: null, note: null, favorite: false, location: null, tags: [], ...(device.metadata || {}) },
     observations: Array.isArray(device.observations) ? device.observations : []
   }));
+  const baseline = payload.baseline && typeof payload.baseline === 'object'
+    ? {
+      configured: Boolean(payload.baseline.configured),
+      captured_at: payload.baseline.captured_at ?? null,
+      device_count: Number(payload.baseline.device_count || 0),
+      current_count: Number(payload.baseline.current_count || 0),
+      new_count: Number(payload.baseline.new_count || 0),
+      missing_count: Number(payload.baseline.missing_count || 0),
+      new_device_ids: Array.isArray(payload.baseline.new_device_ids) ? payload.baseline.new_device_ids : [],
+      missing_device_ids: Array.isArray(payload.baseline.missing_device_ids) ? payload.baseline.missing_device_ids : [],
+    }
+    : { configured: false, captured_at: null, device_count: 0, current_count: 0, new_count: 0, missing_count: 0, new_device_ids: [], missing_device_ids: [] };
+  const baselineNewIds = new Set(baseline.new_device_ids);
+  const baselineMissingIds = new Set(baseline.missing_device_ids);
+  for (const device of legacyDevices) {
+    device.baseline_state = baselineNewIds.has(device.id) ? 'new' : baselineMissingIds.has(device.id) ? 'missing' : null;
+  }
   const offlineServices = legacyServices.filter((item) => item.detected && item.state === 'offline').length;
   const fallbackSystem = offlineServices ? {
     state: 'degraded', title: t('serviceAttention', { count: offlineServices }), summary: 'A detected service is offline.', attention_count: offlineServices
@@ -117,6 +135,7 @@ function normalizeStatus(payload) {
     notifications: payload.notifications && typeof payload.notifications === 'object'
       ? payload.notifications
       : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
+    baseline,
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -280,6 +299,8 @@ function renderDeviceRows(items, compact = false) {
     const inventoryTags = [
       device.metadata?.favorite ? t('favorite') : '',
       isNewDevice(device) ? t('newToAuraLAN') : '',
+      device.baseline_state === 'new' ? t('baselineNew') : '',
+      device.baseline_state === 'missing' ? t('baselineMissing') : '',
       device.metadata?.location || '',
       ...(device.metadata?.tags || []).slice(0, 2),
     ].filter(Boolean);
@@ -450,6 +471,8 @@ function renderDevices() {
   if (identity.limited) filters.push(['identity_limited', t('identityNeedsReview')]);
   if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
   if (allDevices.some((item) => isFavoriteNotSeen(item))) filters.push(['favorite_missing', t('favoriteNotSeenShort')]);
+  if (allDevices.some((item) => item.baseline_state === 'new')) filters.push(['baseline_new', t('baselineNew')]);
+  if (allDevices.some((item) => item.baseline_state === 'missing')) filters.push(['baseline_missing', t('baselineMissing')]);
   if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
   if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
@@ -644,6 +667,31 @@ async function wakeDevice(deviceId) {
   }
 }
 
+async function captureNetworkBaseline() {
+  const baseline = state.data?.baseline || {};
+  const prompt = baseline.configured ? t('replaceBaselineConfirm') : t('createBaselineConfirm');
+  if (!window.confirm(prompt)) return;
+  try {
+    const result = await fetchJson('/api/v1/baseline', 8000, { method: 'POST' });
+    if (state.data) state.data.baseline = result;
+    await refresh(false);
+    toast(t('baselineSaved'));
+  } catch {
+    toast(t('baselineSaveFailed'));
+  }
+}
+
+async function clearNetworkBaseline() {
+  if (!window.confirm(t('clearBaselineConfirm'))) return;
+  try {
+    const result = await fetchJson('/api/v1/baseline', 8000, { method: 'DELETE' });
+    if (state.data) state.data.baseline = result;
+    await refresh(false);
+    toast(t('baselineCleared'));
+  } catch {
+    toast(t('baselineClearFailed'));
+  }
+}
 async function sendTestNotification() {
   try {
     const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
@@ -837,6 +885,7 @@ function showDevice(id) {
     detailRow(t('status'), status, deviceState(device) === 'online' ? 'success' : 'info'),
     detailRow(t('firstSeen'), formatTimestamp(device.first_seen_at), 'uptime'),
     detailRow(t('lastSeen'), formatTimestamp(device.last_seen_at), 'uptime'),
+    ...(device.baseline_state ? [detailRow(t('networkBaseline'), device.baseline_state === 'new' ? t('baselineNew') : t('baselineMissing'), device.baseline_state === 'new' ? 'devices' : 'warning')] : []),
   ].join('');
 
   const identityRows = [
@@ -1000,6 +1049,8 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
+  if (trigger.matches('[data-capture-baseline]')) captureNetworkBaseline();
+  if (trigger.matches('[data-clear-baseline]')) clearNetworkBaseline();
   if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
   if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
