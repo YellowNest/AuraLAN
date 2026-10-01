@@ -8,7 +8,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Changed
 
-- Device list presentation is now tuned as one responsive system: iPhone rows use a compact three-line hierarchy for name, concise manufacturer/MAC identity and IP/connection details, while desktop keeps stable aligned columns with denser spacing and larger primary text.
+- Device lists now use progressive disclosure instead of compressing MAC, room and manufacturer into one line: the default mobile hierarchy is name → IP/connection → one room-or-vendor context line, while wide desktop gets a dedicated Location column. MAC remains searchable and available in device details rather than competing with the IP address in the primary list.
 
 ### Added
 

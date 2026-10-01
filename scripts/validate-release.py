@@ -186,14 +186,18 @@ for token in ("--type-micro", "--type-caption", "--type-body", "--type-card", "-
         fail(f"frontend typography scale is missing token: {token}")
 if "Canonical typography scale" not in css_source:
     fail("frontend/app.css is missing the canonical typography layer")
-if "device-list-head" not in app_source or "device-ip" not in app_source or "friendlyDeviceListIdentity" not in app_source:
-    fail("device list is missing its aligned IP column or concise manufacturer/MAC identity")
-if 'class="device-mac"' in app_source or "device-mobile-identity" in app_source:
-    fail("duplicate device identity fields returned to the list")
+if (
+    "device-list-head" not in app_source
+    or "device-ip" not in app_source
+    or "device-mobile-ip" not in app_source
+    or "device-location" not in app_source
+    or "friendlyDeviceContext" not in app_source
+):
+    fail("device list is missing its friendly identity, IP, or location hierarchy")
+if "friendlyDeviceListIdentity" in app_source or 'class="device-mac"' in app_source or "device-mobile-identity" in app_source:
+    fail("default device list must keep MAC/technical identity in search and device details instead of mixing it into the friendly row")
 if 'name="category_override"' in app_source or "useDetectedType" in app_source:
     fail("frontend still exposes the removed manual device category selector")
-if "friendlyDeviceContext" not in app_source:
-    fail("device list is missing the unified identity context")
 if "deviceIconKey" not in app_source or "icon_key" not in app_source:
     fail("device list is missing normalized icon-key rendering")
 if "const deviceIcon =" in app_source:
