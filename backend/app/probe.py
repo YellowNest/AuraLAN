@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import time
 
-_LATENCY_RE = re.compile(r"\\btime[=<]\\s*(\\d+(?:\\.\\d+)?)\\s*ms\\b", re.IGNORECASE)
+_LATENCY_RE = re.compile(r"\btime[=<]\s*(\d+(?:\.\d+)?)\s*ms\b", re.IGNORECASE)
 
 
 class ProbeUnavailable(RuntimeError):
