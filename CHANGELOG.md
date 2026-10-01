@@ -15,6 +15,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 - Background monitoring now reuses a just-completed cached snapshot instead of forcing an identical back-to-back full discovery pass when dashboard/API polling happens at the same time, removing avoidable CPU and subprocess bursts.
 - mDNS, resolver, and NetBIOS caches now expire entries independently and prune devices that are no longer in the bounded observation set, preventing long-running device/MAC churn from extending stale entries or growing process memory indefinitely.
+- Pi-hole FTL identity enrichment now queries only MAC/IP identities AuraLAN already knows and caps cached result rows, avoiding a recurring full historical network-table read on long-running Pi-hole installations.
 - Dashboard polling pauses while the browser tab is hidden and refreshes immediately when it becomes visible again, avoiding unnecessary discovery work from inactive tabs.
 - Reachability checks no longer display a fabricated `0 ms` latency when ping succeeded but the local ping output did not contain a parsable timing value.
 - The README project-status section no longer claims that 0.7.0 is the current code line after the 0.8.0 release commit landed.

@@ -534,6 +534,36 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(found[0].hostname, "sample-iphone")
         self.assertIsNone(found[0].manufacturer)
 
+    def test_pihole_identity_read_excludes_unrelated_history_rows(self):
+        seed = [self._observation(mac="02:00:00:00:21:01", ip="192.0.2.128")]
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "pihole-FTL.db"
+            connection = sqlite3.connect(path)
+            try:
+                connection.execute("CREATE TABLE network (id INTEGER PRIMARY KEY, hwaddr TEXT, macVendor TEXT)")
+                connection.execute("CREATE TABLE network_addresses (network_id INTEGER, ip TEXT, name TEXT, lastseen INTEGER)")
+                connection.execute("INSERT INTO network(id, hwaddr, macVendor) VALUES (1, '02:00:00:00:21:01', 'Example One')")
+                connection.execute("INSERT INTO network(id, hwaddr, macVendor) VALUES (2, '02:00:00:00:21:02', 'Example Two')")
+                connection.execute("INSERT INTO network_addresses(network_id, ip, name, lastseen) VALUES (1, '192.0.2.128', 'wanted-device', 200)")
+                connection.execute("INSERT INTO network_addresses(network_id, ip, name, lastseen) VALUES (2, '192.0.2.129', 'unrelated-history', 300)")
+                connection.commit()
+            finally:
+                connection.close()
+
+            with (
+                patch.object(pihole_network, "CANDIDATE_DATABASES", (path,)),
+                patch.object(pihole_network, "_cached_rows", []),
+                patch.object(pihole_network, "_cached_macs", set()),
+                patch.object(pihole_network, "_cached_ips", set()),
+                patch.object(pihole_network, "_cached_at", -1e9),
+            ):
+                found = pihole_network.observations(seed)
+                cached_rows = list(pihole_network._cached_rows)
+
+        self.assertEqual([item.hostname for item in found], ["wanted-device"])
+        self.assertEqual(len(cached_rows), 1)
+        self.assertEqual(cached_rows[0]["ip"], "192.0.2.128")
+
     def test_dns_sd_unescape_decodes_utf8_byte_sequences(self):
         slash = chr(92)
         escaped = f"Heat{slash}032pump{slash}032M{slash}195{slash}164rke"
