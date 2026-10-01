@@ -133,6 +133,12 @@ try {
         mobileMacText: firstMobileMac?.textContent?.trim() || '',
         mobileIpClipped: firstMobileIp ? firstMobileIp.scrollWidth > firstMobileIp.clientWidth + 1 : false,
         mobileMacClipped: firstMobileMac ? firstMobileMac.scrollWidth > firstMobileMac.clientWidth + 1 : false,
+        mobileTechnicalFits: (() => {
+          const line = document.querySelector('.device-mobile-meta');
+          const macNode = document.querySelector('.device-mobile-mac');
+          if (!line || !macNode) return true;
+          return macNode.getBoundingClientRect().right <= line.getBoundingClientRect().right + 1;
+        })(),
         macText: firstMac?.textContent?.trim() || '',
         ipSpread: spread(positions('.device-ip')),
         macSpread: spread(positions('.device-mac')),
@@ -172,6 +178,7 @@ try {
       }
       assert.equal(listReport.mobileIpClipped, false, `${viewport.name}/devices: mobile IP is clipped`);
       assert.equal(listReport.mobileMacClipped, false, `${viewport.name}/devices: mobile MAC is clipped`);
+      assert.equal(listReport.mobileTechnicalFits, true, `${viewport.name}/devices: IP + MAC do not fit inside the mobile technical line`);
       if (listReport.macText && listReport.macText !== '—') {
         assert.equal(listReport.mobileMacText, listReport.macText, `${viewport.name}/devices: mobile MAC differs from the desktop value`);
       }

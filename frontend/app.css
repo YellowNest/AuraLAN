@@ -886,6 +886,35 @@ body.modal-open{
 .device-mobile-meta{
   display:none;
 }
+.device-mobile-meta{
+  min-width:0;
+  margin-top:4px;
+  align-items:center;
+  overflow:hidden;
+  color:var(--text-faint);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:10.5px;
+  font-style:normal;
+  font-variant-numeric:tabular-nums;
+  font-weight:620;
+  letter-spacing:-.02em;
+  line-height:1.15;
+  white-space:nowrap;
+}
+.device-mobile-meta>span{
+  min-width:0;
+  flex:0 0 auto;
+}
+.device-mobile-meta>span+span::before{
+  margin:0 5px;
+  color:color-mix(in srgb,var(--text-faint) 72%,transparent);
+  content:"·";
+}
+.device-mobile-connection{
+  overflow:hidden;
+  flex:1 1 auto !important;
+  text-overflow:ellipsis;
+}
 .device-ip,
 .device-mac{
   min-width:0;
@@ -1636,34 +1665,7 @@ textarea{
   }
   .device-mobile-meta,
   .device-list.compact .device-mobile-meta{
-    min-width:0;
-    margin-top:4px;
     display:flex;
-    align-items:center;
-    overflow:hidden;
-    color:var(--text-faint);
-    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:10.5px;
-    font-style:normal;
-    font-variant-numeric:tabular-nums;
-    font-weight:620;
-    letter-spacing:-.02em;
-    line-height:1.15;
-    white-space:nowrap;
-  }
-  .device-mobile-meta>span{
-    min-width:0;
-    flex:0 0 auto;
-  }
-  .device-mobile-meta>span+span::before{
-    margin:0 5px;
-    color:color-mix(in srgb,var(--text-faint) 72%,transparent);
-    content:"·";
-  }
-  .device-mobile-connection{
-    overflow:hidden;
-    flex:1 1 auto !important;
-    text-overflow:ellipsis;
   }
   .device-list-head,
   .device-ip,
@@ -1691,10 +1693,6 @@ textarea{
     width:14px;
     height:14px;
     margin-left:0;
-  }
-  @media(max-width:390px){
-    .device-mobile-connection{display:none}
-    .device-mobile-meta>span.device-mobile-mac::before{margin-left:4px;margin-right:4px}
   }
 
   .host-panel{
@@ -2358,3 +2356,9 @@ textarea{
   .baseline-metrics > button, .baseline-metrics > span { min-width: 0; flex: 1; }
 }
 
+
+/* Preserve full technical identifiers on narrow phones; connection remains available in details. */
+@media(max-width:390px){
+  .device-mobile-connection{display:none}
+  .device-mobile-meta>span.device-mobile-mac::before{margin-left:4px;margin-right:4px}
+}
