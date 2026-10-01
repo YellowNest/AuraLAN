@@ -40,6 +40,7 @@ const state = {
     device_presence: false,
     device_presence_history: false,
     forget_remembered_devices: false,
+    network_baseline: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -91,6 +92,23 @@ function normalizeStatus(payload) {
     metadata: { alias: null, category_override: null, note: null, favorite: false, location: null, tags: [], ...(device.metadata || {}) },
     observations: Array.isArray(device.observations) ? device.observations : []
   }));
+  const baseline = payload.baseline && typeof payload.baseline === 'object'
+    ? {
+      configured: Boolean(payload.baseline.configured),
+      captured_at: payload.baseline.captured_at ?? null,
+      device_count: Number(payload.baseline.device_count || 0),
+      current_count: Number(payload.baseline.current_count || 0),
+      new_count: Number(payload.baseline.new_count || 0),
+      missing_count: Number(payload.baseline.missing_count || 0),
+      new_device_ids: Array.isArray(payload.baseline.new_device_ids) ? payload.baseline.new_device_ids : [],
+      missing_device_ids: Array.isArray(payload.baseline.missing_device_ids) ? payload.baseline.missing_device_ids : [],
+    }
+    : { configured: false, captured_at: null, device_count: 0, current_count: 0, new_count: 0, missing_count: 0, new_device_ids: [], missing_device_ids: [] };
+  const baselineNewIds = new Set(baseline.new_device_ids);
+  const baselineMissingIds = new Set(baseline.missing_device_ids);
+  for (const device of legacyDevices) {
+    device.baseline_state = baselineNewIds.has(device.id) ? 'new' : baselineMissingIds.has(device.id) ? 'missing' : null;
+  }
   const offlineServices = legacyServices.filter((item) => item.detected && item.state === 'offline').length;
   const fallbackSystem = offlineServices ? {
     state: 'degraded', title: t('serviceAttention', { count: offlineServices }), summary: 'A detected service is offline.', attention_count: offlineServices
@@ -117,6 +135,7 @@ function normalizeStatus(payload) {
     notifications: payload.notifications && typeof payload.notifications === 'object'
       ? payload.notifications
       : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
+    baseline,
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -280,6 +299,8 @@ function renderDeviceRows(items, compact = false) {
     const inventoryTags = [
       device.metadata?.favorite ? t('favorite') : '',
       isNewDevice(device) ? t('newToAuraLAN') : '',
+      device.baseline_state === 'new' ? t('baselineNew') : '',
+      device.baseline_state === 'missing' ? t('baselineMissing') : '',
       device.metadata?.location || '',
       ...(device.metadata?.tags || []).slice(0, 2),
     ].filter(Boolean);
@@ -328,6 +349,7 @@ function renderOverview() {
   const onlineDevices = devices().filter((item) => item.online === true).length;
   const newDevices = devices().filter((item) => isNewDevice(item));
   const favoriteNotSeen = devices().filter((item) => isFavoriteNotSeen(item));
+  const baseline = state.data.baseline || {};
   const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
   const recentActivity = (state.data.activity || []).slice(0, 5);
   const attentionCount = Number(system.attention_count || 0);
@@ -350,7 +372,13 @@ function renderOverview() {
     ? `<section class="system-hero surface ${statusClass(system.state)}"><div class="system-emblem">${icon(system.state === 'degraded' ? 'warning' : 'info')}</div><div class="system-copy"><p class="eyebrow">${t('system')}</p><h2>${escapeHtml(systemTitle)}</h2><p>${escapeHtml(systemSummary)}</p></div></section>`
     : '';
 
+  const baselineCard = state.capabilities.network_baseline
+    ? (!baseline.configured
+      ? `<section class="baseline-card surface"><div class="baseline-card-copy"><span class="baseline-card-icon">${icon('network')}</span><div><p class="eyebrow">${t('networkBaseline')}</p><h2>${t('baselineCreateTitle')}</h2><p>${t('baselineCreateHint')}</p></div></div><button class="primary-button" type="button" data-capture-baseline>${icon('success')}${t('createBaseline')}</button></section>`
+      : `<section class="baseline-card surface ${baseline.new_count || baseline.missing_count ? 'has-changes' : 'is-matched'}"><div class="baseline-card-copy"><span class="baseline-card-icon">${icon(baseline.new_count || baseline.missing_count ? 'warning' : 'success')}</span><div><p class="eyebrow">${t('networkBaseline')}</p><h2>${baseline.new_count || baseline.missing_count ? t('baselineChangesTitle') : t('baselineMatchedTitle')}</h2><p>${t('baselineCaptured', { time: formatTimestamp(baseline.captured_at) })}</p></div></div><div class="baseline-metrics"><button type="button" ${baseline.new_count ? 'data-route="devices" data-device-filter="baseline_new"' : 'disabled'}><strong>${baseline.new_count}</strong><span>${t('baselineNew')}</span></button><button type="button" ${baseline.missing_count ? 'data-route="devices" data-device-filter="baseline_missing"' : 'disabled'}><strong>${baseline.missing_count}</strong><span>${t('baselineMissing')}</span></button><span><strong>${baseline.device_count}</strong><small>${t('baselineDevices')}</small></span></div></section>`)
+    : '';
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
+  ${baselineCard}
   ${favoriteNotSeen.length ? `<button class="unidentified-callout favorite-watch-callout surface" type="button" data-route="devices" data-device-filter="favorite_missing">${icon('warning')}<span><strong>${escapeHtml(t('favoriteNotSeen', { count: favoriteNotSeen.length }))}</strong><small>${escapeHtml(t('favoriteNotSeenHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
@@ -450,6 +478,8 @@ function renderDevices() {
   if (identity.limited) filters.push(['identity_limited', t('identityNeedsReview')]);
   if (allDevices.some((item) => item.metadata?.favorite)) filters.push(['favorites', t('favorites')]);
   if (allDevices.some((item) => isFavoriteNotSeen(item))) filters.push(['favorite_missing', t('favoriteNotSeenShort')]);
+  if (allDevices.some((item) => item.baseline_state === 'new')) filters.push(['baseline_new', t('baselineNew')]);
+  if (allDevices.some((item) => item.baseline_state === 'missing')) filters.push(['baseline_missing', t('baselineMissing')]);
   if (allDevices.some((item) => isNewDevice(item))) filters.push(['new', t('newToAuraLAN')]);
   if (allDevices.some((item) => deviceState(item) === 'known')) filters.push(['known', t('notSeenNow')]);
   for (const [id, label] of [['wifi', t('wifi')], ['ethernet', t('ethernet')], ['vpn', t('vpn')]]) {
@@ -506,9 +536,14 @@ function renderSettings() {
     )
     : t('webhookConfigurationHint');
   const notificationLast = notifications.last_success_at ? formatTimestamp(notifications.last_success_at) : t('notYet');
+  const baseline = state.data?.baseline || {};
+  const baselineSummary = baseline.configured
+    ? t('baselineSettingsSummary', { count: Number(baseline.device_count || 0), time: formatTimestamp(baseline.captured_at) })
+    : t('baselineCreateHint');
 
   return `<section class="settings-group"><header><p class="eyebrow">${t('appearance')}</p><h2>${t('appearance')}</h2></header><div class="surface settings-list"><div class="setting-row"><div><strong>${t('theme')}</strong><small>${t('localOnly')}</small></div><div class="segmented" id="theme-control">${[['system', t('systemTheme')], ['light', t('light')], ['dark', t('dark')]].map(([id, label]) => `<button type="button" data-theme="${id}" class="${state.theme === id ? 'active' : ''}">${escapeHtml(label)}</button>`).join('')}</div></div>${settingSelect('language-select', t('language'), t('localOnly'), [['en', 'English'], ['sv', 'Svenska']], state.locale)}${settingSelect('refresh-rate', t('refreshInterval'), t('localOnly'), refreshes, state.refreshRate)}</div></section>
   <section class="settings-group"><header><p class="eyebrow">${t('monitoring')}</p><h2>${t('continuousMonitoring')}</h2></header><div class="surface settings-list"><div class="setting-row monitor-setting"><div><strong>${escapeHtml(monitorState)}</strong><small>${escapeHtml(monitorDetail)}</small></div><div class="monitor-last"><span>${t('lastSuccessfulRun')}</span><strong>${escapeHtml(monitorLast)}</strong></div></div></div></section>
+  ${state.capabilities.network_baseline ? `<section class="settings-group"><header><p class="eyebrow">${t('networkBaseline')}</p><h2>${t('networkBaseline')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${baseline.configured ? t('baselineConfigured') : t('baselineNotConfigured')}</strong><small>${escapeHtml(baselineSummary)}</small></div><button class="secondary-button" type="button" data-capture-baseline>${icon('network')}${baseline.configured ? t('replaceBaseline') : t('createBaseline')}</button></div>${baseline.configured ? `<div class="setting-row action-row"><div><strong>${t('clearBaseline')}</strong><small>${t('clearBaselineHint')}</small></div><button class="secondary-button danger-button" type="button" data-clear-baseline>${icon('trash')}${t('clear')}</button></div>` : ''}</div></section>` : ''}
   <section class="settings-group"><header><p class="eyebrow">${t('notifications')}</p><h2>${t('webhookNotifications')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${escapeHtml(notificationState)}</strong><small>${escapeHtml(notificationDetail)}</small></div>${notifications.configured ? `<button class="secondary-button" type="button" data-test-notification>${icon('network')}${t('sendTest')}</button>` : ''}</div><div class="setting-row"><div><strong>${t('lastSuccessfulDelivery')}</strong><small>${t('pendingEvents', { count: Number(notifications.pending_events || 0) })}</small></div><div class="monitor-last"><strong>${escapeHtml(notificationLast)}</strong></div></div></div></section>
   <section class="settings-group"><header><p class="eyebrow">${t('support')}</p><h2>${t('diagnostics')}</h2></header><div class="surface settings-list"><div class="setting-row action-row"><div><strong>${t('diagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-open-diagnostics>${icon('diagnostics')}${t('diagnostics')}</button></div><div class="setting-row action-row"><div><strong>${t('copyDiagnostics')}</strong><small>${t('diagnosticsHint')}</small></div><button class="secondary-button" type="button" data-copy-diagnostics>${icon('copy')}${t('copy')}</button></div></div></section><section class="settings-group about-section"><header><p class="eyebrow">${t('about')}</p><h2>${state.brand.productName}</h2></header><div class="surface about-card"><span class="about-mark" aria-hidden="true"><img src="/assets/assets/icons/logo-mark.svg" alt=""></span><div class="about-copy"><strong>${escapeHtml(state.brand.productName)}</strong><small>${escapeHtml(state.brand.tagline)}</small></div><div class="about-version"><span>${t('version')}</span><strong>v${escapeHtml(state.brand.version)}</strong></div></div></section>`;
 }
@@ -644,6 +679,31 @@ async function wakeDevice(deviceId) {
   }
 }
 
+async function captureNetworkBaseline() {
+  const baseline = state.data?.baseline || {};
+  const prompt = baseline.configured ? t('replaceBaselineConfirm') : t('createBaselineConfirm');
+  if (!window.confirm(prompt)) return;
+  try {
+    const result = await fetchJson('/api/v1/baseline', 8000, { method: 'POST' });
+    if (state.data) state.data.baseline = result;
+    await refresh(false);
+    toast(t('baselineSaved'));
+  } catch {
+    toast(t('baselineSaveFailed'));
+  }
+}
+
+async function clearNetworkBaseline() {
+  if (!window.confirm(t('clearBaselineConfirm'))) return;
+  try {
+    const result = await fetchJson('/api/v1/baseline', 8000, { method: 'DELETE' });
+    if (state.data) state.data.baseline = result;
+    await refresh(false);
+    toast(t('baselineCleared'));
+  } catch {
+    toast(t('baselineClearFailed'));
+  }
+}
 async function sendTestNotification() {
   try {
     const result = await fetchJson('/api/v1/notifications/test', 8000, { method: 'POST' });
@@ -837,6 +897,7 @@ function showDevice(id) {
     detailRow(t('status'), status, deviceState(device) === 'online' ? 'success' : 'info'),
     detailRow(t('firstSeen'), formatTimestamp(device.first_seen_at), 'uptime'),
     detailRow(t('lastSeen'), formatTimestamp(device.last_seen_at), 'uptime'),
+    ...(device.baseline_state ? [detailRow(t('networkBaseline'), device.baseline_state === 'new' ? t('baselineNew') : t('baselineMissing'), device.baseline_state === 'new' ? 'devices' : 'warning')] : []),
   ].join('');
 
   const identityRows = [
@@ -1000,6 +1061,8 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
   if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
+  if (trigger.matches('[data-capture-baseline]')) captureNetworkBaseline();
+  if (trigger.matches('[data-clear-baseline]')) clearNetworkBaseline();
   if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
   if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();

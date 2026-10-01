@@ -22,6 +22,7 @@ from .models import (
     HostResponse,
     MetaResponse,
     MonitorResponse,
+    NetworkBaselineResponse,
     NetworkResponse,
     NotificationStatusResponse,
     PresenceHistoryResponse,
@@ -56,6 +57,26 @@ background_monitor = BackgroundMonitor(
     system_snapshot,
     after_collect=_after_background_snapshot,
 )
+
+
+def _baseline_status(snapshot: dict | None = None) -> dict:
+    current = snapshot or system_snapshot()
+    try:
+        return store().baseline_status(current.get("devices") or [])
+    except (OSError, sqlite3.Error, ValueError, TypeError):
+        return {
+            "configured": False,
+            "captured_at": None,
+            "device_count": 0,
+            "current_count": sum(
+                1 for item in (current.get("devices") or [])
+                if item.get("state") != "known"
+            ),
+            "new_count": 0,
+            "missing_count": 0,
+            "new_device_ids": [],
+            "missing_device_ids": [],
+        }
 
 
 def _notification_status() -> dict:
@@ -131,13 +152,40 @@ def health() -> dict:
 @app.get("/api/v1/status", response_model=StatusResponse)
 def status() -> dict:
     metadata = brand()
+    snapshot = system_snapshot()
     return {
-        **system_snapshot(),
+        **snapshot,
         "version": metadata["version"],
         "api_version": metadata["apiVersion"],
         "monitor": background_monitor.status(),
         "notifications": _notification_status(),
+        "baseline": _baseline_status(snapshot),
     }
+
+
+@app.get("/api/v1/baseline", response_model=NetworkBaselineResponse)
+def network_baseline_status() -> dict:
+    return _baseline_status()
+
+
+@app.post("/api/v1/baseline", response_model=NetworkBaselineResponse)
+def capture_network_baseline() -> dict:
+    snapshot = system_snapshot()
+    try:
+        return store().capture_baseline(snapshot.get("devices") or [])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN baseline storage is unavailable") from exc
+
+
+@app.delete("/api/v1/baseline", response_model=NetworkBaselineResponse)
+def clear_network_baseline() -> dict:
+    try:
+        store().clear_baseline()
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN baseline storage is unavailable") from exc
+    return _baseline_status()
 
 
 @app.get("/api/v1/monitor", response_model=MonitorResponse)

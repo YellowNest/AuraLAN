@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
 DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
@@ -93,7 +93,7 @@ class DeviceStore:
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
-            "device_presence_state", "device_presence_history",
+            "device_presence_state", "device_presence_history", "network_baseline",
         }
         if version == SCHEMA_VERSION:
             existing_tables = {
@@ -203,6 +203,12 @@ class DeviceStore:
             "CREATE INDEX IF NOT EXISTS idx_device_presence_history_device_time "
             "ON device_presence_history(device_id, created_at DESC, id DESC)"
         )
+        connection.execute("""CREATE TABLE IF NOT EXISTS network_baseline (
+            entity_id TEXT PRIMARY KEY,
+            identity_ids_json TEXT NOT NULL DEFAULT '[]',
+            display_name TEXT,
+            captured_at INTEGER NOT NULL
+        )""")
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -883,6 +889,161 @@ class DeviceStore:
 
         return remembered
 
+    def capture_baseline(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        """Replace the local network baseline with devices observed right now."""
+        observed = [
+            record for record in records
+            if record.get("state") != "known" and str(record.get("id") or "").strip()
+        ]
+        if not observed:
+            raise ValueError("No currently observed devices are available for a baseline")
+
+        captured_at = int(time.time())
+        rows: list[tuple[str, str, str | None, int]] = []
+        for record in observed:
+            entity_id = str(record.get("id") or "").strip()
+            identities = sorted(self._record_identity_ids(record))
+            if not identities:
+                identities = [entity_id]
+            rows.append((
+                entity_id,
+                json.dumps(identities, separators=(",", ":")),
+                str(record.get("display_name") or "").strip() or None,
+                captured_at,
+            ))
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("DELETE FROM network_baseline")
+                connection.executemany(
+                    "INSERT INTO network_baseline(entity_id, identity_ids_json, display_name, captured_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    rows,
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+
+        return self.baseline_status(records)
+
+    def clear_baseline(self) -> None:
+        """Remove the operator-defined network baseline without touching inventory."""
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                connection.execute("DELETE FROM network_baseline")
+                connection.commit()
+            finally:
+                connection.close()
+
+    def baseline_status(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        """Compare current observations with the last operator-captured baseline."""
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT entity_id, identity_ids_json, display_name, captured_at "
+                        "FROM network_baseline ORDER BY entity_id"
+                    )
+                ]
+            finally:
+                connection.close()
+
+        if not rows:
+            return {
+                "configured": False,
+                "captured_at": None,
+                "device_count": 0,
+                "current_count": sum(1 for record in records if record.get("state") != "known"),
+                "new_count": 0,
+                "missing_count": 0,
+                "new_device_ids": [],
+                "missing_device_ids": [],
+            }
+
+        baseline_members: list[tuple[dict[str, Any], set[str]]] = []
+        baseline_identity_union: set[str] = set()
+        for row in rows:
+            try:
+                identities = {
+                    str(value).strip()
+                    for value in json.loads(row.get("identity_ids_json") or "[]")
+                    if str(value).strip()
+                }
+            except (TypeError, ValueError):
+                identities = set()
+            entity_id = str(row.get("entity_id") or "").strip()
+            if entity_id:
+                identities.add(entity_id)
+            baseline_members.append((row, identities))
+            baseline_identity_union.update(identities)
+
+        current = [record for record in records if record.get("state") != "known"]
+        current_identity_union: set[str] = set()
+        record_identities: dict[str, set[str]] = {}
+        for record in records:
+            entity_id = str(record.get("id") or "").strip()
+            if not entity_id:
+                continue
+            identities = self._record_identity_ids(record)
+            record_identities[entity_id] = identities
+            if record.get("state") != "known":
+                current_identity_union.update(identities)
+
+        new_device_ids = [
+            str(record.get("id"))
+            for record in current
+            if self._record_identity_ids(record).isdisjoint(baseline_identity_union)
+        ]
+
+        missing_device_ids: list[str] = []
+        for row, identities in baseline_members:
+            if not identities.isdisjoint(current_identity_union):
+                continue
+            remembered_id = next(
+                (
+                    record_id
+                    for record_id, known_identities in record_identities.items()
+                    if not identities.isdisjoint(known_identities)
+                ),
+                None,
+            )
+            missing_device_ids.append(remembered_id or str(row.get("entity_id") or ""))
+
+        return {
+            "configured": True,
+            "captured_at": max(int(row.get("captured_at") or 0) for row, _ in baseline_members) or None,
+            "device_count": len(baseline_members),
+            "current_count": len(current),
+            "new_count": len(new_device_ids),
+            "missing_count": len(missing_device_ids),
+            "new_device_ids": sorted(set(new_device_ids)),
+            "missing_device_ids": sorted({value for value in missing_device_ids if value}),
+        }
+
+    @classmethod
+    def _record_identity_ids(cls, record: dict[str, Any]) -> set[str]:
+        """Return stable local identity keys for a possibly multi-interface device."""
+        identities: set[str] = set()
+        entity_id = str(record.get("id") or "").strip()
+        if entity_id:
+            identities.add(entity_id)
+        for value in record.get("mac_addresses") or [record.get("mac")]:
+            identity = cls._identity_id_from_mac(value)
+            if identity:
+                identities.add(identity)
+        return identities
+
     def remember_identities(self, records: list[dict[str, Any]]) -> None:
         """Keep the last trustworthy identity for the same observed MAC."""
         now = int(time.time())
@@ -1006,6 +1167,28 @@ class DeviceStore:
                     values,
                 )
                 deleted += max(0, int(cursor.rowcount))
+
+                baseline_rows = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT entity_id, identity_ids_json FROM network_baseline"
+                    )
+                ]
+                for baseline_row in baseline_rows:
+                    try:
+                        baseline_ids = {
+                            str(value).strip()
+                            for value in json.loads(baseline_row.get("identity_ids_json") or "[]")
+                            if str(value).strip()
+                        }
+                    except (TypeError, ValueError):
+                        baseline_ids = set()
+                    baseline_ids.add(str(baseline_row.get("entity_id") or "").strip())
+                    if baseline_ids.intersection(linked_ids):
+                        connection.execute(
+                            "DELETE FROM network_baseline WHERE entity_id = ?",
+                            (baseline_row["entity_id"],),
+                        )
 
                 connection.commit()
                 return deleted > 0

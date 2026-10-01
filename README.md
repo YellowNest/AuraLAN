@@ -27,6 +27,7 @@ It answers the useful questions first: **what is connected, what each device pro
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
 | **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
+| **Network Baseline** | Capture the devices you expect to see and let AuraLAN highlight what appeared or disappeared since that reference point, entirely locally and without pretending a change is automatically a threat. |
 | **A device inventory that remembers** | Track first/last seen time and a debounced per-device presence timeline, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, forget stale remembered devices safely, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | An aggregate REST summary feeds local Home Assistant sensors without device identity data, while optional reliable webhooks report new devices and favorite watch-state changes. |
@@ -63,6 +64,8 @@ Device identity is deliberately conservative. An OUI can identify an organizatio
 AuraLAN remembers when a device was first and last observed. You can give devices your own names, assign a location such as a room or rack, add lightweight tags, keep a short local note and mark important devices as favorites. Favorites also act as a lightweight local watchlist: if a favorite is only present in remembered inventory and has no current observation, AuraLAN surfaces that on Overview without claiming the device is definitely offline. The device view can surface favorites, newly seen devices, connection type and devices that still need a better identity.
 
 Once AuraLAN has observed a device, it also keeps a compact last-known presentation in local state. If the device later disappears from the current discovery pass it remains searchable as **Not seen now**, with its last-seen time and last-known identity instead of silently vanishing from the inventory. Remembered devices that are no longer observed can be explicitly forgotten; AuraLAN removes its own saved identity, metadata, activity, watch state and presence history, and the device will be treated as new if it is discovered again later.
+
+A local **Network Baseline** can capture the devices AuraLAN currently observes. Later, the Overview and Devices filters show what is new since that baseline and which baseline devices are not currently seen. Multi-interface devices are matched across their known MAC identities so an adapter-order change does not create a false new device. The baseline is local state and can be replaced or removed without deleting inventory history.
 
 AuraLAN also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
 
@@ -157,6 +160,9 @@ GET   /api/v1/status
 GET   /api/v1/host
 GET   /api/v1/network
 GET   /api/v1/devices
+GET   /api/v1/baseline
+POST  /api/v1/baseline
+DELETE /api/v1/baseline
 GET   /api/v1/devices/{id}
 PATCH /api/v1/devices/{id}/metadata
 GET   /api/v1/devices/{id}/presence?limit=50
