@@ -297,20 +297,21 @@ function renderDeviceRows(items, compact = false) {
     const ip = safe(device.ip, '—');
     const mac = safe(device.mac, '—');
     const baseIdentity = friendlyDeviceListIdentity(device, { privateMac: t('privateMacShort') }) || presentation.context;
-    const inventoryTags = [
+    const inventoryContext = [
+      device.metadata?.location || '',
       device.metadata?.favorite ? t('favorite') : '',
       isNewDevice(device) ? t('newToAuraLAN') : '',
       device.baseline_state === 'new' ? t('baselineNew') : '',
       device.baseline_state === 'missing' ? t('baselineMissing') : '',
-      device.metadata?.location || '',
-      ...(device.metadata?.tags || []).slice(0, 2),
-    ].filter(Boolean);
-    const listIdentity = [baseIdentity, ...inventoryTags].filter(Boolean).join(' · ');
-    const mobileMeta = [ip !== '—' ? ip : '', presentation.connectionSummary].filter(Boolean).join(' · ');
-    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${listIdentity ? `<small class="device-list-identity">${escapeHtml(listIdentity)}</small>` : ''}<em class="device-mobile-meta">${escapeHtml(mobileMeta)}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
+    ].filter(Boolean).slice(0, 2);
+    const listIdentity = [baseIdentity, ...inventoryContext].filter(Boolean).join(' · ');
+    const mobileTechnical = [
+      ip !== '—' ? `<span class="device-mobile-ip">${escapeHtml(ip)}</span>` : '',
+      `<span class="device-mobile-connection">${escapeHtml(presentation.connection)}</span>`,
+    ].filter(Boolean).join('');
+    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${listIdentity ? `<small class="device-list-identity">${escapeHtml(listIdentity)}</small>` : ''}<em class="device-mobile-meta">${mobileTechnical}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
 }
-
 function renderActivityRows(items) {
   if (!items.length) {
     return `<div class="empty-state activity-empty">${icon('uptime')}<h3>${t('noActivity')}</h3><p>${t('noActivityHint')}</p></div>`;

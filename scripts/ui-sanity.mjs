@@ -109,10 +109,9 @@ try {
         .map((node) => node.getBoundingClientRect().left);
       const spread = (values) => values.length ? Math.max(...values) - Math.min(...values) : 0;
       const firstIp = document.querySelector('.device-ip');
-      const firstMac = document.querySelector('.device-mac');
       const firstConnection = document.querySelector('.device-meta');
-      const firstContext = document.querySelector('.device-context');
-      const firstMobileIdentity = document.querySelector('.device-mobile-identity');
+      const firstIdentity = document.querySelector('.device-list-identity');
+      const firstMobileIp = document.querySelector('.device-mobile-ip');
       const wifiFilter = document.querySelector('.device-toolbar [data-device-filter="wifi"]');
       const unknownToolbarFilter = document.querySelector('.device-toolbar [data-device-filter="unknown"]');
       const unidentifiedCallout = document.querySelector('.unidentified-callout');
@@ -122,18 +121,16 @@ try {
         isMobile,
         headerDisplay: document.querySelector('.device-list-head') ? getComputedStyle(document.querySelector('.device-list-head')).display : 'none',
         ipDisplay: firstIp ? getComputedStyle(firstIp).display : 'none',
-        macDisplay: firstMac ? getComputedStyle(firstMac).display : 'none',
         connectionDisplay: firstConnection ? getComputedStyle(firstConnection).display : 'none',
-        contextDisplay: firstContext ? getComputedStyle(firstContext).display : 'none',
-        mobileIdentityDisplay: firstMobileIdentity ? getComputedStyle(firstMobileIdentity).display : 'none',
-        mobileIdentityText: firstMobileIdentity?.textContent?.trim() || '',
-        macText: firstMac?.textContent?.trim() || '',
+        identityDisplay: firstIdentity ? getComputedStyle(firstIdentity).display : 'none',
+        identityText: firstIdentity?.textContent?.trim() || '',
+        mobileIpText: firstMobileIp?.textContent?.trim() || '',
+        mobileIpClipped: firstMobileIp ? firstMobileIp.scrollWidth > firstMobileIp.clientWidth + 1 : false,
         ipSpread: spread(positions('.device-ip')),
-        macSpread: spread(positions('.device-mac')),
         connectionSpread: spread(positions('.device-meta')),
         statusSpread: spread(positions('.device-status')),
         nameFontSize: document.querySelector('.device-name strong') ? Number.parseFloat(getComputedStyle(document.querySelector('.device-name strong')).fontSize) : null,
-        contextFontSize: document.querySelector('.device-name small') ? Number.parseFloat(getComputedStyle(document.querySelector('.device-name small')).fontSize) : null,
+        contextFontSize: document.querySelector('.device-list-identity') ? Number.parseFloat(getComputedStyle(document.querySelector('.device-list-identity')).fontSize) : null,
         mobileMetaFontSize: document.querySelector('.device-mobile-meta') ? Number.parseFloat(getComputedStyle(document.querySelector('.device-mobile-meta')).fontSize) : null,
         wifiFilterHeight: wifiFilter?.getBoundingClientRect().height || 0,
         wifiFilterWhiteSpace: wifiFilter ? getComputedStyle(wifiFilter).whiteSpace : '',
@@ -153,22 +150,19 @@ try {
       assert.ok(listReport.mobileMetaFontSize === null || listReport.mobileMetaFontSize >= 11.5, `${viewport.name}/devices: mobile device metadata is too small`);
       assert.equal(listReport.headerDisplay, 'none', `${viewport.name}/devices: desktop column header leaked into mobile`);
       assert.equal(listReport.ipDisplay, 'none', `${viewport.name}/devices: desktop IP column leaked into mobile`);
-      assert.equal(listReport.macDisplay, 'none', `${viewport.name}/devices: desktop MAC column leaked into mobile`);
       assert.equal(listReport.connectionDisplay, 'none', `${viewport.name}/devices: desktop connection column leaked into mobile`);
-      assert.equal(listReport.contextDisplay, 'none', `${viewport.name}/devices: desktop manufacturer/type context leaked into mobile`);
+      if (listReport.identityText) {
+        assert.notEqual(listReport.identityDisplay, 'none', `${viewport.name}/devices: manufacturer/MAC identity is hidden on mobile`);
+      }
       assert.equal(listReport.hasUnknownToolbarFilter, false, `${viewport.name}/devices: naming action leaked back into primary filter row`);
       if (listReport.wifiFilterHeight > 0) {
         assert.equal(listReport.wifiFilterWhiteSpace, 'nowrap', `${viewport.name}/devices: Wi-Fi filter can wrap onto two lines`);
         assert.ok(listReport.wifiFilterHeight <= 36, `${viewport.name}/devices: Wi-Fi filter is taller than a single-line chip`);
       }
-      assert.notEqual(listReport.mobileIdentityDisplay, 'none', `${viewport.name}/devices: mobile manufacturer/MAC identity is hidden`);
-      if (listReport.macText && listReport.macText !== '—') {
-        assert.ok(listReport.mobileIdentityText.includes(listReport.macText), `${viewport.name}/devices: mobile identity is missing the MAC address`);
-      }
+      assert.equal(listReport.mobileIpClipped, false, `${viewport.name}/devices: mobile IP is clipped`);
     } else {
       assert.notEqual(listReport.headerDisplay, 'none', `${viewport.name}/devices: device column header is missing`);
       assert.ok(listReport.ipSpread <= 1, `${viewport.name}/devices: IP column shifts between rows`);
-      assert.ok(listReport.macSpread <= 1, `${viewport.name}/devices: MAC column shifts between rows`);
       assert.ok(listReport.connectionSpread <= 1, `${viewport.name}/devices: connection column shifts between rows`);
       assert.ok(listReport.statusSpread <= 1, `${viewport.name}/devices: status column shifts between rows`);
       if (viewport.name === 'iphone-landscape') {
