@@ -95,12 +95,22 @@ class DeviceStore:
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
             "device_presence_state", "device_presence_history", "network_baseline",
         }
+        required_indexes = {
+            "idx_device_events_created_at",
+            "idx_device_events_type_entity",
+            "idx_device_inventory_last_seen",
+            "idx_device_presence_history_device_time",
+        }
         if version == SCHEMA_VERSION:
-            existing_tables = {
-                str(row[0])
-                for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            schema_objects = {
+                (str(row[0]), str(row[1]))
+                for row in connection.execute(
+                    "SELECT type, name FROM sqlite_master WHERE type IN ('table', 'index')"
+                )
             }
-            if required_tables.issubset(existing_tables):
+            existing_tables = {name for kind, name in schema_objects if kind == "table"}
+            existing_indexes = {name for kind, name in schema_objects if kind == "index"}
+            if required_tables.issubset(existing_tables) and required_indexes.issubset(existing_indexes):
                 return
         if version > SCHEMA_VERSION:
             raise sqlite3.DatabaseError(
@@ -154,6 +164,9 @@ class DeviceStore:
         )""")
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_events_created_at ON device_events(created_at DESC, id DESC)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_events_type_entity ON device_events(event_type, entity_id)"
         )
         connection.execute("""CREATE TABLE IF NOT EXISTS device_inventory (
             device_id TEXT PRIMARY KEY,
@@ -749,28 +762,26 @@ class DeviceStore:
                     rows,
                 )
 
-                # Older AuraLAN installations already have reliable first-seen
-                # timestamps but no event rows. Backfill once from the inventory
-                # so upgrading immediately produces useful local history.
-                for device_id in {str(row[0]) for row in rows}:
-                    connection.execute(
-                        """INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at)
-                           SELECT 'device_first_seen',
-                                  inventory.device_id,
-                                  COALESCE(metadata.alias, inventory.display_name, inventory.hostname, inventory.model),
-                                  inventory.ip,
-                                  inventory.mac,
-                                  COALESCE(inventory.first_seen_at, inventory.updated_at)
-                           FROM device_inventory AS inventory
-                           LEFT JOIN device_metadata AS metadata ON metadata.device_id = inventory.device_id
-                           WHERE inventory.device_id = ?
-                             AND NOT EXISTS (
-                                 SELECT 1 FROM device_events AS event
-                                 WHERE event.event_type = 'device_first_seen'
-                                   AND event.entity_id = inventory.device_id
-                             )""",
-                        (device_id,),
-                    )
+                # Older AuraLAN installations can already contain a large
+                # remembered inventory but no first-seen event rows. One set-based
+                # statement backfills every missing event; the indexed NOT EXISTS
+                # check avoids the previous per-device query loop on every snapshot.
+                connection.execute(
+                    """INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at)
+                       SELECT 'device_first_seen',
+                              inventory.device_id,
+                              COALESCE(metadata.alias, inventory.display_name, inventory.hostname, inventory.model),
+                              inventory.ip,
+                              inventory.mac,
+                              COALESCE(inventory.first_seen_at, inventory.updated_at)
+                       FROM device_inventory AS inventory
+                       LEFT JOIN device_metadata AS metadata ON metadata.device_id = inventory.device_id
+                       WHERE NOT EXISTS (
+                           SELECT 1 FROM device_events AS event
+                           WHERE event.event_type = 'device_first_seen'
+                             AND event.entity_id = inventory.device_id
+                       )"""
+                )
                 connection.commit()
             finally:
                 connection.close()
