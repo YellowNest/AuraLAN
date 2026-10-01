@@ -13,10 +13,10 @@ from .base import DeviceObservation
 CACHE_TTL_SECONDS = 300.0
 MAX_ADDRESSES = 32
 MAX_WORKERS = 6
+MAX_CACHE_ENTRIES = 128
 
 _lock = threading.Lock()
-_cached_at = 0.0
-_cached: dict[str, str | None] = {}
+_cached: dict[str, tuple[float, str | None]] = {}
 
 
 def _parse_name(output: str) -> str | None:
@@ -52,10 +52,18 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
     if not bases:
         return []
 
-    global _cached_at, _cached
     now = time.monotonic()
+    global _cached
     with _lock:
-        cached = dict(_cached) if now - _cached_at < CACHE_TTL_SECONDS else {}
+        _cached = {
+            ip: entry
+            for ip, entry in _cached.items()
+            if now - entry[0] < CACHE_TTL_SECONDS
+        }
+        if len(_cached) > MAX_CACHE_ENTRIES:
+            newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+            _cached = dict(newest)
+        cached = {ip: entry[1] for ip, entry in _cached.items()}
 
     missing = [ip for ip in bases if ip not in cached]
     if missing:
@@ -69,9 +77,12 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
                 except Exception:
                     resolved[ip] = None
         with _lock:
-            _cached = {**cached, **resolved}
-            _cached_at = now
-            cached = dict(_cached)
+            for ip, value in resolved.items():
+                _cached[ip] = (now, value)
+            if len(_cached) > MAX_CACHE_ENTRIES:
+                newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+                _cached = dict(newest)
+            cached = {ip: entry[1] for ip, entry in _cached.items()}
 
     return [
         DeviceObservation(

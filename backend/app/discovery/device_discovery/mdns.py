@@ -16,9 +16,9 @@ from .base import DeviceObservation
 CACHE_TTL_SECONDS = 300.0
 MAX_ADDRESSES = 32
 MAX_WORKERS = 6
+MAX_CACHE_ENTRIES = 128
 _lock = threading.Lock()
-_cached_at = 0.0
-_cached: dict[tuple[str, str], str | None] = {}
+_cached: dict[tuple[str, str], tuple[float, str | None]] = {}
 
 
 def _resolve(ip: str) -> str | None:
@@ -39,25 +39,43 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
     targets = targets[:MAX_ADDRESSES]
     if not targets:
         return []
-    global _cached_at, _cached
+
     now = time.monotonic()
+    global _cached
     with _lock:
-        cached = dict(_cached) if now - _cached_at < CACHE_TTL_SECONDS else {}
+        # Entries age independently. Keep short disappear/reappear cycles cheap,
+        # but never let long-running MAC churn grow this process cache forever.
+        _cached = {
+            key: entry
+            for key, entry in _cached.items()
+            if now - entry[0] < CACHE_TTL_SECONDS
+        }
+        if len(_cached) > MAX_CACHE_ENTRIES:
+            newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+            _cached = dict(newest)
+        cached = {key: entry[1] for key, entry in _cached.items()}
+
     missing = [target for target in targets if (target[0], target[1]) not in cached]
     if missing:
-        resolved: dict[tuple[str, str], str] = {}
+        resolved: dict[tuple[str, str], str | None] = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="auralan-mdns") as executor:
             futures = {executor.submit(_resolve, ip): (ip, mac) for ip, mac, _, _ in missing}
             for future in concurrent.futures.as_completed(futures):
-                name = future.result()
-                if name:
-                    resolved[futures[future]] = name
+                key = futures[future]
+                try:
+                    resolved[key] = future.result()
+                except Exception:
+                    resolved[key] = None
         with _lock:
-            # Cache misses as None too: otherwise a quiet LAN would spawn the
-            # same Avahi subprocesses on every two-second dashboard snapshot.
-            _cached = {**cached, **{(ip, mac): resolved.get((ip, mac)) for ip, mac, _, _ in missing}}
-            _cached_at = now
-            cached = dict(_cached)
+            # Cache misses too: otherwise a quiet LAN would repeat the same
+            # subprocesses every refresh. The hard cap keeps churn bounded.
+            for key, value in resolved.items():
+                _cached[key] = (now, value)
+            if len(_cached) > MAX_CACHE_ENTRIES:
+                newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+                _cached = dict(newest)
+            cached = {key: entry[1] for key, entry in _cached.items()}
+
     return [
         DeviceObservation(source="mdns_name", mac=mac, ip=ip, interface=interface, role=role, hostname=cached[(ip, mac)])
         for ip, mac, interface, role in targets if cached.get((ip, mac))

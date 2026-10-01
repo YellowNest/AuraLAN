@@ -389,10 +389,82 @@ class DeviceIdentityTests(unittest.TestCase):
 
     def test_mdns_caches_hits_and_misses_to_avoid_subprocess_storms(self):
         seed = [self._observation()]
-        with patch.object(mdns, "_cached", {}), patch.object(mdns, "_cached_at", -1e9), patch("app.discovery.device_discovery.mdns.command_exists", return_value=True), patch("app.discovery.device_discovery.mdns.run_command", return_value=CommandResult(0, "192.0.2.24\tliving-room-tv.local")) as command:
+        with patch.object(mdns, "_cached", {}), patch("app.discovery.device_discovery.mdns.command_exists", return_value=True), patch("app.discovery.device_discovery.mdns.run_command", return_value=CommandResult(0, "192.0.2.24\tliving-room-tv.local")) as command:
             self.assertEqual(mdns.observations(seed)[0].hostname, "living-room-tv")
             self.assertEqual(mdns.observations(seed)[0].hostname, "living-room-tv")
         self.assertEqual(command.call_count, 1)
+
+    def test_per_device_name_caches_are_hard_bounded_under_churn(self):
+        old = self._observation(mac="02:00:00:00:30:01", ip="192.0.2.130")
+        new = self._observation(mac="02:00:00:00:30:02", ip="192.0.2.131")
+
+        with (
+            patch.object(mdns, "_cached", {}),
+            patch.object(mdns, "MAX_CACHE_ENTRIES", 1),
+            patch("app.discovery.device_discovery.mdns.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.mdns.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\tdevice.local"),
+            ),
+        ):
+            mdns.observations([old])
+            mdns.observations([new])
+            self.assertEqual(len(mdns._cached), 1)
+            self.assertIn((new.ip, new.mac), mdns._cached)
+
+        with (
+            patch.object(resolver, "_cached", {}),
+            patch.object(resolver, "MAX_CACHE_ENTRIES", 1),
+            patch("app.discovery.device_discovery.resolver.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.resolver.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\tdevice.local"),
+            ),
+        ):
+            resolver.observations([old])
+            resolver.observations([new])
+            self.assertEqual(len(resolver._cached), 1)
+            self.assertIn(new.ip, resolver._cached)
+
+        netbios_output = "\\tDEVICE <00> -         B <ACTIVE>"
+        with (
+            patch.object(netbios, "_cached", {}),
+            patch.object(netbios, "MAX_CACHE_ENTRIES", 1),
+            patch("app.discovery.device_discovery.netbios.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.netbios.run_command",
+                return_value=CommandResult(0, netbios_output),
+            ),
+        ):
+            netbios.observations([old])
+            netbios.observations([new])
+            self.assertEqual(len(netbios._cached), 1)
+            self.assertIn(new.ip, netbios._cached)
+
+    def test_mdns_cache_entries_keep_independent_ttl(self):
+        first = self._observation(mac="02:00:00:00:31:01", ip="192.0.2.140")
+        second = self._observation(mac="02:00:00:00:31:02", ip="192.0.2.141")
+        first_key = (first.ip, first.mac)
+        second_key = (second.ip, second.mac)
+
+        with (
+            patch.object(mdns, "_cached", {first_key: (0.0, "first-device")}),
+            patch("app.discovery.device_discovery.mdns.command_exists", return_value=True),
+            patch("app.discovery.device_discovery.mdns.time.monotonic", side_effect=[299.0, 301.0]),
+            patch(
+                "app.discovery.device_discovery.mdns.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\trefreshed.local"),
+            ) as command,
+        ):
+            mdns.observations([first, second])
+            self.assertEqual(mdns._cached[first_key][0], 0.0)
+            self.assertEqual(mdns._cached[second_key][0], 299.0)
+
+            mdns.observations([first, second])
+            self.assertEqual(mdns._cached[first_key][0], 301.0)
+            self.assertEqual(mdns._cached[second_key][0], 299.0)
+
+        self.assertEqual(command.call_count, 2)
 
     def test_local_host_files_enrich_only_known_addresses_without_dns(self):
         seed = [self._observation(mac="02:00:00:00:00:11", ip="192.0.2.44")]
@@ -406,7 +478,6 @@ class DeviceIdentityTests(unittest.TestCase):
         seed = [self._observation(mac="02:00:00:00:20:01", ip="192.0.2.127")]
         with (
             patch.object(resolver, "_cached", {}),
-            patch.object(resolver, "_cached_at", -1e9),
             patch("app.discovery.device_discovery.resolver.command_exists", return_value=True),
             patch("app.discovery.device_discovery.resolver.run_command", return_value=CommandResult(0, "192.0.2.127\tsample-iphone.local")),
         ):
@@ -419,7 +490,6 @@ class DeviceIdentityTests(unittest.TestCase):
         output = "Looking up status of 192.0.2.113\n\tLIVINGROOM-PC <00> -         B <ACTIVE>\n\tWORKGROUP     <00> - <GROUP> B <ACTIVE>"
         with (
             patch.object(netbios, "_cached", {}),
-            patch.object(netbios, "_cached_at", -1e9),
             patch("app.discovery.device_discovery.netbios.command_exists", return_value=True),
             patch("app.discovery.device_discovery.netbios.run_command", return_value=CommandResult(0, output)),
         ):
@@ -469,6 +539,36 @@ class DeviceIdentityTests(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].hostname, "sample-iphone")
         self.assertIsNone(found[0].manufacturer)
+
+    def test_pihole_identity_read_excludes_unrelated_history_rows(self):
+        seed = [self._observation(mac="02:00:00:00:21:01", ip="192.0.2.128")]
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "pihole-FTL.db"
+            connection = sqlite3.connect(path)
+            try:
+                connection.execute("CREATE TABLE network (id INTEGER PRIMARY KEY, hwaddr TEXT, macVendor TEXT)")
+                connection.execute("CREATE TABLE network_addresses (network_id INTEGER, ip TEXT, name TEXT, lastseen INTEGER)")
+                connection.execute("INSERT INTO network(id, hwaddr, macVendor) VALUES (1, '02:00:00:00:21:01', 'Example One')")
+                connection.execute("INSERT INTO network(id, hwaddr, macVendor) VALUES (2, '02:00:00:00:21:02', 'Example Two')")
+                connection.execute("INSERT INTO network_addresses(network_id, ip, name, lastseen) VALUES (1, '192.0.2.128', 'wanted-device', 200)")
+                connection.execute("INSERT INTO network_addresses(network_id, ip, name, lastseen) VALUES (2, '192.0.2.129', 'unrelated-history', 300)")
+                connection.commit()
+            finally:
+                connection.close()
+
+            with (
+                patch.object(pihole_network, "CANDIDATE_DATABASES", (path,)),
+                patch.object(pihole_network, "_cached_rows", []),
+                patch.object(pihole_network, "_cached_macs", set()),
+                patch.object(pihole_network, "_cached_ips", set()),
+                patch.object(pihole_network, "_cached_at", -1e9),
+            ):
+                found = pihole_network.observations(seed)
+                cached_rows = list(pihole_network._cached_rows)
+
+        self.assertEqual([item.hostname for item in found], ["wanted-device"])
+        self.assertEqual(len(cached_rows), 1)
+        self.assertEqual(cached_rows[0]["ip"], "192.0.2.128")
 
     def test_dns_sd_unescape_decodes_utf8_byte_sequences(self):
         slash = chr(92)

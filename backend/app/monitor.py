@@ -84,7 +84,10 @@ class BackgroundMonitor:
             self._last_attempt_at = now
 
         try:
-            snapshot = self.collector(force=True)
+            # Reuse a snapshot another caller completed moments ago instead of
+            # forcing an identical back-to-back discovery pass. With no recent
+            # cache entry the collector still performs a normal fresh discovery.
+            snapshot = self.collector(force=False)
             if self.after_collect:
                 self.after_collect(snapshot)
         except Exception as exc:

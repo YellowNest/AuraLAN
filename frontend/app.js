@@ -691,7 +691,7 @@ async function probeDevice(deviceId, button) {
 
   try {
     const probe = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/probe`, 5000, { method: 'POST' });
-    const latency = Number(probe.latency_ms);
+    const latency = probe.latency_ms === null || probe.latency_ms === undefined ? Number.NaN : Number(probe.latency_ms);
     result.className = `probe-result ${probe.reply_received ? 'success' : 'warning'}`;
     result.textContent = probe.reply_received
       ? (Number.isFinite(latency) ? t('probeReplyLatency', { ip: probe.ip, latency: latency.toFixed(latency < 10 ? 1 : 0) }) : t('probeReply', { ip: probe.ip }))
@@ -808,11 +808,23 @@ function applyTheme(theme) {
   renderView();
 }
 
+function restartRefreshTimer() {
+  clearInterval(state.refreshTimer);
+  state.refreshTimer = null;
+  if (state.refreshRate && !document.hidden) {
+    state.refreshTimer = setInterval(() => refresh(), state.refreshRate);
+  }
+}
+
 function scheduleRefresh(rate) {
   state.refreshRate = [5000, 15000, 30000, 60000, 0].includes(Number(rate)) ? Number(rate) : 15000;
   localStorage.setItem('auralan.refresh-rate', String(state.refreshRate));
-  clearInterval(state.refreshTimer);
-  if (state.refreshRate) state.refreshTimer = setInterval(() => refresh(), state.refreshRate);
+  restartRefreshTimer();
+}
+
+function syncRefreshVisibility() {
+  restartRefreshTimer();
+  if (!document.hidden && state.refreshRate) refresh(false);
 }
 
 function setLocale(locale) {
@@ -1107,6 +1119,7 @@ document.addEventListener('click', (event) => {
 });
 
 $('#refresh-button').addEventListener('click', () => refresh(true));
+document.addEventListener('visibilitychange', syncRefreshVisibility);
 document.addEventListener('change', (event) => {
   if (event.target.matches('#language-select')) setLocale(event.target.value);
   if (event.target.matches('#refresh-rate')) scheduleRefresh(event.target.value);

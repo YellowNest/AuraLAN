@@ -27,7 +27,7 @@ class BackgroundMonitorTests(unittest.TestCase):
         self.assertTrue(monitor.run_once())
 
         status = monitor.status()
-        self.assertEqual(calls, [True])
+        self.assertEqual(calls, [False])
         self.assertIsNotNone(status["last_attempt_at"])
         self.assertIsNotNone(status["last_success_at"])
         self.assertIsNone(status["last_error"])
@@ -61,7 +61,7 @@ class BackgroundMonitorTests(unittest.TestCase):
         called = threading.Event()
 
         def collector(*, force=False):
-            self.assertTrue(force)
+            self.assertFalse(force)
             called.set()
             return {}
 
