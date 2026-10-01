@@ -16,6 +16,7 @@ from .base import DeviceObservation
 CACHE_TTL_SECONDS = 300.0
 MAX_ADDRESSES = 32
 MAX_WORKERS = 6
+MAX_CACHE_ENTRIES = 128
 _lock = threading.Lock()
 _cached: dict[tuple[str, str], tuple[float, str | None]] = {}
 
@@ -39,17 +40,19 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
     if not targets:
         return []
 
-    target_keys = {(ip, mac) for ip, mac, _, _ in targets}
     now = time.monotonic()
     global _cached
     with _lock:
-        # Keep only still-relevant, individually fresh entries. A single newly
-        # observed device must not refresh the age of every older cache entry.
+        # Entries age independently. Keep short disappear/reappear cycles cheap,
+        # but never let long-running MAC churn grow this process cache forever.
         _cached = {
             key: entry
             for key, entry in _cached.items()
-            if key in target_keys and now - entry[0] < CACHE_TTL_SECONDS
+            if now - entry[0] < CACHE_TTL_SECONDS
         }
+        if len(_cached) > MAX_CACHE_ENTRIES:
+            newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+            _cached = dict(newest)
         cached = {key: entry[1] for key, entry in _cached.items()}
 
     missing = [target for target in targets if (target[0], target[1]) not in cached]
@@ -64,12 +67,13 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
                 except Exception:
                     resolved[key] = None
         with _lock:
-            # Cache misses too, but only for devices that are still in this
-            # bounded observation set. This prevents long-running MAC churn from
-            # turning the process cache into an ever-growing device history.
+            # Cache misses too: otherwise a quiet LAN would repeat the same
+            # subprocesses every refresh. The hard cap keeps churn bounded.
             for key, value in resolved.items():
                 _cached[key] = (now, value)
-            _cached = {key: entry for key, entry in _cached.items() if key in target_keys}
+            if len(_cached) > MAX_CACHE_ENTRIES:
+                newest = sorted(_cached.items(), key=lambda item: item[1][0], reverse=True)[:MAX_CACHE_ENTRIES]
+                _cached = dict(newest)
             cached = {key: entry[1] for key, entry in _cached.items()}
 
     return [

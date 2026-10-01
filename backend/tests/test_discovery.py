@@ -394,12 +394,13 @@ class DeviceIdentityTests(unittest.TestCase):
             self.assertEqual(mdns.observations(seed)[0].hostname, "living-room-tv")
         self.assertEqual(command.call_count, 1)
 
-    def test_per_device_name_caches_prune_departed_clients(self):
+    def test_per_device_name_caches_are_hard_bounded_under_churn(self):
         old = self._observation(mac="02:00:00:00:30:01", ip="192.0.2.130")
         new = self._observation(mac="02:00:00:00:30:02", ip="192.0.2.131")
 
         with (
             patch.object(mdns, "_cached", {}),
+            patch.object(mdns, "MAX_CACHE_ENTRIES", 1),
             patch("app.discovery.device_discovery.mdns.command_exists", return_value=True),
             patch(
                 "app.discovery.device_discovery.mdns.run_command",
@@ -408,10 +409,12 @@ class DeviceIdentityTests(unittest.TestCase):
         ):
             mdns.observations([old])
             mdns.observations([new])
-            self.assertEqual(set(mdns._cached), {(new.ip, new.mac)})
+            self.assertEqual(len(mdns._cached), 1)
+            self.assertIn((new.ip, new.mac), mdns._cached)
 
         with (
             patch.object(resolver, "_cached", {}),
+            patch.object(resolver, "MAX_CACHE_ENTRIES", 1),
             patch("app.discovery.device_discovery.resolver.command_exists", return_value=True),
             patch(
                 "app.discovery.device_discovery.resolver.run_command",
@@ -420,11 +423,13 @@ class DeviceIdentityTests(unittest.TestCase):
         ):
             resolver.observations([old])
             resolver.observations([new])
-            self.assertEqual(set(resolver._cached), {new.ip})
+            self.assertEqual(len(resolver._cached), 1)
+            self.assertIn(new.ip, resolver._cached)
 
         netbios_output = "\\tDEVICE <00> -         B <ACTIVE>"
         with (
             patch.object(netbios, "_cached", {}),
+            patch.object(netbios, "MAX_CACHE_ENTRIES", 1),
             patch("app.discovery.device_discovery.netbios.command_exists", return_value=True),
             patch(
                 "app.discovery.device_discovery.netbios.run_command",
@@ -433,7 +438,8 @@ class DeviceIdentityTests(unittest.TestCase):
         ):
             netbios.observations([old])
             netbios.observations([new])
-            self.assertEqual(set(netbios._cached), {new.ip})
+            self.assertEqual(len(netbios._cached), 1)
+            self.assertIn(new.ip, netbios._cached)
 
     def test_mdns_cache_entries_keep_independent_ttl(self):
         first = self._observation(mac="02:00:00:00:31:01", ip="192.0.2.140")

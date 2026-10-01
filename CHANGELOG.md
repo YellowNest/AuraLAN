@@ -14,7 +14,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 ### Fixed
 
 - Background monitoring now reuses a just-completed cached snapshot instead of forcing an identical back-to-back full discovery pass when dashboard/API polling happens at the same time, removing avoidable CPU and subprocess bursts.
-- mDNS, resolver, and NetBIOS caches now expire entries independently and prune devices that are no longer in the bounded observation set, preventing long-running device/MAC churn from extending stale entries or growing process memory indefinitely.
+- mDNS, resolver, and NetBIOS caches now expire entries independently and use a hard size bound, preventing long-running device/MAC churn from extending stale entries or growing process memory indefinitely while still retaining short-lived disappear/reappear cache hits.
 - Pi-hole FTL identity enrichment now queries only MAC/IP identities AuraLAN already knows and caps cached result rows, avoiding a recurring full historical network-table read on long-running Pi-hole installations.
 - Persistent first-seen history backfill now uses one indexed set-based SQLite statement instead of running a NOT EXISTS query once per current device on every inventory refresh.
 - Dashboard polling pauses while the browser tab is hidden and refreshes immediately when it becomes visible again, avoiding unnecessary discovery work from inactive tabs.
