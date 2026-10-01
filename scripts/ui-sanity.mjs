@@ -160,10 +160,6 @@ try {
         assert.ok(listReport.wifiFilterHeight <= 36, `${viewport.name}/devices: Wi-Fi filter is taller than a single-line chip`);
       }
       assert.equal(listReport.mobileIpClipped, false, `${viewport.name}/devices: mobile IP is clipped`);
-      const macPattern = /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i;
-      if (macPattern.test(listReport.identityText)) {
-        assert.ok(macPattern.test(listReport.identityText), `${viewport.name}/devices: mobile identity is missing its MAC address`);
-      }
     } else {
       assert.notEqual(listReport.headerDisplay, 'none', `${viewport.name}/devices: device column header is missing`);
       assert.ok(listReport.ipSpread <= 1, `${viewport.name}/devices: IP column shifts between rows`);

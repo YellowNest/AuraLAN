@@ -142,10 +142,12 @@ export function friendlyDeviceListIdentity(device, options = {}) {
   const mac = String(device?.mac || '').trim();
   const macVisible = /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(mac) ? mac.toUpperCase() : '';
 
-  if (vendor && macVisible) return `${vendor} · ${macVisible}`;
-  if (vendor) return vendor;
-  if (macVisible && device?.mac_type === 'private') return `${options.privateMac || 'Private MAC'} · ${macVisible}`;
+  // The full MAC comes first so the stable technical identifier remains
+  // visible on narrow rows even when a manufacturer label is unusually long.
+  if (macVisible && vendor) return `${macVisible} · ${vendor}`;
+  if (macVisible && device?.mac_type === 'private') return `${macVisible} · ${options.privateMac || 'Private MAC'}`;
   if (macVisible) return macVisible;
+  if (vendor) return vendor;
   return '';
 }
 

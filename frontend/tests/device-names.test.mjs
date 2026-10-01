@@ -60,10 +60,10 @@ test('context keeps manufacturer and type visible under friendly names', () => {
   assert.equal(friendlyDeviceContext(device, 'Samsung QE65Q70T TV', 'TV'), 'Samsung · TV');
 });
 
-test('device-list identity shows manufacturer and MAC without repeating type', () => {
+test('device-list identity keeps the full MAC visible before manufacturer context', () => {
   const device = { vendor: 'Apple', mac: '02:00:00:00:00:51', category: 'tv' };
-  assert.equal(friendlyDeviceListIdentity(device), 'Apple · 02:00:00:00:00:51');
-  assert.equal(friendlyDeviceListIdentity({ vendor: 'Meross', mac: '02:00:00:00:00:52' }), 'Meross · 02:00:00:00:00:52');
+  assert.equal(friendlyDeviceListIdentity(device), '02:00:00:00:00:51 · Apple');
+  assert.equal(friendlyDeviceListIdentity({ vendor: 'Meross', mac: '02:00:00:00:00:52' }), '02:00:00:00:00:52 · Meross');
 });
 
 
@@ -128,6 +128,6 @@ test('private MAC devices explain why vendor lookup may be unavailable', () => {
   }), 'Enhet med privat MAC');
   assert.equal(
     friendlyDeviceListIdentity(device, { privateMac: 'Privat MAC' }),
-    'Privat MAC · 02:00:00:00:00:44',
+    '02:00:00:00:00:44 · Privat MAC',
   );
 });
