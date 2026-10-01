@@ -389,10 +389,76 @@ class DeviceIdentityTests(unittest.TestCase):
 
     def test_mdns_caches_hits_and_misses_to_avoid_subprocess_storms(self):
         seed = [self._observation()]
-        with patch.object(mdns, "_cached", {}), patch.object(mdns, "_cached_at", -1e9), patch("app.discovery.device_discovery.mdns.command_exists", return_value=True), patch("app.discovery.device_discovery.mdns.run_command", return_value=CommandResult(0, "192.0.2.24\tliving-room-tv.local")) as command:
+        with patch.object(mdns, "_cached", {}), patch("app.discovery.device_discovery.mdns.command_exists", return_value=True), patch("app.discovery.device_discovery.mdns.run_command", return_value=CommandResult(0, "192.0.2.24\tliving-room-tv.local")) as command:
             self.assertEqual(mdns.observations(seed)[0].hostname, "living-room-tv")
             self.assertEqual(mdns.observations(seed)[0].hostname, "living-room-tv")
         self.assertEqual(command.call_count, 1)
+
+    def test_per_device_name_caches_prune_departed_clients(self):
+        old = self._observation(mac="02:00:00:00:30:01", ip="192.0.2.130")
+        new = self._observation(mac="02:00:00:00:30:02", ip="192.0.2.131")
+
+        with (
+            patch.object(mdns, "_cached", {}),
+            patch("app.discovery.device_discovery.mdns.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.mdns.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\tdevice.local"),
+            ),
+        ):
+            mdns.observations([old])
+            mdns.observations([new])
+            self.assertEqual(set(mdns._cached), {(new.ip, new.mac)})
+
+        with (
+            patch.object(resolver, "_cached", {}),
+            patch("app.discovery.device_discovery.resolver.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.resolver.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\tdevice.local"),
+            ),
+        ):
+            resolver.observations([old])
+            resolver.observations([new])
+            self.assertEqual(set(resolver._cached), {new.ip})
+
+        netbios_output = "\\tDEVICE <00> -         B <ACTIVE>"
+        with (
+            patch.object(netbios, "_cached", {}),
+            patch("app.discovery.device_discovery.netbios.command_exists", return_value=True),
+            patch(
+                "app.discovery.device_discovery.netbios.run_command",
+                return_value=CommandResult(0, netbios_output),
+            ),
+        ):
+            netbios.observations([old])
+            netbios.observations([new])
+            self.assertEqual(set(netbios._cached), {new.ip})
+
+    def test_mdns_cache_entries_keep_independent_ttl(self):
+        first = self._observation(mac="02:00:00:00:31:01", ip="192.0.2.140")
+        second = self._observation(mac="02:00:00:00:31:02", ip="192.0.2.141")
+        first_key = (first.ip, first.mac)
+        second_key = (second.ip, second.mac)
+
+        with (
+            patch.object(mdns, "_cached", {first_key: (0.0, "first-device")}),
+            patch("app.discovery.device_discovery.mdns.command_exists", return_value=True),
+            patch("app.discovery.device_discovery.mdns.time.monotonic", side_effect=[299.0, 301.0]),
+            patch(
+                "app.discovery.device_discovery.mdns.run_command",
+                side_effect=lambda argv, **_: CommandResult(0, f"{argv[-1]}\\trefreshed.local"),
+            ) as command,
+        ):
+            mdns.observations([first, second])
+            self.assertEqual(mdns._cached[first_key][0], 0.0)
+            self.assertEqual(mdns._cached[second_key][0], 299.0)
+
+            mdns.observations([first, second])
+            self.assertEqual(mdns._cached[first_key][0], 301.0)
+            self.assertEqual(mdns._cached[second_key][0], 299.0)
+
+        self.assertEqual(command.call_count, 2)
 
     def test_local_host_files_enrich_only_known_addresses_without_dns(self):
         seed = [self._observation(mac="02:00:00:00:00:11", ip="192.0.2.44")]
@@ -406,7 +472,6 @@ class DeviceIdentityTests(unittest.TestCase):
         seed = [self._observation(mac="02:00:00:00:20:01", ip="192.0.2.127")]
         with (
             patch.object(resolver, "_cached", {}),
-            patch.object(resolver, "_cached_at", -1e9),
             patch("app.discovery.device_discovery.resolver.command_exists", return_value=True),
             patch("app.discovery.device_discovery.resolver.run_command", return_value=CommandResult(0, "192.0.2.127\tsample-iphone.local")),
         ):
@@ -419,7 +484,6 @@ class DeviceIdentityTests(unittest.TestCase):
         output = "Looking up status of 192.0.2.113\n\tLIVINGROOM-PC <00> -         B <ACTIVE>\n\tWORKGROUP     <00> - <GROUP> B <ACTIVE>"
         with (
             patch.object(netbios, "_cached", {}),
-            patch.object(netbios, "_cached_at", -1e9),
             patch("app.discovery.device_discovery.netbios.command_exists", return_value=True),
             patch("app.discovery.device_discovery.netbios.run_command", return_value=CommandResult(0, output)),
         ):

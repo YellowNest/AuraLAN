@@ -19,8 +19,7 @@ MAX_ADDRESSES = 32
 MAX_WORKERS = 6
 
 _lock = threading.Lock()
-_cached_at = 0.0
-_cached: dict[str, str | None] = {}
+_cached: dict[str, tuple[float, str | None]] = {}
 
 
 def _clean_name(value: str, ip: str) -> str | None:
@@ -65,10 +64,16 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
     if not bases:
         return []
 
-    global _cached_at, _cached
+    target_keys = set(bases)
     now = time.monotonic()
+    global _cached
     with _lock:
-        cached = dict(_cached) if now - _cached_at < CACHE_TTL_SECONDS else {}
+        _cached = {
+            ip: entry
+            for ip, entry in _cached.items()
+            if ip in target_keys and now - entry[0] < CACHE_TTL_SECONDS
+        }
+        cached = {ip: entry[1] for ip, entry in _cached.items()}
 
     missing = [ip for ip in bases if ip not in cached]
     if missing:
@@ -82,9 +87,10 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
                 except Exception:
                     resolved[ip] = None
         with _lock:
-            _cached = {**cached, **resolved}
-            _cached_at = now
-            cached = dict(_cached)
+            for ip, value in resolved.items():
+                _cached[ip] = (now, value)
+            _cached = {ip: entry for ip, entry in _cached.items() if ip in target_keys}
+            cached = {ip: entry[1] for ip, entry in _cached.items()}
 
     return [
         DeviceObservation(
