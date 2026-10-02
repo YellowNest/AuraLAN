@@ -2,21 +2,35 @@
 
 All notable user-facing changes to AuraLAN are tracked here.
 
-AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions may still contain compatibility changes. The canonical version lives in `project.json`; a `-dev` suffix means the version is still under development.
+AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still contain compatibility changes. The canonical version lives in `project.json`; a `-dev` suffix means the version is still under development.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-02
+
 ### Changed
 
-- Device lists now use progressive disclosure instead of compressing MAC, room and manufacturer into one line: the default mobile hierarchy is name → IP/connection → one room-or-vendor context line, while wide desktop gets a dedicated Location column. MAC remains searchable and available in device details rather than competing with the IP address in the primary list.
+- Device presentation is now consistent across Overview, Devices and Network Map: the same icon treatment and in-icon connection-state badge are used everywhere, compact lists keep the same name/context/IP hierarchy, and duplicate trailing status dots are removed.
+- Frontend styling now uses a calmer, more consistent visual system across navigation, cards, device lists, controls, dialogs and mobile bottom navigation: fewer decorative gradients, quieter shadows, tighter geometry and clearer contrast while preserving existing information and behavior.
+- Mobile device rows now place connection state on the device icon as a compact badge, leaving the trailing affordance dedicated to opening details and recovering horizontal space on phone-sized screens.
+- Development builds after the 0.8.0 release now identify themselves as **0.9.0-dev** instead of presenting unreleased code as 0.8.0.
+- Device lists now use a stable human-first hierarchy instead of compressing or repeating metadata: mobile shows name → concise manufacturer/type → IP plus optional location, while wide desktop keeps dedicated IP, Location, Connection and Status columns. MAC remains searchable and available in device details rather than competing with the IP address in the primary list.
 
 ### Added
 
+- **Activity Center** adds a first-class local Network Changes timeline for devices first seen by AuraLAN, confirmed favorite-watch transitions, Service Exposure changes and network-baseline actions. Richer activity details stay local, while optional webhooks deliberately remain limited to their existing new-device and favorite-watch event contract.
+- **Service Exposure snapshots** add an explicit per-device check for a small fixed set of common TCP ports. Results stay local, are retained in bounded history, and highlight newly open or no-longer-open ports without subnet scanning, banner grabbing, cloud fingerprinting or treating a conventional port label as proof of an application.
 - **On-demand device reachability checks** add a one-click ICMP probe in the device inspector. AuraLAN sends one local echo request to a known IPv4 address, reports round-trip latency when a reply is available, hides the action when the host has no `ping` utility, and never treats a missing ICMP reply as proof that the device is offline.
 - README discovery wording now describes AuraLAN as a self-hosted LAN inventory and network monitoring console, making the project's purpose clearer to people searching GitHub for Raspberry Pi and local network tooling.
 
 ### Fixed
 
+- Checkout-backed local deployments now create a consistent SQLite backup and test target-schema readiness before activation; failed restart or health checks restore both the previous commit and pre-deploy database so schema migrations cannot strand rollback code on newer state.
+- Device identity context now keeps the same readable size in compact landscape layouts instead of shrinking below the shared device-list typography floor.
+- Closing command and inspector dialogs now releases the page scroll lock synchronously, avoiding viewport-specific races where the sheet closed before the background unlocked.
+- Legacy device-row selectors no longer override the intended mobile device context and IP/location typography, keeping Overview and Devices visually consistent.
+- Responsive UI sanity checks now validate the visible mobile manufacturer/type context correctly instead of containing contradictory hidden/visible assertions.
+- Mobile device rows no longer repeat manufacturer/type as a fake fallback location when no room is assigned, and product-specific icons now get matching human labels such as VR headset, robot vacuum, garage door and heat pump.
 - The Network Baseline overview card now uses the same rounded surface geometry and subtle border treatment as the surrounding AuraLAN cards instead of appearing as a sharp rectangular panel.
 
 - Background monitoring now reuses a just-completed cached snapshot instead of forcing an identical back-to-back full discovery pass when dashboard/API polling happens at the same time, removing avoidable CPU and subprocess bursts.

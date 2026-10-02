@@ -10,13 +10,16 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 10
+NOTIFICATION_EVENT_TYPES = ("device_first_seen", "favorite_not_seen", "favorite_seen_again")
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
 DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
 MAX_WATCH_MISSING_GRACE_SECONDS = 86400
 PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
 PRESENCE_HISTORY_TOTAL_LIMIT = 5000
+SERVICE_SCAN_PER_DEVICE_LIMIT = 20
+SERVICE_SCAN_TOTAL_LIMIT = 2000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
@@ -93,13 +96,14 @@ class DeviceStore:
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
-            "device_presence_state", "device_presence_history", "network_baseline",
+            "device_presence_state", "device_presence_history", "network_baseline", "device_service_scans",
         }
         required_indexes = {
             "idx_device_events_created_at",
             "idx_device_events_type_entity",
             "idx_device_inventory_last_seen",
             "idx_device_presence_history_device_time",
+            "idx_device_service_scans_device_time",
         }
         if version == SCHEMA_VERSION:
             schema_objects = {
@@ -160,8 +164,17 @@ class DeviceStore:
             display_name TEXT,
             ip TEXT,
             mac TEXT,
+            details_json TEXT NOT NULL DEFAULT '{}',
             created_at INTEGER NOT NULL
         )""")
+        event_columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(device_events)")
+        }
+        if "details_json" not in event_columns:
+            connection.execute(
+                "ALTER TABLE device_events ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'"
+            )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_events_created_at ON device_events(created_at DESC, id DESC)"
         )
@@ -222,6 +235,17 @@ class DeviceStore:
             display_name TEXT,
             captured_at INTEGER NOT NULL
         )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_service_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            open_ports_json TEXT NOT NULL DEFAULT '[]',
+            checked_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_service_scans_device_time "
+            "ON device_service_scans(device_id, checked_at DESC, id DESC)"
+        )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -363,23 +387,35 @@ class DeviceStore:
             finally:
                 connection.close()
 
+    @staticmethod
+    def _decode_event_details(value: object) -> dict[str, Any]:
+        try:
+            loaded = json.loads(str(value or "{}"))
+        except (TypeError, ValueError):
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+
     def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
-        """Return recent local inventory events without external enrichment."""
+        """Return recent local activity without external enrichment."""
         bounded_limit = max(1, min(int(limit), 100))
         with self._lock:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
-                return [
+                rows = [
                     dict(row)
                     for row in connection.execute(
-                        "SELECT id, event_type, entity_id, display_name, ip, mac, created_at "
+                        "SELECT id, event_type, entity_id, display_name, ip, mac, details_json, created_at "
                         "FROM device_events ORDER BY created_at DESC, id DESC LIMIT ?",
                         (bounded_limit,),
                     )
                 ]
             finally:
                 connection.close()
+
+        for row in rows:
+            row["details"] = self._decode_event_details(row.pop("details_json", "{}"))
+        return rows
 
     def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
         """Record stable watch-state changes for user-favorited devices.
@@ -588,6 +624,147 @@ class DeviceStore:
             finally:
                 connection.close()
 
+    @staticmethod
+    def _decode_port_list(value: object) -> list[int]:
+        try:
+            loaded = json.loads(str(value or "[]"))
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(loaded, list):
+            return []
+        ports = []
+        for item in loaded:
+            try:
+                port = int(item)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= port <= 65535:
+                ports.append(port)
+        return sorted(set(ports))
+
+    def record_service_scan(
+        self,
+        device_id: str,
+        ip: str,
+        open_ports: list[int],
+        *,
+        checked_at: int | None = None,
+        display_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist one bounded on-demand service snapshot and compare the previous one."""
+        identifier = str(device_id or "").strip()
+        target = str(ip or "").strip()
+        if not identifier or not target:
+            raise ValueError("Device ID and target IP are required")
+
+        ports = sorted({
+            int(port)
+            for port in open_ports
+            if 1 <= int(port) <= 65535
+        })
+        timestamp = int(time.time()) if checked_at is None else int(checked_at)
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                previous = connection.execute(
+                    "SELECT open_ports_json, checked_at FROM device_service_scans "
+                    "WHERE device_id = ? ORDER BY checked_at DESC, id DESC LIMIT 1",
+                    (identifier,),
+                ).fetchone()
+
+                previous_ports = self._decode_port_list(previous["open_ports_json"]) if previous else []
+                current_ports = set(ports)
+                before_ports = set(previous_ports)
+                newly_open = sorted(current_ports - before_ports) if previous else []
+                no_longer_open = sorted(before_ports - current_ports) if previous else []
+                changed = bool(previous and (newly_open or no_longer_open))
+
+                connection.execute(
+                    "INSERT INTO device_service_scans(device_id, ip, open_ports_json, checked_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (
+                        identifier,
+                        target,
+                        json.dumps(ports, separators=(",", ":")),
+                        timestamp,
+                    ),
+                )
+                if changed:
+                    details = {
+                        "newly_open": newly_open,
+                        "no_longer_open": no_longer_open,
+                        "open_ports": ports,
+                        "previous_checked_at": int(previous["checked_at"]),
+                    }
+                    connection.execute(
+                        "INSERT INTO device_events("
+                        "event_type, entity_id, display_name, ip, mac, details_json, created_at"
+                        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            "service_exposure_changed",
+                            identifier,
+                            str(display_name or "").strip() or None,
+                            target,
+                            None,
+                            json.dumps(details, separators=(",", ":")),
+                            timestamp,
+                        ),
+                    )
+                connection.execute(
+                    "DELETE FROM device_service_scans WHERE id IN ("
+                    "SELECT id FROM device_service_scans WHERE device_id = ? "
+                    "ORDER BY checked_at DESC, id DESC LIMIT -1 OFFSET ?"
+                    ")",
+                    (identifier, SERVICE_SCAN_PER_DEVICE_LIMIT),
+                )
+                connection.execute(
+                    "DELETE FROM device_service_scans WHERE id NOT IN ("
+                    "SELECT id FROM device_service_scans "
+                    "ORDER BY checked_at DESC, id DESC LIMIT ?"
+                    ")",
+                    (SERVICE_SCAN_TOTAL_LIMIT,),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+        return {
+            "device_id": identifier,
+            "ip": target,
+            "checked_at": timestamp,
+            "open_ports": ports,
+            "previous_checked_at": int(previous["checked_at"]) if previous else None,
+            "previous_open_ports": previous_ports,
+            "newly_open": newly_open,
+            "no_longer_open": no_longer_open,
+            "changed": changed,
+        }
+
+    def service_scan_history(self, device_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Return recent on-demand service snapshots for one AuraLAN device."""
+        bounded_limit = max(1, min(int(limit), SERVICE_SCAN_PER_DEVICE_LIMIT))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, device_id, ip, open_ports_json, checked_at "
+                        "FROM device_service_scans WHERE device_id = ? "
+                        "ORDER BY checked_at DESC, id DESC LIMIT ?",
+                        (str(device_id), bounded_limit),
+                    )
+                ]
+            finally:
+                connection.close()
+
+        for row in rows:
+            row["open_ports"] = self._decode_port_list(row.pop("open_ports_json", "[]"))
+        return rows
+
     def latest_event_id(self) -> int:
         with self._lock:
             connection = self._connect()
@@ -604,9 +781,11 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
+                event_types = tuple(NOTIFICATION_EVENT_TYPES)
+                marks = ",".join("?" for _ in event_types)
                 row = connection.execute(
-                    "SELECT COUNT(*) FROM device_events WHERE id > ?",
-                    (int(event_id),),
+                    f"SELECT COUNT(*) FROM device_events WHERE id > ? AND event_type IN ({marks})",
+                    (int(event_id), *event_types),
                 ).fetchone()
                 return int(row[0]) if row else 0
             finally:
@@ -618,14 +797,20 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
-                return [
+                event_types = tuple(NOTIFICATION_EVENT_TYPES)
+                marks = ",".join("?" for _ in event_types)
+                rows = [
                     dict(row)
                     for row in connection.execute(
-                        "SELECT id, event_type, entity_id, display_name, ip, mac, created_at "
-                        "FROM device_events WHERE id > ? ORDER BY id ASC LIMIT ?",
-                        (int(event_id), bounded_limit),
+                        "SELECT id, event_type, entity_id, display_name, ip, mac, details_json, created_at "
+                        f"FROM device_events WHERE id > ? AND event_type IN ({marks}) "
+                        "ORDER BY id ASC LIMIT ?",
+                        (int(event_id), *event_types, bounded_limit),
                     )
                 ]
+                for row in rows:
+                    row["details"] = self._decode_event_details(row.pop("details_json", "{}"))
+                return rows
             finally:
                 connection.close()
 
@@ -934,6 +1119,20 @@ class DeviceStore:
                     "VALUES (?, ?, ?, ?)",
                     rows,
                 )
+                connection.execute(
+                    "INSERT INTO device_events("
+                    "event_type, entity_id, display_name, ip, mac, details_json, created_at"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        "baseline_captured",
+                        "network",
+                        None,
+                        None,
+                        None,
+                        json.dumps({"device_count": len(rows)}, separators=(",", ":")),
+                        captured_at,
+                    ),
+                )
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -949,7 +1148,26 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
+                previous = connection.execute(
+                    "SELECT COUNT(*) AS count, MAX(captured_at) AS captured_at FROM network_baseline"
+                ).fetchone()
+                device_count = int(previous["count"]) if previous else 0
                 connection.execute("DELETE FROM network_baseline")
+                if device_count:
+                    connection.execute(
+                        "INSERT INTO device_events("
+                        "event_type, entity_id, display_name, ip, mac, details_json, created_at"
+                        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            "baseline_cleared",
+                            "network",
+                            None,
+                            None,
+                            None,
+                            json.dumps({"device_count": device_count}, separators=(",", ":")),
+                            int(time.time()),
+                        ),
+                    )
                 connection.commit()
             finally:
                 connection.close()
@@ -1160,6 +1378,7 @@ class DeviceStore:
                     "device_inventory",
                     "device_watch_state",
                     "device_presence_state",
+                    "device_service_scans",
                 ):
                     cursor = connection.execute(
                         f"DELETE FROM {table} WHERE device_id IN ({placeholders})",

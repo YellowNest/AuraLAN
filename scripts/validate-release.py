@@ -19,6 +19,26 @@ FRONTEND = ROOT / "frontend"
 errors: list[str] = []
 
 
+def validate_shell_scripts() -> None:
+    for path in sorted((ROOT / "scripts").glob("*.sh")):
+        try:
+            result = subprocess.run(
+                ["bash", "-n", str(path)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            fail(f"could not syntax-check {path.relative_to(ROOT)}: {type(exc).__name__}")
+            continue
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip().splitlines()
+            suffix = f": {detail[-1]}" if detail else ""
+            fail(f"shell syntax check failed for {path.relative_to(ROOT)}{suffix}")
+
+
 def fail(message: str) -> None:
     errors.append(message)
 
@@ -45,6 +65,7 @@ def parse_json(path: Path) -> dict:
 
 project = parse_json(ROOT / "project.json")
 manifest = parse_json(FRONTEND / "manifest.webmanifest")
+validate_shell_scripts()
 
 if project.get("productName") != "AuraLAN" or project.get("shortName") != "AuraLAN":
     fail("project.json must use the canonical AuraLAN product name")
@@ -75,6 +96,12 @@ for value in (accent.get("primary"), accent.get("soft")):
 changelog_source = read(ROOT / "CHANGELOG.md")
 if "## [Unreleased]" not in changelog_source:
     fail("CHANGELOG.md must contain an Unreleased section")
+if version and "-dev" not in version and f"## [{version}] -" not in changelog_source:
+    fail(f"final version {version} is missing a dated CHANGELOG release section")
+
+license_source = read(ROOT / "LICENSE")
+if "MIT License" not in license_source or "Copyright (c) 2026 YellowNest" not in license_source:
+    fail("stable releases must retain the selected MIT license and copyright notice")
 
 runtime_files = [
     ROOT / "project.json",
@@ -166,6 +193,28 @@ else:
 
 if "network-orbit" in app_source or "network-orbit" in css_source:
     fail("retired decorative network-orbit UI returned")
+
+if "renderActivity" not in app_source or "activity-center-list" not in app_source:
+    fail("frontend is missing the first-class Activity Center")
+if "['activity', 'uptime']" not in app_source:
+    fail("Activity Center is missing from primary navigation")
+if ".activity-overview" not in css_source or ".activity-filter-row" not in css_source:
+    fail("Activity Center responsive styling is missing")
+if "grid-template-columns:repeat(6,minmax(0,1fr))" not in css_source:
+    fail("mobile navigation does not reserve a slot for all six primary views")
+if index_source.count("<span>Activity</span>") != 2:
+    fail("static desktop/mobile navigation must expose Activity before JavaScript boot")
+
+device_store_source = read(ROOT / "backend/app/persistence/device_store.py")
+if "service_exposure_changed" not in device_store_source or "baseline_captured" not in device_store_source:
+    fail("persistent Activity Center event sources are incomplete")
+if "NOTIFICATION_EVENT_TYPES" not in device_store_source:
+    fail("richer local activity must remain explicitly separated from webhook event delivery")
+
+deploy_local_source = read(ROOT / "scripts/deploy-local.sh")
+for token in ("backup_database", "check_target_state_readiness", "restore_database", "rollback_deployment"):
+    if token not in deploy_local_source:
+        fail(f"checkout-backed deployment is missing database-safe rollback step: {token}")
 
 if "@media(max-width:760px)" not in css_source:
     fail("frontend/app.css is missing the primary mobile layout breakpoint")

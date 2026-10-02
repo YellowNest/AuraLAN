@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from app.persistence.device_store import (
     DeviceStore,
+    SCHEMA_VERSION,
     default_data_dir,
     presence_missing_grace_seconds,
     watch_missing_grace_seconds,
@@ -83,7 +84,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -143,7 +144,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -156,6 +157,58 @@ class DefaultDataDirTests(unittest.TestCase):
             self.assertIn("device_inventory", tables)
 
 
+
+    def test_schema_nine_adds_activity_event_details_without_losing_history(self):
+        with TemporaryDirectory() as temp_dir:
+            store = DeviceStore(Path(temp_dir))
+            store.readiness_check()
+
+            db_path = Path(temp_dir) / "auralan.db"
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    "INSERT INTO device_events(event_type, entity_id, display_name, ip, mac, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    ("device_first_seen", "sample", "Sample", "192.0.2.10", None, 100),
+                )
+                connection.execute("ALTER TABLE device_events RENAME TO device_events_v10")
+                connection.execute("""CREATE TABLE device_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    display_name TEXT,
+                    ip TEXT,
+                    mac TEXT,
+                    created_at INTEGER NOT NULL
+                )""")
+                connection.execute(
+                    "INSERT INTO device_events(id, event_type, entity_id, display_name, ip, mac, created_at) "
+                    "SELECT id, event_type, entity_id, display_name, ip, mac, created_at FROM device_events_v10"
+                )
+                connection.execute("DROP TABLE device_events_v10")
+                connection.execute("DROP INDEX IF EXISTS idx_device_events_created_at")
+                connection.execute("DROP INDEX IF EXISTS idx_device_events_type_entity")
+                connection.execute("PRAGMA user_version = 9")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = store.readiness_check()
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
+            events = store.recent_events()
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0]["event_type"], "device_first_seen")
+            self.assertEqual(events[0]["details"], {})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                columns = {
+                    row[1]
+                    for row in connection.execute("PRAGMA table_info(device_events)")
+                }
+            finally:
+                connection.close()
+            self.assertIn("details_json", columns)
 
     def test_schema_four_state_migrates_to_watch_and_notification_tables(self):
         with TemporaryDirectory() as temp_dir:
@@ -173,7 +226,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -268,7 +321,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             device_store = DeviceStore(Path(temp_dir))
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
 
             enriched = device_store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Printer")
@@ -293,7 +346,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
 
             connection = sqlite3.connect(db_path)
             try:

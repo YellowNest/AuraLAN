@@ -214,7 +214,7 @@ def _collect() -> dict[str, Any]:
             errors.append(f"{identifier} discovery unavailable: {type(exc).__name__}")
     service_items = [enrich_integration(item) for item in service_items]
     try:
-        activity = store().recent_events(20)
+        activity = store().recent_events(50)
     except (OSError, sqlite3.Error):
         activity = []
     return {

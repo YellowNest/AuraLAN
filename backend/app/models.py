@@ -206,6 +206,35 @@ class DeviceProbeResponse(BaseModel):
     checked_at: int
 
 
+class DeviceServicePortResponse(BaseModel):
+    port: int
+    service: str
+
+
+class DeviceServiceScanResponse(BaseModel):
+    device_id: str
+    ip: str
+    checked_at: int
+    open_ports: list[DeviceServicePortResponse] = Field(default_factory=list)
+    previous_checked_at: int | None = None
+    newly_open: list[DeviceServicePortResponse] = Field(default_factory=list)
+    no_longer_open: list[DeviceServicePortResponse] = Field(default_factory=list)
+    changed: bool = False
+
+
+class DeviceServiceScanHistoryEntryResponse(BaseModel):
+    id: int
+    device_id: str
+    ip: str
+    checked_at: int
+    open_ports: list[DeviceServicePortResponse] = Field(default_factory=list)
+
+
+class DeviceServiceScanHistoryResponse(BaseModel):
+    device_id: str
+    items: list[DeviceServiceScanHistoryEntryResponse] = Field(default_factory=list)
+
+
 class ContainerResponse(BaseModel):
     name: str
     image: str
@@ -250,11 +279,19 @@ class PresenceHistoryResponse(BaseModel):
 
 class ActivityEventResponse(BaseModel):
     id: int
-    event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]
+    event_type: Literal[
+        "device_first_seen",
+        "favorite_not_seen",
+        "favorite_seen_again",
+        "service_exposure_changed",
+        "baseline_captured",
+        "baseline_cleared",
+    ]
     entity_id: str
     display_name: str | None = None
     ip: str | None = None
     mac: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
     created_at: int
 
 

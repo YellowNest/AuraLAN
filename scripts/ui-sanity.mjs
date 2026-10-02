@@ -15,7 +15,32 @@ const viewports = [
   { name: 'desktop', width: 1440, height: 900, dark: true },
 ];
 
-const routes = ['overview', 'network', 'devices', 'services', 'settings'];
+const routes = ['overview', 'network', 'devices', 'activity', 'services', 'settings'];
+
+async function openRoute(page, route) {
+  const currentUrl = page.url();
+  if (currentUrl === 'about:blank' || !currentUrl.startsWith(baseUrl)) {
+    await page.goto(`${baseUrl}/#${route}`, { waitUntil: 'networkidle0', timeout: 20000 });
+  } else {
+    await page.evaluate((targetRoute) => {
+      const trigger = document.querySelector(`[data-route="${targetRoute}"]`);
+      if (!trigger) throw new Error(`No route trigger found for ${targetRoute}`);
+      trigger.click();
+    }, route);
+  }
+
+  await page.waitForFunction(
+    (targetRoute) => {
+      const activeRoute = [...document.querySelectorAll(`[data-route="${targetRoute}"]`)]
+        .some((node) => node.classList.contains('active') || node.getAttribute('aria-current') === 'page');
+      return location.hash === `#${targetRoute}`
+        && activeRoute
+        && Boolean(document.querySelector('#app-view:not([aria-busy="true"])'));
+    },
+    { timeout: 10000 },
+    route,
+  );
+}
 
 try {
   for (const viewport of viewports) {
@@ -24,8 +49,7 @@ try {
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: viewport.dark ? 'dark' : 'light' }]);
 
     for (const route of routes) {
-      await page.goto(`${baseUrl}/#${route}`, { waitUntil: 'networkidle0', timeout: 20000 });
-      await page.waitForSelector('#app-view:not([aria-busy="true"])', { timeout: 10000 });
+      await openRoute(page, route);
       const report = await page.evaluate((isMobile) => {
         const viewportMeta = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || '';
         const input = document.querySelector('input, select, textarea');
@@ -90,7 +114,7 @@ try {
       }
       if (route === 'overview') assert.equal(report.hasOrbit, false, `${viewport.name}: retired network orbit rendered`);
       if (report.mobile) {
-        assert.equal(report.navButtons, 5, `${viewport.name}/${route}: mobile nav is incomplete`);
+        assert.equal(report.navButtons, 6, `${viewport.name}/${route}: mobile nav is incomplete`);
         assert.match(report.viewportMeta, /maximum-scale=1/, `${viewport.name}: viewport scale is not locked`);
         assert.match(report.viewportMeta, /user-scalable=no/, `${viewport.name}: user scaling is not disabled`);
         assert.ok(report.liveText.length > 0, `${viewport.name}/${route}: connection status has no text`);
@@ -108,9 +132,79 @@ try {
       }
     }
 
-    await page.goto(`${baseUrl}/#devices`, { waitUntil: 'networkidle0', timeout: 20000 });
+    await openRoute(page, 'activity');
+    const activityReport = await page.evaluate(() => ({
+      hasOverview: Boolean(document.querySelector('.activity-overview')),
+      metricCount: document.querySelectorAll('.activity-metrics > div').length,
+      filterCount: document.querySelectorAll('.activity-filter-row [data-activity-filter]').length,
+      hasTimeline: Boolean(document.querySelector('.activity-center-list')),
+      timelineOverflow: (() => {
+        const node = document.querySelector('.activity-center-list');
+        return node ? node.scrollWidth > node.clientWidth + 1 : false;
+      })(),
+    }));
+    assert.equal(activityReport.hasOverview, true, `${viewport.name}/activity: overview summary is missing`);
+    assert.equal(activityReport.metricCount, 4, `${viewport.name}/activity: summary metrics are incomplete`);
+    assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
+    assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
+    assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
+
+    await openRoute(page, 'overview');
+    const compactDeviceReport = await page.evaluate(() => {
+      const row = document.querySelector('.device-list.compact .device-row');
+      const badge = row?.querySelector('.device-symbol-status');
+      const context = row?.querySelector('.device-list-context');
+      const meta = row?.querySelector('.device-mobile-meta');
+      const status = row?.querySelector('.device-status');
+      return {
+        hasRow: Boolean(row),
+        badgeDisplay: badge ? getComputedStyle(badge).display : 'none',
+        contextText: context?.textContent?.trim() || '',
+        contextDisplay: context ? getComputedStyle(context).display : 'none',
+        metaDisplay: meta ? getComputedStyle(meta).display : 'none',
+        statusWidth: status?.getBoundingClientRect().width || 0,
+        hasLegacyStatusDot: Boolean(row?.querySelector('.device-status i')),
+      };
+    });
+    if (compactDeviceReport.hasRow) {
+      assert.notEqual(compactDeviceReport.badgeDisplay, 'none', `${viewport.name}/overview: compact device status badge is hidden`);
+      if (compactDeviceReport.contextText) {
+        assert.notEqual(compactDeviceReport.contextDisplay, 'none', `${viewport.name}/overview: compact device identity context is hidden`);
+      }
+      assert.notEqual(compactDeviceReport.metaDisplay, 'none', `${viewport.name}/overview: compact device IP/location metadata is hidden`);
+      assert.ok(compactDeviceReport.statusWidth <= 20, `${viewport.name}/overview: compact trailing affordance is wider than expected`);
+      assert.equal(compactDeviceReport.hasLegacyStatusDot, false, `${viewport.name}/overview: duplicate trailing status dot returned`);
+    }
+
+    await openRoute(page, 'network');
+    const topologyDeviceReport = await page.evaluate(() => {
+      const row = document.querySelector('.topology-device');
+      const symbol = row?.querySelector('.topology-device-symbol');
+      const badge = row?.querySelector('.device-symbol-status');
+      const copy = row?.querySelector('.topology-device-copy');
+      const chevron = row?.querySelector(':scope > .icon:last-child');
+      return {
+        hasRow: Boolean(row),
+        badgeDisplay: badge ? getComputedStyle(badge).display : 'none',
+        symbolRect: symbol ? (() => { const rect = symbol.getBoundingClientRect(); return { width: rect.width, height: rect.height }; })() : null,
+        name: copy?.querySelector('strong')?.textContent?.trim() || '',
+        ip: copy?.querySelector('small')?.textContent?.trim() || '',
+        hasChevron: Boolean(chevron),
+      };
+    });
+    if (topologyDeviceReport.hasRow) {
+      assert.notEqual(topologyDeviceReport.badgeDisplay, 'none', `${viewport.name}/network: topology device status badge is hidden`);
+      assert.ok(topologyDeviceReport.name.length > 0, `${viewport.name}/network: topology device name is missing`);
+      assert.ok(topologyDeviceReport.ip.length > 0, `${viewport.name}/network: topology device IP is missing`);
+      assert.equal(topologyDeviceReport.hasChevron, true, `${viewport.name}/network: topology device lost its details affordance`);
+      if (topologyDeviceReport.symbolRect) {
+        assert.ok(topologyDeviceReport.symbolRect.width >= 32 && topologyDeviceReport.symbolRect.height >= 32, `${viewport.name}/network: topology device icon collapsed`);
+      }
+    }
+
+    await openRoute(page, 'devices');
     await page.waitForSelector('.device-row, .empty-state', { timeout: 10000 });
-    const deviceRows = await page.$('.device-row');
+    const deviceRows = await page.$$('.device-row');
     assert.ok(deviceRows.length > 0, `${viewport.name}: no device rows rendered`);
 
     const listReport = await page.evaluate((isMobile) => {
@@ -124,13 +218,15 @@ try {
       const firstConnection = document.querySelector('.device-meta');
       const firstContext = document.querySelector('.device-list-context');
       const firstLocation = document.querySelector('.device-location');
-      const firstMobileContext = document.querySelector('.device-mobile-context');
+      const firstMobileMeta = document.querySelector('.device-mobile-meta');
       const firstMobileIp = document.querySelector('.device-mobile-ip');
+      const firstMobileLocation = document.querySelector('.device-mobile-location');
+      const firstStatusBadge = document.querySelector('.device-symbol-status');
+      const firstStatusControl = document.querySelector('.device-status');
       const wifiFilter = document.querySelector('.device-toolbar [data-device-filter="wifi"]');
       const unknownToolbarFilter = document.querySelector('.device-toolbar [data-device-filter="unknown"]');
       const unidentifiedCallout = document.querySelector('.unidentified-callout');
       const ipCells = [...document.querySelectorAll('.device-ip')];
-      const statusDots = [...document.querySelectorAll('.device-status i')];
       return {
         isMobile,
         headerDisplay: document.querySelector('.device-list-head') ? getComputedStyle(document.querySelector('.device-list-head')).display : 'none',
@@ -140,9 +236,14 @@ try {
         contextText: firstContext?.textContent?.trim() || '',
         locationDisplay: firstLocation ? getComputedStyle(firstLocation).display : 'none',
         locationSpread: spread(positions('.device-location')),
-        mobileContextDisplay: firstMobileContext ? getComputedStyle(firstMobileContext).display : 'none',
-        mobileContextText: firstMobileContext?.textContent?.trim() || '',
+        mobileMetaDisplay: firstMobileMeta ? getComputedStyle(firstMobileMeta).display : 'none',
         mobileIpText: firstMobileIp?.textContent?.trim() || '',
+        mobileLocationText: firstMobileLocation?.textContent?.trim() || '',
+        statusBadgeDisplay: firstStatusBadge ? getComputedStyle(firstStatusBadge).display : 'none',
+        statusBadgeRect: firstStatusBadge ? (() => { const rect = firstStatusBadge.getBoundingClientRect(); return { width: rect.width, height: rect.height }; })() : null,
+        statusControlWidth: firstStatusControl?.getBoundingClientRect().width || 0,
+        hasLegacyStatusDot: Boolean(document.querySelector('.device-status i')),
+        hasLegacyMobileContext: Boolean(document.querySelector('.device-mobile-context')),
         mobileIpClipped: firstMobileIp ? firstMobileIp.scrollWidth > firstMobileIp.clientWidth + 1 : false,
         ipSpread: spread(positions('.device-ip')),
         connectionSpread: spread(positions('.device-meta')),
@@ -155,24 +256,28 @@ try {
         hasUnknownToolbarFilter: Boolean(unknownToolbarFilter),
         hasUnidentifiedCallout: Boolean(unidentifiedCallout),
         clippedIpCells: ipCells.filter((node) => node.scrollWidth > node.clientWidth + 1).length,
-        statusDotRects: statusDots.slice(0, 8).map((node) => {
-          const rect = node.getBoundingClientRect();
-          return { width: rect.width, height: rect.height };
-        }),
       };
     }, viewport.width < 760);
 
     assert.ok(listReport.nameFontSize === null || listReport.nameFontSize >= 14, `${viewport.name}/devices: primary device name is too small`);
-    assert.ok(listReport.contextFontSize === null || listReport.contextFontSize >= 11.5, `${viewport.name}/devices: device context is too small`);
+    assert.ok(listReport.contextFontSize === null || listReport.contextFontSize >= 11.5, `${viewport.name}/devices: device context is too small (${listReport.contextFontSize}px)`);
     if (listReport.isMobile) {
-      assert.ok(listReport.mobileMetaFontSize === null || listReport.mobileMetaFontSize >= 11.5, `${viewport.name}/devices: mobile device metadata is too small`);
+      assert.ok(listReport.mobileMetaFontSize === null || listReport.mobileMetaFontSize >= 11.5, `${viewport.name}/devices: mobile device metadata is too small (${listReport.mobileMetaFontSize}px)`);
       assert.equal(listReport.headerDisplay, 'none', `${viewport.name}/devices: desktop column header leaked into mobile`);
       assert.equal(listReport.ipDisplay, 'none', `${viewport.name}/devices: desktop IP column leaked into mobile`);
       assert.equal(listReport.connectionDisplay, 'none', `${viewport.name}/devices: desktop connection column leaked into mobile`);
-      assert.equal(listReport.contextDisplay, 'none', `${viewport.name}/devices: desktop identity context leaked into mobile`);
       assert.equal(listReport.locationDisplay, 'none', `${viewport.name}/devices: desktop location column leaked into mobile`);
-      if (listReport.mobileContextText) {
-        assert.notEqual(listReport.mobileContextDisplay, 'none', `${viewport.name}/devices: mobile room/vendor context is hidden`);
+      if (listReport.contextText) {
+        assert.notEqual(listReport.contextDisplay, 'none', `${viewport.name}/devices: manufacturer/type context is hidden`);
+      }
+      assert.notEqual(listReport.mobileMetaDisplay, 'none', `${viewport.name}/devices: mobile IP/location line is hidden`);
+      assert.equal(listReport.hasLegacyMobileContext, false, `${viewport.name}/devices: duplicate mobile fallback context returned`);
+      assert.notEqual(listReport.statusBadgeDisplay, 'none', `${viewport.name}/devices: icon status badge is hidden`);
+      assert.equal(listReport.hasLegacyStatusDot, false, `${viewport.name}/devices: legacy trailing status dot returned`);
+      assert.ok(listReport.statusControlWidth <= 20, `${viewport.name}/devices: trailing chevron control is wider than expected`);
+      if (listReport.statusBadgeRect) {
+        assert.ok(listReport.statusBadgeRect.width >= 8 && listReport.statusBadgeRect.height >= 8, `${viewport.name}/devices: icon status badge collapsed`);
+        assert.ok(Math.abs(listReport.statusBadgeRect.width - listReport.statusBadgeRect.height) <= 1, `${viewport.name}/devices: icon status badge is not circular`);
       }
       assert.equal(listReport.hasUnknownToolbarFilter, false, `${viewport.name}/devices: naming action leaked back into primary filter row`);
       if (listReport.wifiFilterHeight > 0) {
@@ -181,8 +286,11 @@ try {
       }
       assert.equal(listReport.mobileIpClipped, false, `${viewport.name}/devices: mobile IP is clipped`);
       assert.ok(listReport.mobileIpText.length > 0, `${viewport.name}/devices: mobile IP disappeared from the primary device list`);
-      assert.doesNotMatch(listReport.mobileContextText, /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i, `${viewport.name}/devices: MAC leaked into the friendly mobile context line`);
+      assert.doesNotMatch(listReport.contextText, /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i, `${viewport.name}/devices: MAC leaked into the friendly mobile context line`);
+      assert.doesNotMatch(listReport.mobileLocationText, /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i, `${viewport.name}/devices: MAC leaked into the mobile location line`);
     } else {
+      assert.notEqual(listReport.statusBadgeDisplay, 'none', `${viewport.name}/devices: desktop icon status badge is hidden`);
+      assert.equal(listReport.hasLegacyStatusDot, false, `${viewport.name}/devices: duplicate trailing status dot returned`);
       assert.notEqual(listReport.headerDisplay, 'none', `${viewport.name}/devices: device column header is missing`);
       assert.ok(listReport.ipSpread <= 1, `${viewport.name}/devices: IP column shifts between rows`);
       if (viewport.width > 1180) {
@@ -195,10 +303,6 @@ try {
       assert.ok(listReport.statusSpread <= 1, `${viewport.name}/devices: status column shifts between rows`);
       if (viewport.name === 'iphone-landscape') {
         assert.equal(listReport.clippedIpCells, 0, `${viewport.name}/devices: IP addresses are clipped in landscape`);
-        for (const dot of listReport.statusDotRects) {
-          assert.ok(dot.width >= 6 && dot.height >= 6, `${viewport.name}/devices: status dot collapsed`);
-          assert.ok(Math.abs(dot.width - dot.height) <= 1, `${viewport.name}/devices: status dot is not circular`);
-        }
       }
     }
 
@@ -231,13 +335,18 @@ try {
     }
 
     await page.click('[data-close-inspector]');
-    await page.waitForFunction(() => !document.querySelector('#inspector-dialog')?.open);
+    await page.waitForFunction(() => {
+      const dialog = document.querySelector('#inspector-dialog');
+      return !dialog?.open
+        && !document.documentElement.classList.contains('modal-open')
+        && !document.body.classList.contains('modal-open');
+    });
     const unlocked = await page.evaluate(() => !document.documentElement.classList.contains('modal-open') && !document.body.classList.contains('modal-open'));
     assert.equal(unlocked, true, `${viewport.name}/details: background remained locked after closing`);
 
     if (screenshotDir) {
       await mkdir(screenshotDir, { recursive: true });
-      await page.goto(`${baseUrl}/#services`, { waitUntil: 'networkidle0', timeout: 20000 });
+      await openRoute(page, 'services');
       const serviceCard = await page.$('.service-card');
       if (serviceCard) {
         await serviceCard.click();

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 0.8.0" src="https://img.shields.io/badge/release-0.8.0-2563EB">
+  <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -28,7 +28,9 @@ It answers the useful questions first: **what is connected, what each device pro
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
 | **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
 | **Network Baseline** | Capture the devices you expect to see and let AuraLAN highlight what appeared or disappeared since that reference point, entirely locally and without pretending a change is automatically a threat. |
+| **Activity Center** | A first-class local timeline brings new devices, favorite watch changes, Service Exposure diffs and baseline actions together so you can see what changed without turning observations into security verdicts. |
 | **One-click reachability check** | From any known device, send one local ICMP echo and see whether a reply came back plus round-trip latency when available. No cloud service and no continuous ping loop. |
+| **Service Exposure snapshots** | On demand, check a small fixed set of common TCP ports on a known device, save the result locally, and see what opened or closed since the previous check. No subnet scan, banner grabbing or cloud fingerprinting. |
 | **A device inventory that remembers** | Track first/last seen time and a debounced per-device presence timeline, add aliases, locations and tags, keep private notes, mark important devices, filter and sort the inventory, forget stale remembered devices safely, and export it as CSV or JSON. |
 | **Runs even when the dashboard is closed** | Continuous local discovery refreshes the inventory and history in the background instead of depending on an open browser tab. |
 | **Home Assistant & webhook friendly** | An aggregate REST summary feeds local Home Assistant sensors without device identity data, while optional reliable webhooks report new devices and favorite watch-state changes. |
@@ -70,7 +72,11 @@ A local **Network Baseline** can capture the devices AuraLAN currently observes.
 
 When the host provides the standard `ping` utility, each device inspector also gets an on-demand **Check reachability** action. AuraLAN sends exactly one ICMP echo to a known IPv4 address and reports the reply and round-trip latency when available. The result is intentionally phrased as a ping observation: a device can be online while refusing ICMP.
 
+The device inspector also provides an on-demand **Service Exposure** check. It attempts TCP connections to a small built-in list of common service ports only on that already-known device, never scans an address range, and does not read banners or application data. AuraLAN stores a bounded local history of these snapshots and highlights ports that newly accepted connections or stopped accepting them since the previous check. A port label is a conventional hint based on the port number, not proof of which application is running there.
+
 AuraLAN also keeps a bounded per-device presence timeline. A device must remain unobserved for a grace period before AuraLAN records **Not seen**, so one weak discovery miss does not become false history. When positive evidence returns, AuraLAN records **Seen again**. These are observation transitions, not claims about whether a device was powered off or physically present.
+
+The **Activity Center** turns those local observations into one readable change timeline. It combines devices first seen by AuraLAN, confirmed favorite-watch transitions, Service Exposure differences and operator baseline actions. Each event keeps only the evidence AuraLAN actually has; a changed port or missing observation is reported as a change, not promoted into an intrusion or threat claim.
 
 All of that inventory data stays in AuraLAN's local SQLite state. AuraLAN also keeps a compact first-seen discovery history, so the Overview can answer "what showed up recently?" without sending device data anywhere. Existing installations backfill this history from their already stored first-seen timestamps, so upgrading does not start with an empty timeline.
 
@@ -86,9 +92,9 @@ The Devices view can search locations and tags, sort by smart order, name, last 
 
 AuraLAN is not a router, firewall, DHCP server, DNS server, Wi-Fi controller, VPN server or Docker manager.
 
-By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, recent-discovery history, and user-owned metadata such as aliases, notes, locations, tags and favorites.
+By default AuraLAN does **not** change host networking, firewall rules, DHCP, DNS, Docker, Caddy, Pi-hole or WireGuard. Writes are limited to AuraLAN's own local state: observed device identity/presence, local activity and scan history, the operator-defined network baseline, and user-owned metadata such as aliases, notes, locations, tags and favorites.
 
-AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration. The reachability action sends one on-demand ICMP echo only; AuraLAN does not run a continuous ping loop or port scanner.
+AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one standard local magic packet to a known MAC address; it does not execute commands on the target or modify network/system configuration. The reachability action sends one on-demand ICMP echo only. Service Exposure is likewise explicit and per-device: AuraLAN does not continuously scan ports, sweep subnets, read service banners, or probe arbitrary addresses.
 
 ## Quick start
 
@@ -172,6 +178,8 @@ GET   /api/v1/devices/{id}/presence?limit=50
 DELETE /api/v1/devices/{id}/memory
 POST  /api/v1/devices/{id}/wake
 POST  /api/v1/devices/{id}/probe
+GET   /api/v1/devices/{id}/services?limit=10
+POST  /api/v1/devices/{id}/services/scan
 GET   /api/v1/activity?limit=50
 GET   /api/v1/monitor
 GET   /api/v1/notifications
@@ -226,7 +234,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN is an actively developed public pre-1.0 project. The main branch carries the 0.8 code line, including Network Baseline, local Identity Intelligence, persistent inventory, Home Assistant integration, presence history, Wake-on-LAN, and on-demand device reachability checks. The API is intentionally small and may still evolve before 1.0.
+AuraLAN 1.0.0 is the first stable release line. `main` is kept release-ready, while `dev` remains the integration branch for post-1.0 work. The 1.0 product includes Activity Center, Network Baseline, local Identity Intelligence, persistent inventory and presence history, Home Assistant integration, Wake-on-LAN, on-demand reachability checks and local Service Exposure snapshots. The v1 API remains intentionally small and local-first.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
