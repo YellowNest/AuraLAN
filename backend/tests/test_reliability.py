@@ -52,6 +52,7 @@ class StatusMetadataTests(unittest.TestCase):
             patch("app.main.system_snapshot", return_value=snapshot),
             patch("app.main.brand", return_value={"version": "9.8.7-test", "apiVersion": "v1"}),
             patch("app.main._notification_status", return_value={"configured": False}),
+            patch("app.main._activity_status", return_value=[]),
             patch("app.main.background_monitor") as monitor,
         ):
             monitor.status.return_value = {"enabled": True, "interval_seconds": 60, "running": True}
@@ -90,6 +91,16 @@ class HomeAssistantReliabilityTests(unittest.TestCase):
 
 
 class ActivityReliabilityTests(unittest.TestCase):
+    def test_status_activity_reader_bypasses_cached_snapshot_history(self):
+        snapshot = {"activity": [{"id": 1, "event_type": "device_first_seen"}]}
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.recent_events.return_value = [{"id": 2, "event_type": "baseline_captured"}]
+            from app.main import _activity_status
+            result = _activity_status(snapshot, 50)
+
+        store_factory.return_value.recent_events.assert_called_once_with(50)
+        self.assertEqual(result[0]["id"], 2)
+
     def test_activity_endpoint_uses_requested_history_limit(self):
         with patch("app.main.store") as store_factory:
             store_factory.return_value.recent_events.return_value = [{"id": 1}]
