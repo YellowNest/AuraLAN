@@ -190,6 +190,11 @@ if "service_exposure_changed" not in device_store_source or "baseline_captured" 
 if "NOTIFICATION_EVENT_TYPES" not in device_store_source:
     fail("richer local activity must remain explicitly separated from webhook event delivery")
 
+deploy_local_source = read(ROOT / "scripts/deploy-local.sh")
+for token in ("backup_database", "check_target_state_readiness", "restore_database", "rollback_deployment"):
+    if token not in deploy_local_source:
+        fail(f"checkout-backed deployment is missing database-safe rollback step: {token}")
+
 if "@media(max-width:760px)" not in css_source:
     fail("frontend/app.css is missing the primary mobile layout breakpoint")
 if css_source.count("@media(max-width:760px){") != 1:
