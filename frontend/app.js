@@ -1191,7 +1191,11 @@ function openCommand() {
   $('#command-input').focus();
 }
 
-function closeDialog(dialog) { if (dialog.open) dialog.close(); }
+function closeDialog(dialog) {
+  if (!dialog.open) return;
+  dialog.close();
+  syncModalScrollLock();
+}
 
 async function retireServiceWorkers() {
   if (!('serviceWorker' in navigator)) return;

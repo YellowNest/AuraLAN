@@ -296,7 +296,12 @@ try {
     }
 
     await page.click('[data-close-inspector]');
-    await page.waitForFunction(() => !document.querySelector('#inspector-dialog')?.open);
+    await page.waitForFunction(() => {
+      const dialog = document.querySelector('#inspector-dialog');
+      return !dialog?.open
+        && !document.documentElement.classList.contains('modal-open')
+        && !document.body.classList.contains('modal-open');
+    });
     const unlocked = await page.evaluate(() => !document.documentElement.classList.contains('modal-open') && !document.body.classList.contains('modal-open'));
     assert.equal(unlocked, true, `${viewport.name}/details: background remained locked after closing`);
 
