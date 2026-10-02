@@ -1,0 +1,43 @@
+name: Device identification
+description: Help AuraLAN recognize a device from defensible local evidence
+title: "[Identity] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AuraLAN does not identify exact models from a MAC prefix alone. Useful changes need reproducible local evidence such as service types, advertised model/family data, standards-based categories or other defensible signals.
+  - type: input
+    id: device
+    attributes:
+      label: Device family
+      placeholder: "Example: streaming box / access point / robot vacuum"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What AuraLAN currently shows
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Local evidence
+      description: List the mDNS/DNS-SD, SSDP, HomeKit/Matter, vendor or other local evidence that supports the identification. Redact private identifiers where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected conservative identity
+      description: Prefer a device family/category unless the local evidence genuinely supports a model.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed secrets and unnecessary private LAN identifiers.
+          required: true
