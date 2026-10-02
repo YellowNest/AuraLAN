@@ -212,9 +212,14 @@ function renderIdentityEvidence(device) {
 function devicePresentation(device) {
   const rawCategory = device.category || device.device_type || 'unknown';
   const iconKey = deviceIconKey(device);
-  const category = rawCategory === 'unknown'
-    ? (iconKey === 'apple_tv' ? categoryLabel('tv') : '')
-    : categoryLabel(rawCategory);
+  const productKind = {
+    apple_tv: categoryLabel('tv'),
+    vr_headset: t('deviceKindVrHeadset'),
+    vacuum: t('deviceKindRobotVacuum'),
+    garage: t('deviceKindGarageDoor'),
+    heat_pump: t('deviceKindHeatPump'),
+  }[iconKey] || '';
+  const category = productKind || (rawCategory === 'unknown' ? '' : categoryLabel(rawCategory));
   const uplinkInterface = state.data?.network?.uplink?.interface || null;
   const defaultGateway = state.data?.network?.uplink?.gateway || null;
   const isDefaultGateway = Boolean(
@@ -298,12 +303,11 @@ function renderDeviceRows(items, compact = false) {
     const ip = safe(device.ip, '—');
     const location = String(device.metadata?.location || '').trim();
     const identityContext = presentation.context;
-    const mobileContext = location || identityContext;
-    const mobileTechnical = [
+    const mobileDetails = [
       ip !== '—' ? `<span class="device-mobile-ip">${escapeHtml(ip)}</span>` : '',
-      `<span class="device-mobile-connection">${escapeHtml(presentation.connection)}</span>`,
+      location ? `<span class="device-mobile-location">${escapeHtml(location)}</span>` : '',
     ].filter(Boolean).join('');
-    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileTechnical}</em>${mobileContext ? `<small class="device-mobile-context">${escapeHtml(mobileContext)}</small>` : ''}</span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
+    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
 }
 function renderActivityRows(items) {
