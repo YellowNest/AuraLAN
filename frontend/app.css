@@ -2724,6 +2724,10 @@ h2 {
   background:var(--surface-muted);
   box-shadow:inset 0 0 0 1px var(--line);
 }
+.topology-device-symbol {
+  background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line);
+}
 .device-status i {
   box-shadow:none;
 }
