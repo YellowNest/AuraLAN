@@ -42,6 +42,7 @@ const state = {
     forget_remembered_devices: false,
     network_baseline: false,
     device_probe: false,
+    device_service_scan: false,
     wake_on_lan: false,
   },
   mode: 'read-only'
@@ -698,6 +699,112 @@ async function probeDevice(deviceId, button) {
   }
 }
 
+function servicePortChips(items, tone = '') {
+  const ports = Array.isArray(items) ? items : [];
+  if (!ports.length) return '';
+  return `<div class="service-port-list ${escapeHtml(tone)}">${ports.map((item) => `<span class="service-port-chip"><strong>${escapeHtml(item.port)}</strong><span>${escapeHtml(item.service || 'TCP')}</span></span>`).join('')}</div>`;
+}
+
+function serviceScanDiff(current, previous = null) {
+  if (Array.isArray(current?.newly_open) && Array.isArray(current?.no_longer_open)) {
+    return {
+      newlyOpen: current.newly_open,
+      noLongerOpen: current.no_longer_open,
+      changed: Boolean(current.changed),
+      hasPrevious: current.previous_checked_at !== null && current.previous_checked_at !== undefined,
+    };
+  }
+
+  if (!previous) {
+    return { newlyOpen: [], noLongerOpen: [], changed: false, hasPrevious: false };
+  }
+
+  const previousByPort = new Map((previous.open_ports || []).map((item) => [Number(item.port), item]));
+  const currentByPort = new Map((current.open_ports || []).map((item) => [Number(item.port), item]));
+  const newlyOpen = [...currentByPort.entries()]
+    .filter(([port]) => !previousByPort.has(port))
+    .map(([, item]) => item);
+  const noLongerOpen = [...previousByPort.entries()]
+    .filter(([port]) => !currentByPort.has(port))
+    .map(([, item]) => item);
+
+  return {
+    newlyOpen,
+    noLongerOpen,
+    changed: Boolean(newlyOpen.length || noLongerOpen.length),
+    hasPrevious: true,
+  };
+}
+
+function renderServiceExposureSnapshot(current, previous = null) {
+  const openPorts = Array.isArray(current?.open_ports) ? current.open_ports : [];
+  const diff = serviceScanDiff(current, previous);
+  const when = formatTimestamp(current?.checked_at);
+  const datetime = current?.checked_at ? new Date(Number(current.checked_at) * 1000).toISOString() : '';
+
+  const openMarkup = openPorts.length
+    ? `<div class="service-scan-group"><span>${escapeHtml(t('serviceScanOpen'))}</span>${servicePortChips(openPorts)}</div>`
+    : `<p class="service-scan-note">${escapeHtml(t('serviceScanNoOpen'))}</p>`;
+
+  let diffMarkup;
+  if (!diff.hasPrevious) {
+    diffMarkup = `<div class="service-scan-diff neutral">${icon('info')}<span>${escapeHtml(t('serviceScanFirst'))}</span></div>`;
+  } else if (!diff.changed) {
+    diffMarkup = `<div class="service-scan-diff good">${icon('success')}<span>${escapeHtml(t('serviceScanNoChange'))}</span></div>`;
+  } else {
+    diffMarkup = `<div class="service-scan-diff changed">${icon('warning')}<span>${escapeHtml(t('serviceScanChanged'))}</span></div>
+      ${diff.newlyOpen.length ? `<div class="service-scan-change"><span>${escapeHtml(t('serviceScanNew'))}</span>${servicePortChips(diff.newlyOpen, 'new')}</div>` : ''}
+      ${diff.noLongerOpen.length ? `<div class="service-scan-change"><span>${escapeHtml(t('serviceScanClosed'))}</span>${servicePortChips(diff.noLongerOpen, 'closed')}</div>` : ''}`;
+  }
+
+  return `<div class="service-scan-panel">
+    <div class="service-scan-head"><strong>${escapeHtml(current?.ip || '—')}</strong><time datetime="${escapeHtml(datetime)}">${escapeHtml(t('serviceScanLast', { time: when }))}</time></div>
+    ${openMarkup}
+    ${diffMarkup}
+  </div>`;
+}
+
+async function loadDeviceServiceExposure(deviceId) {
+  const target = $('#device-service-exposure');
+  if (!target || target.dataset.deviceId !== deviceId) return;
+
+  try {
+    const response = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/services?limit=2`, 5000);
+    const current = $('#device-service-exposure');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    const items = Array.isArray(response.items) ? response.items : [];
+    current.innerHTML = items.length
+      ? renderServiceExposureSnapshot(items[0], items[1] || null)
+      : `<div class="service-scan-empty">${escapeHtml(t('serviceScanNever'))}</div>`;
+  } catch {
+    const current = $('#device-service-exposure');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = `<div class="service-scan-empty">${escapeHtml(t('serviceScanUnavailable'))}</div>`;
+  }
+}
+
+async function scanDeviceServices(deviceId, button) {
+  const target = $('#device-service-exposure');
+  if (!target) return;
+
+  button.disabled = true;
+  target.innerHTML = `<div class="service-scan-empty">${escapeHtml(t('serviceScanChecking'))}</div>`;
+
+  try {
+    const scan = await fetchJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/services/scan`, 8000, { method: 'POST' });
+    const current = $('#device-service-exposure');
+    if (!current || current.dataset.deviceId !== deviceId) return;
+    current.innerHTML = renderServiceExposureSnapshot(scan);
+  } catch {
+    const current = $('#device-service-exposure');
+    if (current && current.dataset.deviceId === deviceId) {
+      current.innerHTML = `<div class="service-scan-empty">${escapeHtml(t('serviceScanFailed'))}</div>`;
+    }
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function captureNetworkBaseline() {
   const baseline = state.data?.baseline || {};
   const prompt = baseline.configured ? t('replaceBaselineConfirm') : t('createBaselineConfirm');
@@ -943,6 +1050,11 @@ function showDevice(id) {
     state.capabilities.device_probe
     && [...(device.ip_addresses || []), device.ip].some((value) => value && value !== '—')
   );
+  const serviceScanAvailable = Boolean(
+    state.capabilities.device_service_scan
+    && device.state !== 'known'
+    && [...(device.ip_addresses || []), device.ip].some((value) => value && value !== '—')
+  );
   const wakeAvailable = Boolean(
     state.capabilities.wake_on_lan
     && device.online !== true
@@ -964,6 +1076,7 @@ function showDevice(id) {
     `<p class="inspector-summary">${escapeHtml(summary)}</p>
       <div class="detail-section"><h3>${t('networkDetails')}</h3><div class="detail-list">${networkRows}</div></div>
       <div class="detail-section"><h3>${t('identity')}</h3><div class="detail-list">${identityRows}</div>${renderIdentityEvidence(device)}</div>
+      ${state.capabilities.device_service_scan ? `<div class="detail-section service-exposure-section"><div class="service-exposure-heading"><h3>${t('serviceExposure')}</h3>${serviceScanAvailable ? `<button class="secondary-button service-scan-button" type="button" data-scan-device-services="${escapeHtml(device.id)}">${icon('network')}${t('checkServices')}</button>` : ''}</div><p class="action-hint">${escapeHtml(t('serviceExposureHint'))}</p><div id="device-service-exposure" data-device-id="${escapeHtml(device.id)}"><div class="service-scan-empty">${escapeHtml(t('serviceScanLoading'))}</div></div></div>` : ''}
       ${state.capabilities.device_presence_history ? `<div class="detail-section presence-history-section"><h3>${t('presenceHistory')}</h3><p class="action-hint">${escapeHtml(t('presenceHistoryHint'))}</p><div id="device-presence-history" data-device-id="${escapeHtml(device.id)}"><div class="presence-history-empty">${escapeHtml(t('loadingPresenceHistory'))}</div></div></div>` : ''}
       ${(probeAvailable || wakeAvailable) ? `<div class="detail-section device-actions"><h3>${t('actions')}</h3><div class="device-action-row">${probeAvailable ? `<button class="secondary-button wake-button" type="button" data-probe-device="${escapeHtml(device.id)}">${icon('network')}${t('checkReachability')}</button>` : ''}${wakeAvailable ? `<button class="secondary-button wake-button" type="button" data-wake-device="${escapeHtml(device.id)}">${icon('power')}${t('wakeDevice')}</button>` : ''}</div>${probeAvailable ? `<p class="action-hint">${escapeHtml(t('checkReachabilityHint'))}</p><div class="probe-result" id="device-probe-result" aria-live="polite" hidden></div>` : ''}${wakeAvailable ? `<p class="action-hint">${escapeHtml(t('wakeDeviceHint'))}</p>` : ''}</div>` : ''}
       ${forgetAvailable ? `<div class="detail-section device-actions danger-zone"><h3>${t('forgetDevice')}</h3><button class="secondary-button danger-button" type="button" data-forget-device="${escapeHtml(device.id)}" data-forget-name="${escapeHtml(presentation.name)}">${icon('trash')}${t('forgetDevice')}</button><p class="action-hint">${escapeHtml(t('forgetDeviceHint'))}</p></div>` : ''}
@@ -979,6 +1092,9 @@ function showDevice(id) {
     deviceIconKey(device),
   );
 
+  if (state.capabilities.device_service_scan) {
+    loadDeviceServiceExposure(device.id);
+  }
   if (state.capabilities.device_presence_history) {
     loadDevicePresenceHistory(device.id);
   }
@@ -1099,6 +1215,7 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-capture-baseline]')) captureNetworkBaseline();
   if (trigger.matches('[data-clear-baseline]')) clearNetworkBaseline();
   if (trigger.matches('[data-probe-device]')) probeDevice(trigger.dataset.probeDevice, trigger);
+  if (trigger.matches('[data-scan-device-services]')) scanDeviceServices(trigger.dataset.scanDeviceServices, trigger);
   if (trigger.matches('[data-wake-device]')) wakeDevice(trigger.dataset.wakeDevice);
   if (trigger.matches('[data-forget-device]')) forgetRememberedDevice(trigger.dataset.forgetDevice, trigger.dataset.forgetName);
   if (trigger.matches('[data-open-inventory-export]')) openInventoryExport();
