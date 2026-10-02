@@ -8,7 +8,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Changed
 
-- Device lists now use progressive disclosure instead of compressing MAC, room and manufacturer into one line: the default mobile hierarchy is name → IP/connection → one room-or-vendor context line, while wide desktop gets a dedicated Location column. MAC remains searchable and available in device details rather than competing with the IP address in the primary list.
+- Device lists now use a stable human-first hierarchy instead of compressing or repeating metadata: mobile shows name → concise manufacturer/type → IP plus optional location, while wide desktop keeps dedicated IP, Location, Connection and Status columns. MAC remains searchable and available in device details rather than competing with the IP address in the primary list.
 
 ### Added
 
@@ -18,6 +18,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Fixed
 
+- Mobile device rows no longer repeat manufacturer/type as a fake fallback location when no room is assigned, and product-specific icons now get matching human labels such as VR headset, robot vacuum, garage door and heat pump.
 - The Network Baseline overview card now uses the same rounded surface geometry and subtle border treatment as the surrounding AuraLAN cards instead of appearing as a sharp rectangular panel.
 
 - Background monitoring now reuses a just-completed cached snapshot instead of forcing an identical back-to-back full discovery pass when dashboard/API polling happens at the same time, removing avoidable CPU and subprocess bursts.
