@@ -22,6 +22,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Fixed
 
+- Legacy device-row selectors no longer override the intended mobile device context and IP/location typography, keeping Overview and Devices visually consistent.
 - Responsive UI sanity checks now validate the visible mobile manufacturer/type context correctly instead of containing contradictory hidden/visible assertions.
 - Mobile device rows no longer repeat manufacturer/type as a fake fallback location when no room is assigned, and product-specific icons now get matching human labels such as VR headset, robot vacuum, garage door and heat pump.
 - The Network Baseline overview card now uses the same rounded surface geometry and subtle border treatment as the surrounding AuraLAN cards instead of appearing as a sharp rectangular panel.

@@ -183,10 +183,10 @@ p { margin: 0; }
 .device-symbol { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px; background: var(--surface-muted); color: var(--accent); }
 .device-symbol .icon { width: 21px; height: 21px; }
 .device-name, .device-meta { min-width: 0; }
-.device-name strong, .device-name small, .device-name em, .device-meta strong, .device-meta small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-name strong, .device-list-context, .device-mobile-meta, .device-meta strong, .device-meta small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-name strong { font-size: 13px; }
-.device-name small, .device-meta small { margin-top: 3px; color: var(--text-faint); font-size: 10px; }
-.device-name em { display: none; margin-top: 3px; color: var(--text-soft); font-size: 10px; font-style: normal; }
+.device-list-context, .device-meta small { margin-top: 3px; color: var(--text-faint); font-size: 10px; }
+.device-mobile-meta { display: none; margin-top: 3px; color: var(--text-soft); font-size: 10px; font-style: normal; }
 .device-meta strong { color: var(--text-soft); font-size: 12px; font-weight: 650; }
 .device-status { display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: 10px; font-weight: 700; }
 .device-status i { width: 7px; height: 7px; flex: 0 0 7px; aspect-ratio: 1; border-radius: 50%; background: var(--text-faint); }
@@ -443,7 +443,7 @@ h2{font-weight:735;letter-spacing:-.042em}h3{font-weight:720;letter-spacing:-.02
 .device-symbol .icon-vacuum,.device-symbol .icon-vr_headset{width:23.5px;height:23.5px}
 .inspector-icon .icon-apple_tv{width:35px;height:35px}
 .inspector-icon .icon-vacuum,.inspector-icon .icon-vr_headset{width:30px;height:30px}
-.device-name strong{font-size:13.5px;font-weight:740}.device-name small{color:var(--text-soft)}.device-name em{color:var(--text-faint)}
+.device-name strong{font-size:13.5px;font-weight:740}.device-list-context{color:var(--text-soft)}.device-mobile-meta{color:var(--text-faint)}
 .unidentified-callout{border-color:color-mix(in srgb,var(--attention) 11%,var(--line));background:linear-gradient(90deg,color-mix(in srgb,var(--attention) 5%,var(--surface)),var(--surface))}
 .unidentified-callout>.icon:first-child{background:var(--surface-muted);color:var(--text-faint)}
 .unidentified-callout.active{border-color:color-mix(in srgb,var(--accent) 24%,var(--line));background:linear-gradient(90deg,var(--accent-wash),var(--surface))}
