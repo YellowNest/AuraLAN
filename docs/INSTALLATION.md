@@ -122,7 +122,7 @@ sudo AURALAN_HEALTH_URL=http://HOST-IP:PORT/api/v1/health ./scripts/upgrade.sh
 
 Development versions containing a `-dev` suffix are rejected by default. Maintainers can opt into an intentional test upgrade with `AURALAN_ALLOW_DEV_UPGRADE=1`.
 
-`scripts/deploy-local.sh` is intentionally different: it is a maintainer helper for a service that runs directly from the same Git checkout. It now refuses to restart a service whose working directory points somewhere else, so a canonical `/opt/auralan` installation cannot be mistaken for a checkout-backed development deployment.
+`scripts/deploy-local.sh` is intentionally different: it is a maintainer helper for a service that runs directly from the same Git checkout. It refuses to restart a service whose working directory points somewhere else, creates a consistent pre-deploy SQLite backup, checks the target code against a copy of current state before activation, and restores both the previous commit and database if restart or health verification fails. A canonical `/opt/auralan` installation therefore cannot be mistaken for a checkout-backed development deployment.
 
 ## Access from other devices
 
