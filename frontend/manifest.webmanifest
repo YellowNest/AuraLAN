@@ -4,8 +4,8 @@
   "description": "Local-first network visibility for Linux and Raspberry Pi.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0B1220",
-  "theme_color": "#3B82F6",
+  "background_color": "#0E1117",
+  "theme_color": "#6258D7",
   "icons": [
     {
       "src": "/assets/assets/icons/favicon.svg",
