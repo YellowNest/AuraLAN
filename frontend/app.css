@@ -849,11 +849,15 @@ body.modal-open{
 .device-symbol{
   width:40px;
   height:40px;
+  position:relative;
   border-radius:12px;
 }
 .device-symbol .icon{
   width:21px;
   height:21px;
+}
+.device-symbol-status{
+  display:none;
 }
 .device-name{
   min-width:0;
@@ -1644,7 +1648,7 @@ textarea{
   .device-list.compact .device-row{
     min-height:82px;
     padding:9px 10px;
-    grid-template-columns:40px minmax(0,1fr) 24px;
+    grid-template-columns:40px minmax(0,1fr) 18px;
     gap:10px;
   }
   .device-symbol{
@@ -1655,6 +1659,27 @@ textarea{
   .device-symbol .icon{
     width:21px;
     height:21px;
+  }
+  .device-symbol-status{
+    width:10px;
+    height:10px;
+    position:absolute;
+    right:-1px;
+    bottom:-1px;
+    display:block;
+    border:2px solid var(--surface);
+    border-radius:50%;
+    background:var(--text-faint);
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--line) 88%,transparent);
+  }
+  .device-symbol-status.online{
+    background:var(--good);
+  }
+  .device-symbol-status.offline{
+    background:var(--danger);
+  }
+  .device-symbol-status.recently_seen{
+    background:var(--attention);
   }
   .device-name{
     align-self:center;
@@ -1682,7 +1707,7 @@ textarea{
     display:none;
   }
   .device-status{
-    width:24px;
+    width:18px;
     align-self:center;
     justify-self:end;
     justify-content:flex-end;
@@ -1693,13 +1718,11 @@ textarea{
     display:none;
   }
   .device-status i{
-    width:7px;
-    height:7px;
-    flex-basis:7px;
+    display:none;
   }
   .device-status>.icon{
-    width:14px;
-    height:14px;
+    width:15px;
+    height:15px;
     margin-left:0;
   }
 

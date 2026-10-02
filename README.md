@@ -231,7 +231,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN is an actively developed public pre-1.0 project. The main branch carries the 0.8 code line, including Network Baseline, local Identity Intelligence, persistent inventory, Home Assistant integration, presence history, Wake-on-LAN, and on-demand device reachability checks. The API is intentionally small and may still evolve before 1.0.
+AuraLAN is an actively developed public pre-1.0 project. The stable `main` branch carries the 0.8 code line, while `dev` is the 0.9.0-dev integration line for current work. The project includes Network Baseline, local Identity Intelligence, persistent inventory, Home Assistant integration, presence history, Wake-on-LAN, on-demand device reachability checks and local Service Exposure snapshots. The API is intentionally small and may still evolve before 1.0.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
