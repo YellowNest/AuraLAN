@@ -23,6 +23,7 @@ class NetworkBaselineTests(unittest.TestCase):
                 device("a", ["02:00:00:00:00:01"], name="Current"),
                 device("b", ["02:00:00:00:00:02"], state="known", name="Remembered"),
             ])
+            events = store.recent_events()
 
         self.assertTrue(status["configured"])
         self.assertEqual(status["device_count"], 1)
@@ -30,7 +31,6 @@ class NetworkBaselineTests(unittest.TestCase):
         self.assertEqual(status["new_count"], 0)
         self.assertEqual(status["missing_count"], 0)
 
-        events = store.recent_events()
         self.assertEqual(events[0]["event_type"], "baseline_captured")
         self.assertEqual(events[0]["entity_id"], "network")
         self.assertEqual(events[0]["details"]["device_count"], 1)
@@ -75,11 +75,11 @@ class NetworkBaselineTests(unittest.TestCase):
             store.capture_baseline(records)
             store.clear_baseline()
             status = store.baseline_status(records)
+            events = store.recent_events()
 
         self.assertFalse(status["configured"])
         self.assertEqual(status["device_count"], 0)
 
-        events = store.recent_events()
         self.assertEqual([event["event_type"] for event in events[:2]], ["baseline_cleared", "baseline_captured"])
         self.assertEqual(events[0]["details"]["device_count"], 1)
 
