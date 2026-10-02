@@ -2,9 +2,11 @@
 
 All notable user-facing changes to AuraLAN are tracked here.
 
-AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions may still contain compatibility changes. The canonical version lives in `project.json`; a `-dev` suffix means the version is still under development.
+AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still contain compatibility changes. The canonical version lives in `project.json`; a `-dev` suffix means the version is still under development.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-10-02
 
 ### Changed
 
