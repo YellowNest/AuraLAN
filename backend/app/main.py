@@ -392,6 +392,7 @@ def scan_device_service_exposure(device_id: str) -> dict:
             scan["ip"],
             scan["open_ports"],
             checked_at=scan["checked_at"],
+            display_name=str(current.get("display_name") or "").strip() or None,
         )
     except (OSError, sqlite3.Error, ValueError) as exc:
         raise HTTPException(status_code=503, detail="AuraLAN service-scan history is unavailable") from exc
