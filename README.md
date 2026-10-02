@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 0.8.0" src="https://img.shields.io/badge/release-0.8.0-2563EB">
+  <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -234,7 +234,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN is an actively developed public pre-1.0 project. The stable `main` branch carries the 0.8 code line, while `dev` is the 0.9.0-dev integration line for current work. The project includes Network Baseline, local Identity Intelligence, persistent inventory, Home Assistant integration, presence history, Wake-on-LAN, on-demand device reachability checks and local Service Exposure snapshots. The API is intentionally small and may still evolve before 1.0.
+AuraLAN 1.0.0 is the first stable release line. `main` is kept release-ready, while `dev` remains the integration branch for post-1.0 work. The 1.0 product includes Activity Center, Network Baseline, local Identity Intelligence, persistent inventory and presence history, Home Assistant integration, Wake-on-LAN, on-demand reachability checks and local Service Exposure snapshots. The v1 API remains intentionally small and local-first.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
