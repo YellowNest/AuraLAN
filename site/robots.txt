@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://yellownest.github.io/AuraLAN/sitemap.xml
