@@ -1064,9 +1064,6 @@ body.modal-open{
   .device-name strong{
     font-size:14px;
   }
-  .device-list-context{
-    font-size:11px;
-  }
 }
 
 /* Human-first overview pass. */

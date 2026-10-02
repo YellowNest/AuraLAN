@@ -22,6 +22,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Fixed
 
+- Device identity context now keeps the same readable size in compact landscape layouts instead of shrinking below the shared device-list typography floor.
 - Closing command and inspector dialogs now releases the page scroll lock synchronously, avoiding viewport-specific races where the sheet closed before the background unlocked.
 - Legacy device-row selectors no longer override the intended mobile device context and IP/location typography, keeping Overview and Devices visually consistent.
 - Responsive UI sanity checks now validate the visible mobile manufacturer/type context correctly instead of containing contradictory hidden/visible assertions.
