@@ -279,11 +279,19 @@ class PresenceHistoryResponse(BaseModel):
 
 class ActivityEventResponse(BaseModel):
     id: int
-    event_type: Literal["device_first_seen", "favorite_not_seen", "favorite_seen_again"]
+    event_type: Literal[
+        "device_first_seen",
+        "favorite_not_seen",
+        "favorite_seen_again",
+        "service_exposure_changed",
+        "baseline_captured",
+        "baseline_cleared",
+    ]
     entity_id: str
     display_name: str | None = None
     ip: str | None = None
     mac: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
     created_at: int
 
 

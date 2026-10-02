@@ -15,7 +15,7 @@ const viewports = [
   { name: 'desktop', width: 1440, height: 900, dark: true },
 ];
 
-const routes = ['overview', 'network', 'devices', 'services', 'settings'];
+const routes = ['overview', 'network', 'devices', 'activity', 'services', 'settings'];
 
 async function openRoute(page, route) {
   const currentUrl = page.url();
@@ -114,7 +114,7 @@ try {
       }
       if (route === 'overview') assert.equal(report.hasOrbit, false, `${viewport.name}: retired network orbit rendered`);
       if (report.mobile) {
-        assert.equal(report.navButtons, 5, `${viewport.name}/${route}: mobile nav is incomplete`);
+        assert.equal(report.navButtons, 6, `${viewport.name}/${route}: mobile nav is incomplete`);
         assert.match(report.viewportMeta, /maximum-scale=1/, `${viewport.name}: viewport scale is not locked`);
         assert.match(report.viewportMeta, /user-scalable=no/, `${viewport.name}: user scaling is not disabled`);
         assert.ok(report.liveText.length > 0, `${viewport.name}/${route}: connection status has no text`);
@@ -131,6 +131,23 @@ try {
         await page.screenshot({ path: `${screenshotDir}/${viewport.name}-${viewport.dark ? 'dark' : 'light'}-${route}.png`, fullPage: false });
       }
     }
+
+    await openRoute(page, 'activity');
+    const activityReport = await page.evaluate(() => ({
+      hasOverview: Boolean(document.querySelector('.activity-overview')),
+      metricCount: document.querySelectorAll('.activity-metrics > div').length,
+      filterCount: document.querySelectorAll('.activity-filter-row [data-activity-filter]').length,
+      hasTimeline: Boolean(document.querySelector('.activity-center-list')),
+      timelineOverflow: (() => {
+        const node = document.querySelector('.activity-center-list');
+        return node ? node.scrollWidth > node.clientWidth + 1 : false;
+      })(),
+    }));
+    assert.equal(activityReport.hasOverview, true, `${viewport.name}/activity: overview summary is missing`);
+    assert.equal(activityReport.metricCount, 4, `${viewport.name}/activity: summary metrics are incomplete`);
+    assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
+    assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
+    assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
 
     await openRoute(page, 'overview');
     const compactDeviceReport = await page.evaluate(() => {

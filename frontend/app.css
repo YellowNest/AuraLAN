@@ -207,6 +207,103 @@ p { margin: 0; }
 .activity-history-list { margin-top: 18px; border: 1px solid var(--line); }
 .activity-empty { min-height: 180px; }
 
+.activity-overview{
+  margin-bottom:14px;
+  padding:20px;
+  display:grid;
+  gap:18px;
+  border-radius:var(--radius-md);
+}
+.activity-overview-copy{
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr);
+  align-items:start;
+  gap:14px;
+}
+.activity-overview-icon{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  background:var(--accent-soft);
+  color:var(--accent);
+}
+.activity-overview-icon .icon{
+  width:24px;
+  height:24px;
+}
+.activity-overview-copy h2{
+  margin-top:2px;
+  font-size:22px;
+  letter-spacing:-.025em;
+}
+.activity-overview-copy p:last-child{
+  max-width:720px;
+  margin-top:6px;
+  color:var(--text-soft);
+  font-size:12.5px;
+  line-height:1.5;
+}
+.activity-metrics{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.activity-metrics>div{
+  min-width:0;
+  padding:12px 13px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--surface-muted);
+}
+.activity-metrics strong,
+.activity-metrics span{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.activity-metrics strong{
+  color:var(--text);
+  font-size:21px;
+  line-height:1;
+  letter-spacing:-.035em;
+}
+.activity-metrics span{
+  margin-top:5px;
+  color:var(--text-faint);
+  font-size:10.5px;
+  font-weight:650;
+}
+.activity-toolbar{
+  margin-bottom:12px;
+  padding:11px 12px;
+  border-radius:var(--radius-md);
+}
+.activity-filter-row .filter-chip b{
+  margin-left:4px;
+  color:inherit;
+  font-size:10px;
+}
+.activity-center-list{
+  border-radius:var(--radius-md);
+}
+.event-favorite_not_seen .discovery-symbol,
+.event-service_exposure_changed .discovery-symbol{
+  background:var(--attention-soft);
+  color:var(--attention);
+}
+.event-favorite_seen_again .discovery-symbol,
+.event-baseline_captured .discovery-symbol{
+  background:var(--good-soft);
+  color:var(--good);
+}
+.event-baseline_cleared .discovery-symbol{
+  background:var(--surface-muted);
+  color:var(--text-soft);
+}
+
 .unidentified-callout { width: 100%; min-height: 64px; margin: 0 0 13px; padding: 11px 15px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow-sm); }.unidentified-callout > .icon:first-child { width: 32px; height: 32px; padding: 7px; border-radius: 10px; background: var(--attention-soft); color: var(--attention); }.unidentified-callout strong, .unidentified-callout small { display: block; }.unidentified-callout strong { font-size: 12px; }.unidentified-callout small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }.unidentified-callout > .icon:last-child { color: var(--text-faint); }
 .empty-state { min-height: 215px; padding: 35px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-soft); text-align: center; }
 .empty-state > .icon { width: 44px; height: 44px; padding: 10px; border-radius: 15px; background: var(--surface-muted); color: var(--text-faint); }
@@ -1726,6 +1823,84 @@ textarea{
     margin-left:0;
   }
 
+  .activity-overview,
+  .activity-toolbar,
+  .activity-center-list{
+    border-radius:var(--mobile-radius);
+  }
+  .activity-overview{
+    padding:14px;
+    gap:14px;
+  }
+  .activity-overview-copy{
+    grid-template-columns:40px minmax(0,1fr);
+    gap:11px;
+  }
+  .activity-overview-icon{
+    width:40px;
+    height:40px;
+    border-radius:12px;
+  }
+  .activity-overview-icon .icon{
+    width:20px;
+    height:20px;
+  }
+  .activity-overview-copy h2{
+    font-size:18px;
+  }
+  .activity-overview-copy p:last-child{
+    font-size:11.5px;
+    line-height:1.45;
+  }
+  .activity-metrics{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .activity-metrics>div{
+    padding:10px 11px;
+  }
+  .activity-metrics strong{
+    font-size:19px;
+  }
+  .activity-toolbar{
+    padding:9px;
+    overflow:hidden;
+  }
+  .activity-filter-row{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .activity-filter-row::-webkit-scrollbar{
+    display:none;
+  }
+  .activity-filter-row .filter-chip{
+    flex:0 0 auto;
+  }
+  .activity-row{
+    min-height:76px;
+    padding:10px;
+    grid-template-columns:36px minmax(0,1fr) 14px;
+    grid-template-rows:auto auto;
+    gap:2px 10px;
+  }
+  .activity-row .discovery-symbol{
+    grid-row:1 / span 2;
+  }
+  .activity-row .discovery-copy{
+    grid-column:2;
+    grid-row:1;
+  }
+  .activity-row time{
+    grid-column:2;
+    grid-row:2;
+    justify-self:start;
+  }
+  .activity-row>.icon:last-child{
+    grid-column:3;
+    grid-row:1 / span 2;
+    align-self:center;
+  }
+
   .host-panel{
     margin-top:26px;
     padding:14px;
@@ -1949,7 +2124,7 @@ textarea{
     min-height:calc(62px + env(safe-area-inset-bottom));
     padding:5px 6px max(6px,env(safe-area-inset-bottom));
     display:grid;
-    grid-template-columns:repeat(5,minmax(0,1fr));
+    grid-template-columns:repeat(6,minmax(0,1fr));
     border-top:1px solid var(--line);
     border-right:0;
     border-bottom:0;

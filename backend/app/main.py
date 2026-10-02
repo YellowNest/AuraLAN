@@ -84,6 +84,16 @@ def _baseline_status(snapshot: dict | None = None) -> dict:
         }
 
 
+def _activity_status(snapshot: dict | None = None, limit: int = 50) -> list[dict]:
+    """Read activity outside the discovery cache so user actions appear immediately."""
+    try:
+        return store().recent_events(limit)
+    except (OSError, sqlite3.Error, ValueError, TypeError):
+        current = snapshot or {}
+        activity = current.get("activity")
+        return activity if isinstance(activity, list) else []
+
+
 def _notification_status() -> dict:
     try:
         return webhook_notifier.status()
@@ -167,6 +177,7 @@ def status() -> dict:
         **snapshot,
         "version": metadata["version"],
         "api_version": metadata["apiVersion"],
+        "activity": _activity_status(snapshot),
         "monitor": background_monitor.status(),
         "notifications": _notification_status(),
         "baseline": _baseline_status(snapshot),
@@ -392,6 +403,7 @@ def scan_device_service_exposure(device_id: str) -> dict:
             scan["ip"],
             scan["open_ports"],
             checked_at=scan["checked_at"],
+            display_name=str(current.get("display_name") or "").strip() or None,
         )
     except (OSError, sqlite3.Error, ValueError) as exc:
         raise HTTPException(status_code=503, detail="AuraLAN service-scan history is unavailable") from exc

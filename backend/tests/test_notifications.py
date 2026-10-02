@@ -92,6 +92,28 @@ class WebhookNotificationTests(unittest.TestCase):
             self.assertEqual(event_store.notification_cursor("webhook"), third_id)
             self.assertEqual(notifier.status()["pending_events"], 0)
 
+    def test_non_notification_activity_does_not_enter_webhook_queue(self):
+        with TemporaryDirectory() as temp_dir:
+            event_store = DeviceStore(Path(temp_dir))
+            first_id = add_first_seen(event_store, "001122334455", "192.0.2.10")
+            event_store.set_notification_cursor("webhook", first_id)
+
+            event_store.capture_baseline([
+                {
+                    "id": "001122334455",
+                    "display_name": "Sample device",
+                    "state": "online",
+                    "mac": "00:11:22:33:44:55",
+                    "mac_addresses": ["00:11:22:33:44:55"],
+                }
+            ])
+
+            notifier = WebhookNotifier(event_store, url="http://example.invalid/hook")
+            self.assertEqual(notifier.status()["pending_events"], 0)
+            with patch.object(notifier, "_post") as post:
+                self.assertEqual(notifier.dispatch_pending(), 0)
+                post.assert_not_called()
+
     def test_default_payload_omits_network_identifiers(self):
         with TemporaryDirectory() as temp_dir:
             notifier = WebhookNotifier(

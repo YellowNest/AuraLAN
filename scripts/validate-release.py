@@ -167,6 +167,23 @@ else:
 if "network-orbit" in app_source or "network-orbit" in css_source:
     fail("retired decorative network-orbit UI returned")
 
+if "renderActivity" not in app_source or "activity-center-list" not in app_source:
+    fail("frontend is missing the first-class Activity Center")
+if "['activity', 'uptime']" not in app_source:
+    fail("Activity Center is missing from primary navigation")
+if ".activity-overview" not in css_source or ".activity-filter-row" not in css_source:
+    fail("Activity Center responsive styling is missing")
+if "grid-template-columns:repeat(6,minmax(0,1fr))" not in css_source:
+    fail("mobile navigation does not reserve a slot for all six primary views")
+if index_source.count("<span>Activity</span>") != 2:
+    fail("static desktop/mobile navigation must expose Activity before JavaScript boot")
+
+device_store_source = read(ROOT / "backend/app/persistence/device_store.py")
+if "service_exposure_changed" not in device_store_source or "baseline_captured" not in device_store_source:
+    fail("persistent Activity Center event sources are incomplete")
+if "NOTIFICATION_EVENT_TYPES" not in device_store_source:
+    fail("richer local activity must remain explicitly separated from webhook event delivery")
+
 if "@media(max-width:760px)" not in css_source:
     fail("frontend/app.css is missing the primary mobile layout breakpoint")
 if css_source.count("@media(max-width:760px){") != 1:

@@ -23,12 +23,17 @@ class NetworkBaselineTests(unittest.TestCase):
                 device("a", ["02:00:00:00:00:01"], name="Current"),
                 device("b", ["02:00:00:00:00:02"], state="known", name="Remembered"),
             ])
+            events = store.recent_events()
 
         self.assertTrue(status["configured"])
         self.assertEqual(status["device_count"], 1)
         self.assertEqual(status["current_count"], 1)
         self.assertEqual(status["new_count"], 0)
         self.assertEqual(status["missing_count"], 0)
+
+        self.assertEqual(events[0]["event_type"], "baseline_captured")
+        self.assertEqual(events[0]["entity_id"], "network")
+        self.assertEqual(events[0]["details"]["device_count"], 1)
 
     def test_baseline_matches_any_known_mac_for_multi_interface_device(self):
         with TemporaryDirectory() as directory:
@@ -70,9 +75,13 @@ class NetworkBaselineTests(unittest.TestCase):
             store.capture_baseline(records)
             store.clear_baseline()
             status = store.baseline_status(records)
+            events = store.recent_events()
 
         self.assertFalse(status["configured"])
         self.assertEqual(status["device_count"], 0)
+
+        self.assertEqual([event["event_type"] for event in events[:2]], ["baseline_cleared", "baseline_captured"])
+        self.assertEqual(events[0]["details"]["device_count"], 1)
 
 
 if __name__ == "__main__":
