@@ -10,11 +10,11 @@ const appView = $('#app-view');
 const commandDialog = $('#command-dialog');
 const inspectorDialog = $('#inspector-dialog');
 const navItems = [
-  ['overview', 'overview'], ['network', 'network'], ['devices', 'devices'], ['services', 'services'], ['settings', 'settings']
+  ['overview', 'overview'], ['network', 'network'], ['devices', 'devices'], ['activity', 'uptime'], ['services', 'services'], ['settings', 'settings']
 ];
 const pageMeta = {
   overview: ['system', 'overview'], network: ['network', 'network'], devices: ['devices', 'devices'],
-  services: ['services', 'services'], settings: ['appearance', 'settings'], diagnostics: ['diagnostics', 'diagnostics']
+  activity: ['activity', 'activity'], services: ['services', 'services'], settings: ['appearance', 'settings'], diagnostics: ['diagnostics', 'diagnostics']
 };
 
 const state = {
@@ -29,6 +29,7 @@ const state = {
   deviceFilter: 'all',
   deviceQuery: '',
   deviceSort: localStorage.getItem('auralan.device-sort') || 'smart',
+  activityFilter: 'all',
   lastUpdated: null,
   capabilities: {
     device_aliases: false,
@@ -316,36 +317,75 @@ function renderDeviceRows(items, compact = false) {
     return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState)}<span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><span>${escapeHtml(statusLabel)}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
 }
+function activityPresentation(event) {
+  const details = event.details && typeof event.details === 'object' ? event.details : {};
+  const base = {
+    device_first_seen: { label: t('firstSeenByAuraLAN'), iconName: 'devices', group: 'devices', target: 'device' },
+    favorite_not_seen: { label: t('eventFavoriteNotSeen'), iconName: 'warning', group: 'watch', target: 'device' },
+    favorite_seen_again: { label: t('eventFavoriteSeenAgain'), iconName: 'success', group: 'watch', target: 'device' },
+    service_exposure_changed: { label: t('eventServiceExposureChanged'), iconName: 'services', group: 'services', target: 'device' },
+    baseline_captured: { label: t('eventBaselineCaptured'), iconName: 'network', group: 'baseline', target: 'overview' },
+    baseline_cleared: { label: t('eventBaselineCleared'), iconName: 'trash', group: 'baseline', target: 'overview' },
+  }[event.event_type] || { label: t('activity'), iconName: 'info', group: 'other', target: 'none' };
+
+  const detailParts = [base.label];
+  if (event.event_type === 'service_exposure_changed') {
+    const opened = Array.isArray(details.newly_open) ? details.newly_open : [];
+    const closed = Array.isArray(details.no_longer_open) ? details.no_longer_open : [];
+    if (opened.length) detailParts.push(t('activityPortsOpened', { ports: opened.join(', ') }));
+    if (closed.length) detailParts.push(t('activityPortsClosed', { ports: closed.join(', ') }));
+    if (event.ip) detailParts.push(event.ip);
+  } else if (event.event_type === 'baseline_captured' || event.event_type === 'baseline_cleared') {
+    detailParts.push(t('activityBaselineDevices', { count: Number(details.device_count || 0) }));
+  } else if (event.ip) {
+    detailParts.push(event.ip);
+  }
+
+  return {
+    ...base,
+    name: base.group === 'baseline' ? t('networkBaseline') : (event.display_name || t('networkDevice')),
+    detail: detailParts.join(' · '),
+  };
+}
+
 function renderActivityRows(items) {
   if (!items.length) {
     return `<div class="empty-state activity-empty">${icon('uptime')}<h3>${t('noActivity')}</h3><p>${t('noActivityHint')}</p></div>`;
   }
   return items.map((event) => {
-    const name = event.display_name || t('networkDevice');
-    const eventPresentation = {
-      device_first_seen: [t('firstSeenByAuraLAN'), 'devices'],
-      favorite_not_seen: [t('eventFavoriteNotSeen'), 'warning'],
-      favorite_seen_again: [t('eventFavoriteSeenAgain'), 'success'],
-    }[event.event_type] || [t('activity'), 'info'];
-    const detail = [eventPresentation[0], event.ip].filter(Boolean).join(' · ');
+    const presentation = activityPresentation(event);
     const when = formatTimestamp(event.created_at);
     const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
-    return `<button class="discovery-row event-${escapeHtml(event.event_type)}" type="button" data-device="${escapeHtml(event.entity_id)}"><span class="discovery-symbol">${icon(eventPresentation[1])}</span><span class="discovery-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${icon('chevron')}</button>`;
+    const action = presentation.target === 'device'
+      ? `data-device="${escapeHtml(event.entity_id)}"`
+      : presentation.target === 'overview'
+        ? 'data-route="overview"'
+        : '';
+    return `<button class="discovery-row activity-row event-${escapeHtml(event.event_type)}" type="button" ${action}><span class="discovery-symbol">${icon(presentation.iconName)}</span><span class="discovery-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(presentation.detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${icon('chevron')}</button>`;
   }).join('');
 }
 
-async function openActivityHistory() {
-  try {
-    const response = await fetchJson('/api/v1/activity?limit=100');
-    inspector(
-      t('activityHistory'),
-      t('activity'),
-      `<p class="inspector-summary">${escapeHtml(t('activityHistoryHint'))}</p><div class="discovery-list activity-history-list">${renderActivityRows(response.items || [])}</div>`,
-      'uptime',
-    );
-  } catch {
-    toast(t('backendUnavailable'));
-  }
+function renderActivity() {
+  const events = Array.isArray(state.data?.activity) ? state.data.activity : [];
+  const groups = events.reduce((counts, event) => {
+    const group = activityPresentation(event).group;
+    counts[group] = (counts[group] || 0) + 1;
+    return counts;
+  }, {});
+  const visible = state.activityFilter === 'all'
+    ? events
+    : events.filter((event) => activityPresentation(event).group === state.activityFilter);
+  const filters = [
+    ['all', t('activityFilterAll'), events.length],
+    ['devices', t('activityNewDevices'), groups.devices || 0],
+    ['watch', t('activityWatchChanges'), groups.watch || 0],
+    ['services', t('activityServiceChanges'), groups.services || 0],
+    ['baseline', t('activityBaselineChanges'), groups.baseline || 0],
+  ];
+
+  return `<section class="activity-overview surface"><div class="activity-overview-copy"><span class="activity-overview-icon">${icon('uptime')}</span><div><p class="eyebrow">${t('activity')}</p><h2>${t('activityCenter')}</h2><p>${t('activityCenterHint')}</p></div></div><div class="activity-metrics"><div><strong>${events.length}</strong><span>${t('activityRecentEvents')}</span></div><div><strong>${groups.devices || 0}</strong><span>${t('activityNewDevices')}</span></div><div><strong>${groups.watch || 0}</strong><span>${t('activityWatchChanges')}</span></div><div><strong>${groups.services || 0}</strong><span>${t('activityServiceChanges')}</span></div></div></section>
+  <section class="activity-toolbar surface"><div class="filter-row activity-filter-row" role="group" aria-label="${escapeHtml(t('activity'))}">${filters.map(([id, label, count]) => `<button type="button" class="filter-chip ${state.activityFilter === id ? 'active' : ''}" data-activity-filter="${id}">${escapeHtml(label)} <b>${count}</b></button>`).join('')}</div></section>
+  <section class="surface discovery-list activity-center-list">${renderActivityRows(visible)}</section>`;
 }
 
 function renderOverview() {
@@ -387,7 +427,7 @@ function renderOverview() {
   ${baselineCard}
   ${favoriteNotSeen.length ? `<button class="unidentified-callout favorite-watch-callout surface" type="button" data-route="devices" data-device-filter="favorite_missing">${icon('warning')}<span><strong>${escapeHtml(t('favoriteNotSeen', { count: favoriteNotSeen.length }))}</strong><small>${escapeHtml(t('favoriteNotSeenHint'))}</small></span>${icon('chevron')}</button>` : ''}
   ${newDevices.length ? `<button class="unidentified-callout surface" type="button" data-route="devices" data-device-filter="new">${icon('devices')}<span><strong>${newDevices.length} ${escapeHtml(t('newDevices').toLowerCase())}</strong><small>${escapeHtml(t('newDevicesHint'))}</small></span>${icon('chevron')}</button>` : ''}
-  ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-open-activity>${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
+  ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-route="activity">${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
 }
@@ -562,7 +602,7 @@ function renderView() {
     renderPageHeader();
     if (!state.data) return renderSkeleton();
     appView.removeAttribute('aria-busy');
-    const views = { overview: renderOverview, network: renderNetwork, devices: renderDevices, services: renderServices, settings: renderSettings };
+    const views = { overview: renderOverview, network: renderNetwork, devices: renderDevices, activity: renderActivity, services: renderServices, settings: renderSettings };
     appView.innerHTML = (views[state.route] || renderOverview)();
     const search = $('#device-search');
     if (search) search.addEventListener('input', (event) => { state.deviceQuery = event.target.value; renderView(); $('#device-search')?.focus(); });
@@ -1221,12 +1261,12 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-close-inspector]')) closeDialog(inspectorDialog);
   if (trigger.matches('[data-retry]')) refresh(true);
   if (trigger.matches('[data-device-filter]')) { state.deviceFilter = trigger.dataset.deviceFilter; renderView(); }
+  if (trigger.matches('[data-activity-filter]')) { state.activityFilter = trigger.dataset.activityFilter; renderView(); }
   if (trigger.matches('[data-device]')) showDevice(trigger.dataset.device);
   if (trigger.matches('[data-service]')) showService(trigger.dataset.service);
   if (trigger.matches('[data-theme]')) applyTheme(trigger.dataset.theme);
   if (trigger.matches('[data-open-diagnostics]')) loadDiagnostics(true);
   if (trigger.matches('[data-copy-diagnostics]')) copyDiagnostics();
-  if (trigger.matches('[data-open-activity]')) openActivityHistory();
   if (trigger.matches('[data-test-notification]')) sendTestNotification();
   if (trigger.matches('[data-capture-baseline]')) captureNetworkBaseline();
   if (trigger.matches('[data-clear-baseline]')) clearNetworkBaseline();
