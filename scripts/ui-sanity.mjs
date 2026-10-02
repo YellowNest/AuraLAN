@@ -221,9 +221,9 @@ try {
     }, viewport.width < 760);
 
     assert.ok(listReport.nameFontSize === null || listReport.nameFontSize >= 14, `${viewport.name}/devices: primary device name is too small`);
-    assert.ok(listReport.contextFontSize === null || listReport.contextFontSize >= 11.5, `${viewport.name}/devices: device context is too small`);
+    assert.ok(listReport.contextFontSize === null || listReport.contextFontSize >= 11.5, `${viewport.name}/devices: device context is too small (${listReport.contextFontSize}px)`);
     if (listReport.isMobile) {
-      assert.ok(listReport.mobileMetaFontSize === null || listReport.mobileMetaFontSize >= 11.5, `${viewport.name}/devices: mobile device metadata is too small`);
+      assert.ok(listReport.mobileMetaFontSize === null || listReport.mobileMetaFontSize >= 11.5, `${viewport.name}/devices: mobile device metadata is too small (${listReport.mobileMetaFontSize}px)`);
       assert.equal(listReport.headerDisplay, 'none', `${viewport.name}/devices: desktop column header leaked into mobile`);
       assert.equal(listReport.ipDisplay, 'none', `${viewport.name}/devices: desktop IP column leaked into mobile`);
       assert.equal(listReport.connectionDisplay, 'none', `${viewport.name}/devices: desktop connection column leaked into mobile`);
