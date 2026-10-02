@@ -8,6 +8,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Changed
 
+- Device presentation is now consistent across Overview, Devices and Network Map: the same icon treatment and in-icon connection-state badge are used everywhere, compact lists keep the same name/context/IP hierarchy, and duplicate trailing status dots are removed.
 - Frontend styling now uses a calmer, more consistent visual system across navigation, cards, device lists, controls, dialogs and mobile bottom navigation: fewer decorative gradients, quieter shadows, tighter geometry and clearer contrast while preserving existing information and behavior.
 - Mobile device rows now place connection state on the device icon as a compact badge, leaving the trailing affordance dedicated to opening details and recovering horizontal space on phone-sized screens.
 - Development builds after the 0.8.0 release now identify themselves as **0.9.0-dev** instead of presenting unreleased code as 0.8.0.
