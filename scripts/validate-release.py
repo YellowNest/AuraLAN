@@ -75,6 +75,12 @@ for value in (accent.get("primary"), accent.get("soft")):
 changelog_source = read(ROOT / "CHANGELOG.md")
 if "## [Unreleased]" not in changelog_source:
     fail("CHANGELOG.md must contain an Unreleased section")
+if version and "-dev" not in version and f"## [{version}] -" not in changelog_source:
+    fail(f"final version {version} is missing a dated CHANGELOG release section")
+
+license_source = read(ROOT / "LICENSE")
+if "MIT License" not in license_source or "Copyright (c) 2026 YellowNest" not in license_source:
+    fail("stable releases must retain the selected MIT license and copyright notice")
 
 runtime_files = [
     ROOT / "project.json",
