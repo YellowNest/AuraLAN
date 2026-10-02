@@ -19,6 +19,26 @@ FRONTEND = ROOT / "frontend"
 errors: list[str] = []
 
 
+def validate_shell_scripts() -> None:
+    for path in sorted((ROOT / "scripts").glob("*.sh")):
+        try:
+            result = subprocess.run(
+                ["bash", "-n", str(path)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            fail(f"could not syntax-check {path.relative_to(ROOT)}: {type(exc).__name__}")
+            continue
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip().splitlines()
+            suffix = f": {detail[-1]}" if detail else ""
+            fail(f"shell syntax check failed for {path.relative_to(ROOT)}{suffix}")
+
+
 def fail(message: str) -> None:
     errors.append(message)
 
@@ -45,6 +65,7 @@ def parse_json(path: Path) -> dict:
 
 project = parse_json(ROOT / "project.json")
 manifest = parse_json(FRONTEND / "manifest.webmanifest")
+validate_shell_scripts()
 
 if project.get("productName") != "AuraLAN" or project.get("shortName") != "AuraLAN":
     fail("project.json must use the canonical AuraLAN product name")
@@ -189,6 +210,11 @@ if "service_exposure_changed" not in device_store_source or "baseline_captured" 
     fail("persistent Activity Center event sources are incomplete")
 if "NOTIFICATION_EVENT_TYPES" not in device_store_source:
     fail("richer local activity must remain explicitly separated from webhook event delivery")
+
+deploy_local_source = read(ROOT / "scripts/deploy-local.sh")
+for token in ("backup_database", "check_target_state_readiness", "restore_database", "rollback_deployment"):
+    if token not in deploy_local_source:
+        fail(f"checkout-backed deployment is missing database-safe rollback step: {token}")
 
 if "@media(max-width:760px)" not in css_source:
     fail("frontend/app.css is missing the primary mobile layout breakpoint")
