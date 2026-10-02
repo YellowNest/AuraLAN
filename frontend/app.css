@@ -849,6 +849,7 @@ body.modal-open{
 .device-symbol{
   width:40px;
   height:40px;
+  position:relative;
   border-radius:12px;
 }
 .device-symbol .icon{
