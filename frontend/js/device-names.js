@@ -151,13 +151,28 @@ export function friendlyDeviceListIdentity(device, options = {}) {
   return '';
 }
 
+function compactVendorLabel(value) {
+  const vendor = String(value || '').trim();
+  if (!vendor) return '';
+  const known = [
+    [/^meta platforms(?: technologies)?/i, 'Meta'],
+    [/\broborock\b/i, 'Roborock'],
+    [/\bmeross\b/i, 'Meross'],
+    [/\blite[- ]?on\b/i, 'Liteon'],
+    [/\bespressif\b/i, 'Espressif'],
+    [/\bapple\b/i, 'Apple'],
+  ];
+  const match = known.find(([pattern]) => pattern.test(vendor));
+  return match ? match[1] : vendor;
+}
+
 export function friendlyDeviceContext(device, name, categoryName) {
   const parts = [];
-  const vendor = String(device?.vendor || '').trim();
+  const vendor = compactVendorLabel(device?.vendor);
   const model = String(device?.model || device?.identity?.model?.value || '').trim();
   const type = String(categoryName || '').trim();
 
-  // Keep the list deliberately strict: manufacturer + identified type.
+  // Keep the list deliberately strict: compact manufacturer + identified type.
   // Model, MAC, interface and discovery evidence belong in the inspector.
   if (vendor) parts.push(vendor);
   if (type && !parts.some((part) => part.toLowerCase() === type.toLowerCase())) {
