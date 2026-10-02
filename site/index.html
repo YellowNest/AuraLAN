@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>AuraLAN — Your network, clearly.</title>
+  <meta name="description" content="AuraLAN is a free, open-source, local-first LAN inventory and network monitoring console for Linux and Raspberry Pi. No account, no telemetry, no cloud fingerprinting.">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://yellownest.github.io/AuraLAN/">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AuraLAN — Your network, clearly.">
+  <meta property="og:description" content="Local-first LAN inventory and network monitoring for Linux and Raspberry Pi.">
+  <meta property="og:url" content="https://yellownest.github.io/AuraLAN/">
+  <meta name="twitter:card" content="summary">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AuraLAN","applicationCategory":"NetworkApplication","operatingSystem":"Linux","softwareVersion":"1.0.0","license":"https://opensource.org/license/mit","url":"https://yellownest.github.io/AuraLAN/","codeRepository":"https://github.com/YellowNest/AuraLAN","description":"A self-hosted, local-first LAN inventory and network monitoring console for Linux and Raspberry Pi."}</script>
+</head>
+<body>
+<header class="nav shell">
+  <a class="brand" href="#top" aria-label="AuraLAN home"><img src="./logo-mark.svg" alt="" width="38" height="38"><span>AuraLAN</span></a>
+  <nav aria-label="Primary"><a href="#features">Features</a><a href="#how">How it works</a><a href="#contribute">Contribute</a><a class="nav-github" href="https://github.com/YellowNest/AuraLAN">GitHub</a></nav>
+</header>
+<main id="top">
+<section class="hero shell">
+  <div class="hero-copy">
+    <div class="eyebrow"><span></span> Open source · Linux · Raspberry Pi</div>
+    <h1>Your network,<br><em>clearly.</em></h1>
+    <p class="lead">AuraLAN turns local network evidence into a clean, human-readable view of your LAN — without an account, telemetry, cloud lookups or remote assets.</p>
+    <div class="actions"><a class="button primary" href="https://github.com/YellowNest/AuraLAN#quick-start">Get started</a><a class="button secondary" href="https://github.com/YellowNest/AuraLAN">View on GitHub</a></div>
+    <div class="trust"><span>MIT licensed</span><span>Local-first</span><span>No telemetry</span><span>Version 1.0</span></div>
+  </div>
+  <div class="product-preview" aria-label="Illustrative AuraLAN interface preview">
+    <div class="preview-bar"><div class="preview-brand"><img src="./logo-mark.svg" alt="" width="26" height="26"><strong>AuraLAN</strong></div><span class="status"><i></i> Local</span></div>
+    <div class="preview-body">
+      <aside><b>Overview</b><span>Network</span><span>Devices</span><span>Activity</span><span>Services</span></aside>
+      <div class="preview-main">
+        <div class="preview-title"><div><small>OVERVIEW</small><h2>Network at a glance</h2></div><span>Just now</span></div>
+        <div class="metrics"><article><span>Devices</span><strong>18</strong><small>16 seen now</small></article><article><span>Identity</span><strong>94%</strong><small>Locally resolved</small></article><article><span>Services</span><strong>4</strong><small>Infrastructure</small></article></div>
+        <div class="preview-card">
+          <div class="card-head"><strong>Recently seen</strong><span>View all</span></div>
+          <div class="device"><div class="device-icon">TV<i></i></div><div><b>Living room TV</b><small>Samsung · Smart TV</small><code>192.0.2.21</code></div><span class="chev">›</span></div>
+          <div class="device"><div class="device-icon">AP<i></i></div><div><b>Access point</b><small>Wireless infrastructure</small><code>192.0.2.1</code></div><span class="chev">›</span></div>
+          <div class="device"><div class="device-icon">Pi<i class="warn"></i></div><div><b>Home server</b><small>Raspberry Pi</small><code>192.0.2.42</code></div><span class="chev">›</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="preview-note">Illustrative interface preview using documentation-only example addresses.</p>
+  </div>
+</section>
+<section class="proof"><div class="shell proof-grid"><div><strong>No cloud account</strong><span>Runs where your network runs.</span></div><div><strong>Evidence first</strong><span>Conservative identity, no magic claims.</span></div><div><strong>Useful on day one</strong><span>Inventory, changes, services and history.</span></div><div><strong>Built to contribute</strong><span>Python, FastAPI and native web modules.</span></div></div></section>
+<section id="features" class="section shell">
+  <div class="section-heading"><p class="eyebrow">WHAT AURALAN DOES</p><h2>Network visibility without the cloud baggage.</h2><p>Use the information your Linux host can already observe and turn it into something understandable.</p></div>
+  <div class="feature-grid">
+    <article><span class="feature-num">01</span><h3>Human-readable inventory</h3><p>Combine neighbours, DHCP, Wi-Fi, mDNS, DNS-SD, NetBIOS, SSDP, Pi-hole and offline OUI evidence into conservative device identities.</p></article>
+    <article><span class="feature-num">02</span><h3>Activity Center</h3><p>See new devices, favorite watch changes, baseline actions and Service Exposure changes in one local timeline.</p></article>
+    <article><span class="feature-num">03</span><h3>Network Baseline</h3><p>Capture the devices you expect and see what changed later — without pretending every change is a threat.</p></article>
+    <article><span class="feature-num">04</span><h3>Identity Intelligence</h3><p>Understand which local evidence supports each identity and which devices still need a better name.</p></article>
+    <article><span class="feature-num">05</span><h3>Service Exposure</h3><p>Check a small fixed set of common TCP ports on a known device and keep a bounded local change history.</p></article>
+    <article><span class="feature-num">06</span><h3>Home Assistant friendly</h3><p>Use aggregate REST data and optional reliable webhooks while keeping identifiers private by default.</p></article>
+  </div>
+</section>
+<section id="how" class="section alt"><div class="shell split">
+  <div class="section-heading left"><p class="eyebrow">LOCAL BY DESIGN</p><h2>Your LAN data stays on your machine.</h2><p>AuraLAN has no account system, telemetry, third-party MAC lookup API, remote fonts or CDN runtime dependencies.</p><a class="text-link" href="https://github.com/YellowNest/AuraLAN#privacy-and-security">Read the privacy model →</a></div>
+  <div class="principles"><div><b>Discover</b><p>Read local Linux and LAN evidence.</p></div><div><b>Correlate</b><p>Build conservative identities from multiple sources.</p></div><div><b>Remember</b><p>Keep inventory, activity and user-owned metadata in local SQLite state.</p></div><div><b>Explain</b><p>Show the evidence instead of inventing certainty.</p></div></div>
+</div></section>
+<section class="section shell">
+  <div class="section-heading"><p class="eyebrow">QUICK START</p><h2>Try it on Linux.</h2><p>Clone the repository and start the development server. Production installation and systemd deployment are documented separately.</p></div>
+  <div class="terminal"><div class="terminal-top"><span></span><span></span><span></span><b>terminal</b></div><pre><code>git clone https://github.com/YellowNest/AuraLAN.git
+cd AuraLAN
+./scripts/dev.sh</code></pre></div>
+  <div class="quick-links"><a href="https://github.com/YellowNest/AuraLAN/blob/main/docs/INSTALLATION.md">Production installation →</a><a href="https://github.com/YellowNest/AuraLAN/blob/main/docs/CONFIGURATION.md">Configuration →</a><a href="https://github.com/YellowNest/AuraLAN/blob/main/docs/COMPATIBILITY.md">Compatibility →</a></div>
+</section>
+<section id="contribute" class="section contribute"><div class="shell contribute-inner">
+  <div><p class="eyebrow">OPEN SOURCE MEANS OPEN</p><h2>Help shape AuraLAN.</h2><p>Contributions are welcome — from documentation and device signatures to tests, compatibility work and new local discovery evidence.</p></div>
+  <div class="contribute-actions"><a class="button primary" href="https://github.com/YellowNest/AuraLAN/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22">Find a first issue</a><a class="button secondary" href="https://github.com/YellowNest/AuraLAN/blob/main/CONTRIBUTING.md">Contribution guide</a><a class="text-link" href="https://github.com/YellowNest/AuraLAN/issues">Browse all issues →</a></div>
+</div></section>
+</main>
+<footer class="shell footer"><a class="brand" href="#top"><img src="./logo-mark.svg" alt="" width="30" height="30"><span>AuraLAN</span></a><p>Free and open source under the MIT License.</p><div><a href="https://github.com/YellowNest/AuraLAN">GitHub</a><a href="https://github.com/YellowNest/AuraLAN/blob/main/ROADMAP.md">Roadmap</a><a href="https://github.com/YellowNest/AuraLAN/blob/main/SECURITY.md">Security</a></div></footer>
+</body></html>

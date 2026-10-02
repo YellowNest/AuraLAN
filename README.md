@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
   <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
@@ -240,7 +241,12 @@ User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## Contributing
 
-Contributions are welcome when they preserve AuraLAN's local-first, evidence-based design. Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before changing discovery, identity or icon inference.
+Contributions are welcome when they preserve AuraLAN's local-first, evidence-based design.
+
+- Start with a **[good first issue](https://github.com/YellowNest/AuraLAN/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22)** if you want a bounded first contribution.
+- Browse the **[roadmap](ROADMAP.md)** for the direction of the 1.x line.
+- Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before changing discovery, identity or icon inference.
+- Use **[SUPPORT.md](SUPPORT.md)** and the issue forms for reproducible bugs, feature requests and device-identification evidence.
 
 ## License
 

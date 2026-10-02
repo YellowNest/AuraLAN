@@ -4,6 +4,21 @@ AuraLAN is a local-first network console. Keep changes focused, evidence-based, 
 
 Start with [Installation](docs/INSTALLATION.md), [Configuration](docs/CONFIGURATION.md), and [Compatibility](docs/COMPATIBILITY.md).
 
+## Your first contribution
+
+You do not need to understand the whole discovery pipeline before contributing.
+
+1. Pick an open issue labeled **good first issue** or **help wanted**.
+2. Comment on the issue before starting substantial work so effort is not duplicated.
+3. Fork AuraLAN and branch from `dev`.
+4. Keep the change limited to the issue unless a closely related fix is required.
+5. Add or update tests that prove the behavior.
+6. Open the pull request against `dev`, not `main`.
+
+Good first contributions include documentation/compatibility notes, focused frontend tests, accessibility fixes, and evidence-backed device-family recognition.
+
+If an issue is underspecified, ask in the issue rather than guessing. Maintainer review should explain the reason for requested changes, not only reject them.
+
 ## Branch model
 
 - `main` is the release-ready branch and should remain deployable.

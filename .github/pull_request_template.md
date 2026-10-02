@@ -1,23 +1,23 @@
-## Summary
+## What changed
 
-Describe the user-facing problem and the change.
+Describe the user-visible or technical change.
 
-## Validation
+## Why
 
+What problem does this solve?
+
+## Evidence / testing
+
+List the tests you ran and any relevant before/after behavior.
+
+- [ ] Backend tests where relevant
+- [ ] Frontend tests where relevant
 - [ ] `python3 scripts/validate-release.py`
-- [ ] Backend tests
-- [ ] Frontend tests when frontend code changed
-- [ ] No real hostnames, MAC addresses, SSIDs, credentials, private LAN addresses or machine-specific paths were added
-- [ ] User-facing changes are noted in `CHANGELOG.md`
+- [ ] Browser sanity check for responsive UI changes
 
-## Discovery / identity changes
+## AuraLAN constraints
 
-If applicable:
-
-- [ ] Inference is based on explicit local evidence
-- [ ] No exact hardware model is inferred from OUI alone
-- [ ] Safe fallback behavior has a regression test
-
-## Screenshots
-
-For UI changes, attach screenshots with local identifiers redacted.
+- [ ] No mandatory cloud dependency, telemetry, remote runtime asset or hidden network write was added.
+- [ ] Device identity claims are supported by local evidence and remain conservative.
+- [ ] Examples and fixtures contain no real household identifiers or secrets.
+- [ ] User-facing changes are documented in `CHANGELOG.md` when applicable.
