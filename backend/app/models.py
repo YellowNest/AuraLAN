@@ -206,6 +206,35 @@ class DeviceProbeResponse(BaseModel):
     checked_at: int
 
 
+class DeviceServicePortResponse(BaseModel):
+    port: int
+    service: str
+
+
+class DeviceServiceScanResponse(BaseModel):
+    device_id: str
+    ip: str
+    checked_at: int
+    open_ports: list[DeviceServicePortResponse] = Field(default_factory=list)
+    previous_checked_at: int | None = None
+    newly_open: list[DeviceServicePortResponse] = Field(default_factory=list)
+    no_longer_open: list[DeviceServicePortResponse] = Field(default_factory=list)
+    changed: bool = False
+
+
+class DeviceServiceScanHistoryEntryResponse(BaseModel):
+    id: int
+    device_id: str
+    ip: str
+    checked_at: int
+    open_ports: list[DeviceServicePortResponse] = Field(default_factory=list)
+
+
+class DeviceServiceScanHistoryResponse(BaseModel):
+    device_id: str
+    items: list[DeviceServiceScanHistoryEntryResponse] = Field(default_factory=list)
+
+
 class ContainerResponse(BaseModel):
     name: str
     image: str
