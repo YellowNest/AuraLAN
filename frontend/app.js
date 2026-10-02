@@ -253,6 +253,11 @@ function devicePresentation(device) {
   return { name, context, iconKey, connection, quality, connectionSummary: quality ? `${connection} · ${quality}` : connection };
 }
 
+function deviceSymbolMarkup(device, presentation, currentState = deviceState(device), extraClass = '') {
+  const classes = ['device-symbol', `category-${device.category || 'unknown'}`, extraClass].filter(Boolean).join(' ');
+  return `<span class="${escapeHtml(classes)}">${icon(presentation.iconKey)}<i class="device-symbol-status ${escapeHtml(currentState)}" aria-hidden="true"></i></span>`;
+}
+
 function statusPill(value, label = stateLabel(value)) {
   return `<span class="status-pill ${statusClass(value)}"><i></i>${escapeHtml(label)}</span>`;
 }
@@ -308,7 +313,7 @@ function renderDeviceRows(items, compact = false) {
       ip !== '—' ? `<span class="device-mobile-ip">${escapeHtml(ip)}</span>` : '',
       location ? `<span class="device-mobile-location">${escapeHtml(location)}</span>` : '',
     ].filter(Boolean).join('');
-    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}<i class="device-symbol-status ${currentState}" aria-hidden="true"></i></span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(statusLabel)}</span>${icon('chevron')}</span></button>`;
+    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState)}<span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><span>${escapeHtml(statusLabel)}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
 }
 function renderActivityRows(items) {
@@ -430,7 +435,9 @@ function renderNetworkMap(network) {
             <div class="topology-device-list">
               ${visible.map((device) => {
                 const presentation = devicePresentation(device);
-                return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}"><span>${icon(presentation.iconKey)}</span><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></button>`;
+                const currentState = deviceState(device);
+                const statusLabel = deviceStateLabel(device);
+                return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState, 'topology-device-symbol')}<span class="topology-device-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></span>${icon('chevron')}</button>`;
               }).join('')}
               ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id === 'unknown' ? 'connection_unknown' : id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
             </div>
