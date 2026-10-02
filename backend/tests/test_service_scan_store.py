@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from app.persistence.device_store import DeviceStore
+from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 
 
 class ServiceScanStoreTests(unittest.TestCase):
@@ -29,6 +29,7 @@ class ServiceScanStoreTests(unittest.TestCase):
                 "192.0.2.40",
                 [443, 8123],
                 checked_at=1100,
+                display_name="Example server",
             )
             self.assertTrue(second["changed"])
             self.assertEqual(second["previous_checked_at"], 1000)
@@ -39,6 +40,14 @@ class ServiceScanStoreTests(unittest.TestCase):
             self.assertEqual([item["checked_at"] for item in history], [1100, 1000])
             self.assertEqual(history[0]["open_ports"], [443, 8123])
             self.assertEqual(history[1]["open_ports"], [22, 443])
+
+            events = store.recent_events()
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0]["event_type"], "service_exposure_changed")
+            self.assertEqual(events[0]["entity_id"], "001122334455")
+            self.assertEqual(events[0]["display_name"], "Example server")
+            self.assertEqual(events[0]["details"]["newly_open"], [8123])
+            self.assertEqual(events[0]["details"]["no_longer_open"], [22])
 
     def test_schema_eight_migrates_to_service_scan_table_without_losing_state(self):
         with TemporaryDirectory() as temp_dir:
@@ -57,7 +66,7 @@ class ServiceScanStoreTests(unittest.TestCase):
                 connection.close()
 
             result = store.readiness_check()
-            self.assertEqual(result["schema_version"], 9)
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
             enriched = store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Example device")
 
