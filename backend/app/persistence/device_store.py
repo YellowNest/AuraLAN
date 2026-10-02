@@ -10,13 +10,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
 DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
 MAX_WATCH_MISSING_GRACE_SECONDS = 86400
 PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
 PRESENCE_HISTORY_TOTAL_LIMIT = 5000
+SERVICE_SCAN_PER_DEVICE_LIMIT = 20
+SERVICE_SCAN_TOTAL_LIMIT = 2000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
@@ -93,13 +95,14 @@ class DeviceStore:
         required_tables = {
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
-            "device_presence_state", "device_presence_history", "network_baseline",
+            "device_presence_state", "device_presence_history", "network_baseline", "device_service_scans",
         }
         required_indexes = {
             "idx_device_events_created_at",
             "idx_device_events_type_entity",
             "idx_device_inventory_last_seen",
             "idx_device_presence_history_device_time",
+            "idx_device_service_scans_device_time",
         }
         if version == SCHEMA_VERSION:
             schema_objects = {
@@ -222,6 +225,17 @@ class DeviceStore:
             display_name TEXT,
             captured_at INTEGER NOT NULL
         )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS device_service_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            open_ports_json TEXT NOT NULL DEFAULT '[]',
+            checked_at INTEGER NOT NULL
+        )""")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_service_scans_device_time "
+            "ON device_service_scans(device_id, checked_at DESC, id DESC)"
+        )
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -587,6 +601,123 @@ class DeviceStore:
                 ]
             finally:
                 connection.close()
+
+    @staticmethod
+    def _decode_port_list(value: object) -> list[int]:
+        try:
+            loaded = json.loads(str(value or "[]"))
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(loaded, list):
+            return []
+        ports = []
+        for item in loaded:
+            try:
+                port = int(item)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= port <= 65535:
+                ports.append(port)
+        return sorted(set(ports))
+
+    def record_service_scan(
+        self,
+        device_id: str,
+        ip: str,
+        open_ports: list[int],
+        *,
+        checked_at: int | None = None,
+    ) -> dict[str, Any]:
+        """Persist one bounded on-demand service snapshot and compare the previous one."""
+        identifier = str(device_id or "").strip()
+        target = str(ip or "").strip()
+        if not identifier or not target:
+            raise ValueError("Device ID and target IP are required")
+
+        ports = sorted({
+            int(port)
+            for port in open_ports
+            if 1 <= int(port) <= 65535
+        })
+        timestamp = int(time.time()) if checked_at is None else int(checked_at)
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                previous = connection.execute(
+                    "SELECT open_ports_json, checked_at FROM device_service_scans "
+                    "WHERE device_id = ? ORDER BY checked_at DESC, id DESC LIMIT 1",
+                    (identifier,),
+                ).fetchone()
+
+                connection.execute(
+                    "INSERT INTO device_service_scans(device_id, ip, open_ports_json, checked_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (
+                        identifier,
+                        target,
+                        json.dumps(ports, separators=(",", ":")),
+                        timestamp,
+                    ),
+                )
+                connection.execute(
+                    "DELETE FROM device_service_scans WHERE id IN ("
+                    "SELECT id FROM device_service_scans WHERE device_id = ? "
+                    "ORDER BY checked_at DESC, id DESC LIMIT -1 OFFSET ?"
+                    ")",
+                    (identifier, SERVICE_SCAN_PER_DEVICE_LIMIT),
+                )
+                connection.execute(
+                    "DELETE FROM device_service_scans WHERE id NOT IN ("
+                    "SELECT id FROM device_service_scans "
+                    "ORDER BY checked_at DESC, id DESC LIMIT ?"
+                    ")",
+                    (SERVICE_SCAN_TOTAL_LIMIT,),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+        previous_ports = self._decode_port_list(previous["open_ports_json"]) if previous else []
+        current = set(ports)
+        before = set(previous_ports)
+        newly_open = sorted(current - before) if previous else []
+        no_longer_open = sorted(before - current) if previous else []
+        return {
+            "device_id": identifier,
+            "ip": target,
+            "checked_at": timestamp,
+            "open_ports": ports,
+            "previous_checked_at": int(previous["checked_at"]) if previous else None,
+            "previous_open_ports": previous_ports,
+            "newly_open": newly_open,
+            "no_longer_open": no_longer_open,
+            "changed": bool(previous and (newly_open or no_longer_open)),
+        }
+
+    def service_scan_history(self, device_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Return recent on-demand service snapshots for one AuraLAN device."""
+        bounded_limit = max(1, min(int(limit), SERVICE_SCAN_PER_DEVICE_LIMIT))
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT id, device_id, ip, open_ports_json, checked_at "
+                        "FROM device_service_scans WHERE device_id = ? "
+                        "ORDER BY checked_at DESC, id DESC LIMIT ?",
+                        (str(device_id), bounded_limit),
+                    )
+                ]
+            finally:
+                connection.close()
+
+        for row in rows:
+            row["open_ports"] = self._decode_port_list(row.pop("open_ports_json", "[]"))
+        return rows
 
     def latest_event_id(self) -> int:
         with self._lock:
@@ -1160,6 +1291,7 @@ class DeviceStore:
                     "device_inventory",
                     "device_watch_state",
                     "device_presence_state",
+                    "device_service_scans",
                 ):
                     cursor = connection.execute(
                         f"DELETE FROM {table} WHERE device_id IN ({placeholders})",

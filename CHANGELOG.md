@@ -12,6 +12,7 @@ AuraLAN follows Semantic Versioning. During the pre-1.0 phase, minor versions ma
 
 ### Added
 
+- **Service Exposure snapshots** add an explicit per-device check for a small fixed set of common TCP ports. Results stay local, are retained in bounded history, and highlight newly open or no-longer-open ports without subnet scanning, banner grabbing, cloud fingerprinting or treating a conventional port label as proof of an application.
 - **On-demand device reachability checks** add a one-click ICMP probe in the device inspector. AuraLAN sends one local echo request to a known IPv4 address, reports round-trip latency when a reply is available, hides the action when the host has no `ping` utility, and never treats a missing ICMP reply as proof that the device is offline.
 - README discovery wording now describes AuraLAN as a self-hosted LAN inventory and network monitoring console, making the project's purpose clearer to people searching GitHub for Raspberry Pi and local network tooling.
 

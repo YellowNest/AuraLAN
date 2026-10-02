@@ -83,7 +83,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
             self.assertTrue(result["ready"])
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], 9)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -143,7 +143,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = DeviceStore(Path(temp_dir)).readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], 9)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -173,7 +173,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], 9)
 
             connection = sqlite3.connect(db_path)
             try:
@@ -268,7 +268,7 @@ class DefaultDataDirTests(unittest.TestCase):
 
             device_store = DeviceStore(Path(temp_dir))
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], 9)
 
             enriched = device_store.enrich(["001122334455"])["001122334455"]
             self.assertEqual(enriched["alias"], "Printer")
@@ -293,7 +293,7 @@ class DefaultDataDirTests(unittest.TestCase):
                 connection.close()
 
             result = device_store.readiness_check()
-            self.assertEqual(result["schema_version"], 8)
+            self.assertEqual(result["schema_version"], 9)
 
             connection = sqlite3.connect(db_path)
             try:
