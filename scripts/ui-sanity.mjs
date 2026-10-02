@@ -127,6 +127,9 @@ try {
       const firstMobileMeta = document.querySelector('.device-mobile-meta');
       const firstMobileIp = document.querySelector('.device-mobile-ip');
       const firstMobileLocation = document.querySelector('.device-mobile-location');
+      const firstStatusBadge = document.querySelector('.device-symbol-status');
+      const firstStatusDot = document.querySelector('.device-status i');
+      const firstStatusControl = document.querySelector('.device-status');
       const wifiFilter = document.querySelector('.device-toolbar [data-device-filter="wifi"]');
       const unknownToolbarFilter = document.querySelector('.device-toolbar [data-device-filter="unknown"]');
       const unidentifiedCallout = document.querySelector('.unidentified-callout');
@@ -144,6 +147,10 @@ try {
         mobileMetaDisplay: firstMobileMeta ? getComputedStyle(firstMobileMeta).display : 'none',
         mobileIpText: firstMobileIp?.textContent?.trim() || '',
         mobileLocationText: firstMobileLocation?.textContent?.trim() || '',
+        statusBadgeDisplay: firstStatusBadge ? getComputedStyle(firstStatusBadge).display : 'none',
+        statusBadgeRect: firstStatusBadge ? (() => { const rect = firstStatusBadge.getBoundingClientRect(); return { width: rect.width, height: rect.height }; })() : null,
+        statusDotDisplay: firstStatusDot ? getComputedStyle(firstStatusDot).display : 'none',
+        statusControlWidth: firstStatusControl?.getBoundingClientRect().width || 0,
         hasLegacyMobileContext: Boolean(document.querySelector('.device-mobile-context')),
         mobileIpClipped: firstMobileIp ? firstMobileIp.scrollWidth > firstMobileIp.clientWidth + 1 : false,
         ipSpread: spread(positions('.device-ip')),
@@ -171,13 +178,19 @@ try {
       assert.equal(listReport.headerDisplay, 'none', `${viewport.name}/devices: desktop column header leaked into mobile`);
       assert.equal(listReport.ipDisplay, 'none', `${viewport.name}/devices: desktop IP column leaked into mobile`);
       assert.equal(listReport.connectionDisplay, 'none', `${viewport.name}/devices: desktop connection column leaked into mobile`);
-      assert.equal(listReport.contextDisplay, 'none', `${viewport.name}/devices: desktop identity context leaked into mobile`);
       assert.equal(listReport.locationDisplay, 'none', `${viewport.name}/devices: desktop location column leaked into mobile`);
       if (listReport.contextText) {
         assert.notEqual(listReport.contextDisplay, 'none', `${viewport.name}/devices: manufacturer/type context is hidden`);
       }
       assert.notEqual(listReport.mobileMetaDisplay, 'none', `${viewport.name}/devices: mobile IP/location line is hidden`);
       assert.equal(listReport.hasLegacyMobileContext, false, `${viewport.name}/devices: duplicate mobile fallback context returned`);
+      assert.notEqual(listReport.statusBadgeDisplay, 'none', `${viewport.name}/devices: icon status badge is hidden`);
+      assert.equal(listReport.statusDotDisplay, 'none', `${viewport.name}/devices: legacy trailing status dot still consumes mobile width`);
+      assert.ok(listReport.statusControlWidth <= 20, `${viewport.name}/devices: trailing chevron control is wider than expected`);
+      if (listReport.statusBadgeRect) {
+        assert.ok(listReport.statusBadgeRect.width >= 8 && listReport.statusBadgeRect.height >= 8, `${viewport.name}/devices: icon status badge collapsed`);
+        assert.ok(Math.abs(listReport.statusBadgeRect.width - listReport.statusBadgeRect.height) <= 1, `${viewport.name}/devices: icon status badge is not circular`);
+      }
       assert.equal(listReport.hasUnknownToolbarFilter, false, `${viewport.name}/devices: naming action leaked back into primary filter row`);
       if (listReport.wifiFilterHeight > 0) {
         assert.equal(listReport.wifiFilterWhiteSpace, 'nowrap', `${viewport.name}/devices: Wi-Fi filter can wrap onto two lines`);
@@ -188,6 +201,7 @@ try {
       assert.doesNotMatch(listReport.contextText, /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i, `${viewport.name}/devices: MAC leaked into the friendly mobile context line`);
       assert.doesNotMatch(listReport.mobileLocationText, /(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/i, `${viewport.name}/devices: MAC leaked into the mobile location line`);
     } else {
+      assert.equal(listReport.statusBadgeDisplay, 'none', `${viewport.name}/devices: mobile icon status badge leaked into desktop`);
       assert.notEqual(listReport.headerDisplay, 'none', `${viewport.name}/devices: device column header is missing`);
       assert.ok(listReport.ipSpread <= 1, `${viewport.name}/devices: IP column shifts between rows`);
       if (viewport.width > 1180) {
