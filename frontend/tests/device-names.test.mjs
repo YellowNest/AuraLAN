@@ -60,6 +60,22 @@ test('context keeps manufacturer and type visible under friendly names', () => {
   assert.equal(friendlyDeviceContext(device, 'Samsung QE65Q70T TV', 'TV'), 'Samsung · TV');
 });
 
+
+test('long known manufacturers are compact in list context without changing raw identity', () => {
+  assert.equal(
+    friendlyDeviceContext({ vendor: 'Meta Platforms Technologies', category: 'phone' }, 'Headset', 'VR-headset'),
+    'Meta · VR-headset',
+  );
+  assert.equal(
+    friendlyDeviceContext({ vendor: 'Beijing Roborock Technology', category: 'smart_home' }, 'Vacuum', 'Robotdammsugare'),
+    'Roborock · Robotdammsugare',
+  );
+  assert.equal(
+    friendlyDeviceContext({ vendor: 'Chengdu Meross Technology', category: 'smart_home' }, 'Garage', 'Garageport'),
+    'Meross · Garageport',
+  );
+});
+
 test('device-list identity keeps the full MAC visible before manufacturer context', () => {
   const device = { vendor: 'Apple', mac: '02:00:00:00:00:51', category: 'tv' };
   assert.equal(friendlyDeviceListIdentity(device), '02:00:00:00:00:51 · Apple');

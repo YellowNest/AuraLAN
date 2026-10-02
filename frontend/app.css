@@ -860,7 +860,6 @@ body.modal-open{
 }
 .device-name strong,
 .device-list-context,
-.device-mobile-context,
 .device-mobile-meta,
 .device-location,
 .device-meta strong,
@@ -885,8 +884,7 @@ body.modal-open{
   font-weight:560;
   line-height:1.25;
 }
-.device-mobile-meta,
-.device-mobile-context{
+.device-mobile-meta{
   display:none;
 }
 .device-mobile-meta{
@@ -913,19 +911,12 @@ body.modal-open{
   color:color-mix(in srgb,var(--text-faint) 72%,transparent);
   content:"·";
 }
-.device-mobile-connection{
+.device-mobile-location{
   overflow:hidden;
   flex:1 1 auto !important;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  font-weight:620;
+  font-weight:590;
   text-overflow:ellipsis;
-}
-.device-mobile-context{
-  margin-top:4px;
-  color:var(--text-faint);
-  font-size:11px;
-  font-weight:560;
-  line-height:1.2;
 }
 .device-ip{
   min-width:0;
@@ -994,12 +985,8 @@ body.modal-open{
 .device-list.compact .device-list-context{
   display:none;
 }
-.device-list.compact .device-mobile-meta,
-.device-list.compact .device-mobile-context{
+.device-list.compact .device-mobile-meta{
   display:flex;
-}
-.device-list.compact .device-mobile-context{
-  display:block;
 }
 .device-list.compact .device-name strong{
   font-size:14.5px;
@@ -1677,15 +1664,16 @@ textarea{
     line-height:1.16;
   }
   .device-list-context{
-    display:none;
+    display:block;
+    margin-top:3px;
+    font-size:11.5px;
+    line-height:1.18;
   }
   .device-mobile-meta,
   .device-list.compact .device-mobile-meta{
     display:flex;
-  }
-  .device-mobile-context,
-  .device-list.compact .device-mobile-context{
-    display:block;
+    margin-top:3px;
+    color:var(--text-faint);
   }
   .device-list-head,
   .device-ip,
