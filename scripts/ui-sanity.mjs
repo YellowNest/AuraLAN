@@ -17,6 +17,31 @@ const viewports = [
 
 const routes = ['overview', 'network', 'devices', 'services', 'settings'];
 
+async function openRoute(page, route) {
+  const currentUrl = page.url();
+  if (currentUrl === 'about:blank' || !currentUrl.startsWith(baseUrl)) {
+    await page.goto(`${baseUrl}/#${route}`, { waitUntil: 'networkidle0', timeout: 20000 });
+  } else {
+    await page.evaluate((targetRoute) => {
+      const trigger = document.querySelector(`[data-route="${targetRoute}"]`);
+      if (!trigger) throw new Error(`No route trigger found for ${targetRoute}`);
+      trigger.click();
+    }, route);
+  }
+
+  await page.waitForFunction(
+    (targetRoute) => {
+      const activeRoute = [...document.querySelectorAll(`[data-route="${targetRoute}"]`)]
+        .some((node) => node.classList.contains('active') || node.getAttribute('aria-current') === 'page');
+      return location.hash === `#${targetRoute}`
+        && activeRoute
+        && Boolean(document.querySelector('#app-view:not([aria-busy="true"])'));
+    },
+    { timeout: 10000 },
+    route,
+  );
+}
+
 try {
   for (const viewport of viewports) {
     const page = await browser.newPage();
@@ -24,8 +49,7 @@ try {
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: viewport.dark ? 'dark' : 'light' }]);
 
     for (const route of routes) {
-      await page.goto(`${baseUrl}/#${route}`, { waitUntil: 'networkidle0', timeout: 20000 });
-      await page.waitForSelector('#app-view:not([aria-busy="true"])', { timeout: 10000 });
+      await openRoute(page, route);
       const report = await page.evaluate((isMobile) => {
         const viewportMeta = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || '';
         const input = document.querySelector('input, select, textarea');
@@ -108,8 +132,7 @@ try {
       }
     }
 
-    await page.goto(`${baseUrl}/#overview`, { waitUntil: 'networkidle0', timeout: 20000 });
-    await page.waitForSelector('#app-view:not([aria-busy="true"])', { timeout: 10000 });
+    await openRoute(page, 'overview');
     const compactDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.device-list.compact .device-row');
       const badge = row?.querySelector('.device-symbol-status');
@@ -136,8 +159,7 @@ try {
       assert.equal(compactDeviceReport.hasLegacyStatusDot, false, `${viewport.name}/overview: duplicate trailing status dot returned`);
     }
 
-    await page.goto(`${baseUrl}/#network`, { waitUntil: 'networkidle0', timeout: 20000 });
-    await page.waitForSelector('#app-view:not([aria-busy="true"])', { timeout: 10000 });
+    await openRoute(page, 'network');
     const topologyDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.topology-device');
       const symbol = row?.querySelector('.topology-device-symbol');
@@ -163,7 +185,7 @@ try {
       }
     }
 
-    await page.goto(`${baseUrl}/#devices`, { waitUntil: 'networkidle0', timeout: 20000 });
+    await openRoute(page, 'devices');
     await page.waitForSelector('.device-row, .empty-state', { timeout: 10000 });
     const deviceRows = await page.$$('.device-row');
     assert.ok(deviceRows.length > 0, `${viewport.name}: no device rows rendered`);
@@ -307,7 +329,7 @@ try {
 
     if (screenshotDir) {
       await mkdir(screenshotDir, { recursive: true });
-      await page.goto(`${baseUrl}/#services`, { waitUntil: 'networkidle0', timeout: 20000 });
+      await openRoute(page, 'services');
       const serviceCard = await page.$('.service-card');
       if (serviceCard) {
         await serviceCard.click();
