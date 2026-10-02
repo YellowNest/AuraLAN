@@ -17,6 +17,8 @@ from .models import (
     DeviceMetadataUpdate,
     DeviceProbeResponse,
     DeviceResponse,
+    DeviceServiceScanHistoryResponse,
+    DeviceServiceScanResponse,
     ForgetDeviceResponse,
     HealthResponse,
     HomeAssistantSummaryResponse,
@@ -40,6 +42,7 @@ from .persistence.device_store import store
 from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
 from .probe import ProbeUnavailable, probe_available, probe_device as run_device_probe
+from .service_scan import scan_device_services as run_service_scan, service_label
 from .wake import select_wake_mac, send_magic_packet, wake_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -140,6 +143,7 @@ def meta() -> dict:
         "capabilities": {
             **APP_CAPABILITIES,
             "device_probe": probe_available(),
+            "device_service_scan": True,
             "wake_on_lan": wake_config().enabled,
         },
     }
@@ -354,6 +358,83 @@ def probe_device_reachability(device_id: str) -> dict:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ProbeUnavailable as exc:
         raise HTTPException(status_code=503, detail="ICMP reachability check is unavailable on this host") from exc
+
+
+def _service_ports(ports: list[int]) -> list[dict[str, object]]:
+    return [
+        {"port": int(port), "service": service_label(int(port))}
+        for port in ports
+    ]
+
+
+@app.post("/api/v1/devices/{device_id}/services/scan", response_model=DeviceServiceScanResponse)
+def scan_device_service_exposure(device_id: str) -> dict:
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if not current:
+        raise HTTPException(status_code=404, detail="Unknown device")
+    if current.get("state") == "known":
+        raise HTTPException(
+            status_code=409,
+            detail="Device is not currently observed; refusing to scan its remembered address",
+        )
+
+    try:
+        scan = run_service_scan(current)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    try:
+        saved = store().record_service_scan(
+            device_id,
+            scan["ip"],
+            scan["open_ports"],
+            checked_at=scan["checked_at"],
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN service-scan history is unavailable") from exc
+
+    return {
+        "device_id": saved["device_id"],
+        "ip": saved["ip"],
+        "checked_at": saved["checked_at"],
+        "open_ports": _service_ports(saved["open_ports"]),
+        "previous_checked_at": saved["previous_checked_at"],
+        "newly_open": _service_ports(saved["newly_open"]),
+        "no_longer_open": _service_ports(saved["no_longer_open"]),
+        "changed": saved["changed"],
+    }
+
+
+@app.get("/api/v1/devices/{device_id}/services", response_model=DeviceServiceScanHistoryResponse)
+def device_service_exposure_history(
+    device_id: str,
+    limit: int = Query(default=10, ge=1, le=20),
+) -> dict:
+    current = next(
+        (item for item in system_snapshot()["devices"] if item["id"] == device_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Unknown device")
+
+    try:
+        items = store().service_scan_history(device_id, limit)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(status_code=503, detail="AuraLAN service-scan history is unavailable") from exc
+
+    return {
+        "device_id": device_id,
+        "items": [
+            {
+                **item,
+                "open_ports": _service_ports(item["open_ports"]),
+            }
+            for item in items
+        ],
+    }
 
 
 @app.post("/api/v1/devices/{device_id}/wake", response_model=WakeResponse)
