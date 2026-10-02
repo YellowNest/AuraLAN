@@ -165,7 +165,7 @@ try {
 
     await page.goto(`${baseUrl}/#devices`, { waitUntil: 'networkidle0', timeout: 20000 });
     await page.waitForSelector('.device-row, .empty-state', { timeout: 10000 });
-    const deviceRows = await page.$('.device-row');
+    const deviceRows = await page.$$('.device-row');
     assert.ok(deviceRows.length > 0, `${viewport.name}: no device rows rendered`);
 
     const listReport = await page.evaluate((isMobile) => {
