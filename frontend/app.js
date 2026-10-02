@@ -299,6 +299,7 @@ function renderDeviceRows(items, compact = false) {
   const header = compact ? '' : `<div class="device-list-head" aria-hidden="true"><span></span><span>${t('device')}</span><span>${t('ipAddress')}</span><span class="device-location-head">${t('location')}</span><span>${t('connection')}</span><span>${t('status')}</span></div>`;
   return `${header}<div class="device-list ${compact ? 'compact' : ''}">${visible.map((device) => {
     const currentState = deviceState(device);
+    const statusLabel = deviceStateLabel(device);
     const presentation = devicePresentation(device);
     const ip = safe(device.ip, '—');
     const location = String(device.metadata?.location || '').trim();
@@ -307,7 +308,7 @@ function renderDeviceRows(items, compact = false) {
       ip !== '—' ? `<span class="device-mobile-ip">${escapeHtml(ip)}</span>` : '',
       location ? `<span class="device-mobile-location">${escapeHtml(location)}</span>` : '',
     ].filter(Boolean).join('');
-    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}</span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(deviceStateLabel(device))}</span>${icon('chevron')}</span></button>`;
+    return `<button class="device-row" type="button" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}"><span class="device-symbol category-${escapeHtml(device.category)}">${icon(presentation.iconKey)}<i class="device-symbol-status ${currentState}" aria-hidden="true"></i></span><span class="device-name"><strong>${escapeHtml(presentation.name)}</strong>${identityContext ? `<small class="device-list-context">${escapeHtml(identityContext)}</small>` : ''}<em class="device-mobile-meta">${mobileDetails}</em></span><span class="device-ip">${escapeHtml(ip)}</span><span class="device-location">${escapeHtml(location || '—')}</span><span class="device-meta"><strong>${escapeHtml(presentation.connection)}</strong>${presentation.quality ? `<small>${escapeHtml(presentation.quality)}</small>` : ''}</span><span class="device-status ${currentState}"><i></i><span>${escapeHtml(statusLabel)}</span>${icon('chevron')}</span></button>`;
   }).join('')}</div>`;
 }
 function renderActivityRows(items) {
