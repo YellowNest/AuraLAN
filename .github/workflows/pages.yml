@@ -37,3 +37,9 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Notify IndexNow
+        continue-on-error: true
+        run: |
+          curl -fsS --get 'https://api.indexnow.org/indexnow' \
+            --data-urlencode 'url=https://yellownest.github.io/AuraLAN/' \
+            --data-urlencode 'key=a983735222e77aae93d75ae32376a358'
