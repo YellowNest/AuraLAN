@@ -6,19 +6,30 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve AuraLAN. Remove hostnames, real MAC addresses, SSIDs, public IPs, tokens and credentials before posting logs or screenshots.
+        Thanks for reporting a problem. Remove private LAN identifiers, credentials and unrelated logs before posting.
   - type: input
     id: version
     attributes:
       label: AuraLAN version
-      placeholder: "0.4.0"
+      placeholder: "1.0.0"
     validations:
       required: true
   - type: input
-    id: platform
+    id: environment
     attributes:
-      label: Platform
-      placeholder: "Debian 13, Raspberry Pi 5 / x86-64"
+      label: Environment
+      description: OS, architecture and relevant host type
+      placeholder: "Debian 13, arm64, Raspberry Pi 5"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation
+      options:
+        - Canonical systemd installation
+        - Git checkout / development
+        - Other
     validations:
       required: true
   - type: textarea
@@ -38,21 +49,23 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. ...
-        2. ...
-        3. ...
+        1.
+        2.
+        3.
     validations:
       required: true
   - type: textarea
-    id: environment
+    id: logs
     attributes:
-      label: Relevant local environment
-      description: List relevant tools/services only. Redact local identifiers.
-      placeholder: "NetworkManager, iw, dnsmasq, Docker, Pi-hole..."
+      label: Relevant logs or output
+      description: Redact IP/MAC addresses, names, tokens and other private data if they are not necessary.
+      render: shell
   - type: checkboxes
-    id: privacy
+    id: checks
     attributes:
-      label: Privacy check
+      label: Checks
       options:
-        - label: I removed or redacted private hostnames, MAC addresses, SSIDs, credentials and other local identifiers.
+        - label: I searched existing issues first.
+          required: true
+        - label: I removed secrets and unnecessary private network information.
           required: true
