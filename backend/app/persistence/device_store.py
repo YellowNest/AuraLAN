@@ -20,6 +20,7 @@ PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
 PRESENCE_HISTORY_TOTAL_LIMIT = 5000
 SERVICE_SCAN_PER_DEVICE_LIMIT = 20
 SERVICE_SCAN_TOTAL_LIMIT = 2000
+DEVICE_EVENT_HISTORY_LIMIT = 5000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
@@ -263,6 +264,8 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
+                self._prune_event_history(connection)
+                connection.commit()
                 connection.execute("SELECT 1 FROM device_metadata LIMIT 1").fetchone()
                 version_row = connection.execute("PRAGMA user_version").fetchone()
                 return {
@@ -383,6 +386,7 @@ class DeviceStore:
                             "VALUES (?, ?, ?, ?, ?, ?)",
                             event,
                         )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -394,6 +398,31 @@ class DeviceStore:
         except (TypeError, ValueError):
             return {}
         return loaded if isinstance(loaded, dict) else {}
+
+    @classmethod
+    def _prune_event_history(cls, connection: sqlite3.Connection) -> None:
+        """Bound local activity while preserving webhook events that are still pending."""
+        cursor_row = connection.execute(
+            "SELECT MIN(last_event_id) AS min_cursor FROM notification_cursors"
+        ).fetchone()
+        if cursor_row and cursor_row["min_cursor"] is not None:
+            protected_after = int(cursor_row["min_cursor"])
+        else:
+            latest_row = connection.execute(
+                "SELECT COALESCE(MAX(id), 0) AS latest_id FROM device_events"
+            ).fetchone()
+            protected_after = int(latest_row["latest_id"]) if latest_row else 0
+
+        event_types = tuple(NOTIFICATION_EVENT_TYPES)
+        marks = ",".join("?" for _ in event_types)
+        connection.execute(
+            "DELETE FROM device_events WHERE id IN ("
+            "SELECT id FROM device_events "
+            f"WHERE NOT (event_type IN ({marks}) AND id > ?) "
+            "ORDER BY created_at DESC, id DESC LIMIT -1 OFFSET ?"
+            ")",
+            (*event_types, protected_after, DEVICE_EVENT_HISTORY_LIMIT),
+        )
 
     def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
         """Return recent local activity without external enrichment."""
@@ -504,6 +533,7 @@ class DeviceStore:
                         (next_state, now, device_id),
                     )
 
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -726,6 +756,7 @@ class DeviceStore:
                     ")",
                     (SERVICE_SCAN_TOTAL_LIMIT,),
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -967,6 +998,7 @@ class DeviceStore:
                              AND event.entity_id = inventory.device_id
                        )"""
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -1133,6 +1165,7 @@ class DeviceStore:
                         captured_at,
                     ),
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -1168,6 +1201,7 @@ class DeviceStore:
                             int(time.time()),
                         ),
                     )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
