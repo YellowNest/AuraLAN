@@ -38,6 +38,6 @@ secrets*.yaml
 credentials*.json
 
 # Local UI test output
-screenshots/
-ui-screenshots/
-test-results/
+/screenshots/
+/ui-screenshots/
+/test-results/
