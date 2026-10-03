@@ -13,7 +13,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-2563EB">
+  <img alt="Release 1.5.0" src="https://img.shields.io/badge/release-1.5.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -43,6 +43,7 @@ More views are available on the **[AuraLAN website](https://yellownest.github.io
 | | |
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
+| **Network Review** | Brings missing favorites, baseline differences, weak identities, service health/exposure changes and newly discovered devices into one local “Worth a look” queue with direct links to the underlying evidence. |
 | **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
 | **Network Baseline** | Capture the devices you expect to see and let AuraLAN highlight what appeared or disappeared since that reference point, entirely locally and without pretending a change is automatically a threat. |
 | **Activity Center** | A first-class local timeline brings new devices, favorite watch changes, Service Exposure diffs and baseline actions together so you can see what changed without turning observations into security verdicts. |
@@ -251,7 +252,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN 1.0.0 is the first stable release line. `main` is kept release-ready, while `dev` remains the integration branch for post-1.0 work. The 1.0 product includes Activity Center, Network Baseline, local Identity Intelligence, persistent inventory and presence history, Home Assistant integration, Wake-on-LAN, on-demand reachability checks and local Service Exposure snapshots. The v1 API remains intentionally small and local-first.
+AuraLAN 1.5.0 is the current stable release. It builds on the 1.0 foundation with **Network Review**, bounded Activity Center retention that protects pending webhook deliveries, and improved keyboard focus restoration for command and inspector dialogs. Activity Center, Network Baseline, local Identity Intelligence, persistent inventory and presence history, Home Assistant integration, Wake-on-LAN, on-demand reachability checks and local Service Exposure snapshots remain part of the stable v1 product. The v1 API remains intentionally small and local-first.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
