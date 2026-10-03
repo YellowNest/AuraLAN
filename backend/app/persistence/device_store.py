@@ -417,6 +417,95 @@ class DeviceStore:
             row["details"] = self._decode_event_details(row.pop("details_json", "{}"))
         return rows
 
+    def activity_summary_since(self, since: int) -> dict[str, int]:
+        """Return aggregate Activity Center counts since a Unix timestamp."""
+        threshold = max(0, int(since))
+        groups = {
+            "total": 0,
+            "new_devices": 0,
+            "watch_changes": 0,
+            "service_changes": 0,
+            "baseline_changes": 0,
+        }
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = connection.execute(
+                    "SELECT event_type, COUNT(*) AS count "
+                    "FROM device_events WHERE created_at >= ? "
+                    "GROUP BY event_type",
+                    (threshold,),
+                ).fetchall()
+            finally:
+                connection.close()
+
+        for row in rows:
+            event_type = str(row["event_type"])
+            count = int(row["count"])
+            groups["total"] += count
+            if event_type == "device_first_seen":
+                groups["new_devices"] += count
+            elif event_type in {"favorite_not_seen", "favorite_seen_again"}:
+                groups["watch_changes"] += count
+            elif event_type == "service_exposure_changed":
+                groups["service_changes"] += count
+            elif event_type in {"baseline_captured", "baseline_cleared"}:
+                groups["baseline_changes"] += count
+        return groups
+
+    def activity_daily_counts(self, days: int = 7, *, now: int | None = None) -> list[dict[str, int]]:
+        """Return rolling 24-hour Activity Center buckets, oldest first."""
+        bounded_days = max(1, min(int(days), 31))
+        end_at = int(time.time()) if now is None else int(now)
+        day_seconds = 24 * 60 * 60
+        start_at = end_at - (bounded_days * day_seconds)
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = connection.execute(
+                    "SELECT event_type, created_at FROM device_events "
+                    "WHERE created_at >= ? AND created_at <= ? "
+                    "ORDER BY created_at ASC, id ASC",
+                    (start_at, end_at),
+                ).fetchall()
+            finally:
+                connection.close()
+
+        buckets = []
+        for index in range(bounded_days):
+            bucket_start = start_at + (index * day_seconds)
+            buckets.append({
+                "start_at": bucket_start,
+                "total": 0,
+                "new_devices": 0,
+                "watch_changes": 0,
+                "service_changes": 0,
+                "baseline_changes": 0,
+            })
+
+        for row in rows:
+            created_at = int(row["created_at"])
+            index = min(
+                bounded_days - 1,
+                max(0, (created_at - start_at) // day_seconds),
+            )
+            bucket = buckets[index]
+            bucket["total"] += 1
+            event_type = str(row["event_type"])
+            if event_type == "device_first_seen":
+                bucket["new_devices"] += 1
+            elif event_type in {"favorite_not_seen", "favorite_seen_again"}:
+                bucket["watch_changes"] += 1
+            elif event_type == "service_exposure_changed":
+                bucket["service_changes"] += 1
+            elif event_type in {"baseline_captured", "baseline_cleared"}:
+                bucket["baseline_changes"] += 1
+
+        return buckets
+
     def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
         """Record stable watch-state changes for user-favorited devices.
 
