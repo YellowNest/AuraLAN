@@ -277,7 +277,7 @@ test('network review queue prioritizes actionable local signals without inventin
       ['favorite_missing', 1],
       ['baseline_new', 1],
       ['baseline_missing', 2],
-      ['identity_limited', 2],
+      ['identity_limited', 1],
       ['service_health', 1],
       ['service_changes', 1],
       ['new_devices', 1],
