@@ -106,6 +106,24 @@ try {
         assert.ok(report.baselineRadius >= 14, `${viewport.name}/overview: network baseline card lost the shared rounded-card geometry`);
         assert.equal(report.baselineOverflow, 'hidden', `${viewport.name}/overview: network baseline card can paint outside its rounded corners`);
       }
+      if (route === 'overview') {
+        const pulse = await page.evaluate(() => {
+          const root = document.querySelector('.network-pulse');
+          const chart = document.querySelector('.pulse-chart');
+          return {
+            hasPulse: Boolean(root),
+            metricCount: root?.querySelectorAll('.pulse-metrics > button').length || 0,
+            dayCount: root?.querySelectorAll('.pulse-day').length || 0,
+            chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
+            pulseOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
+          };
+        });
+        assert.equal(pulse.hasPulse, true, `${viewport.name}/overview: Network Pulse is missing`);
+        assert.equal(pulse.metricCount, 4, `${viewport.name}/overview: Network Pulse metrics are incomplete`);
+        assert.ok(pulse.dayCount === 0 || pulse.dayCount === 7, `${viewport.name}/overview: Network Pulse must show seven activity buckets when history is available`);
+        assert.equal(pulse.chartOverflow, false, `${viewport.name}/overview: Network Pulse chart overflows horizontally`);
+        assert.equal(pulse.pulseOverflow, false, `${viewport.name}/overview: Network Pulse panel overflows horizontally`);
+      }
       if (report.pageTitleFontSize !== null) {
         assert.ok(report.pageTitleFontSize >= 27 && report.pageTitleFontSize <= 42, `${viewport.name}/${route}: page title scale is out of range`);
       }
