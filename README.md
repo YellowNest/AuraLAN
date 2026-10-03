@@ -22,6 +22,22 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
+## Screenshots
+
+The screenshots below are captured from the **real AuraLAN frontend** using a synthetic demo LAN. They contain documentation-range IP addresses, locally administered demo MAC addresses and fictional device names — no household network data.
+
+<p align="center">
+  <a href="site/screenshots/overview-desktop-dark.png"><img src="site/screenshots/overview-desktop-dark.png" width="840" alt="AuraLAN Overview showing a synthetic demo network"></a>
+</p>
+
+<p align="center">
+  <a href="site/screenshots/devices-desktop-dark.png"><img src="site/screenshots/devices-desktop-dark.png" width="410" alt="AuraLAN Devices view with synthetic network devices"></a>
+  <a href="site/screenshots/activity-desktop-dark.png"><img src="site/screenshots/activity-desktop-dark.png" width="410" alt="AuraLAN Activity Center with synthetic network changes"></a>
+</p>
+
+More views are available on the **[AuraLAN website](https://yellownest.github.io/AuraLAN/#gallery)**.
+
+
 ## Why AuraLAN
 
 | | |
