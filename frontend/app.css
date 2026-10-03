@@ -3076,3 +3076,133 @@ h2 {
     background:color-mix(in srgb,var(--surface-muted) 94%,transparent);
   }
 }
+
+
+.review-section .section-title{
+  align-items:center;
+}
+.review-section .section-hint{
+  max-width:760px;
+  margin-top:5px;
+  color:var(--text-soft);
+  font-size:12px;
+  line-height:1.5;
+}
+.review-count{
+  min-width:32px;
+  height:32px;
+  padding:0 9px;
+  display:inline-grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--surface-muted);
+  color:var(--text-soft);
+  font-size:11px;
+  font-weight:800;
+}
+.review-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.review-card{
+  min-height:94px;
+  padding:15px 16px;
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) 16px;
+  align-items:center;
+  gap:12px;
+  border-radius:var(--radius-md);
+  color:var(--text);
+  text-align:left;
+}
+.review-card:hover{
+  border-color:var(--line-strong);
+  background:color-mix(in srgb,var(--surface-muted) 55%,var(--surface));
+}
+.review-card-icon{
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  background:var(--accent-soft);
+  color:var(--accent);
+}
+.review-card.tone-attention .review-card-icon{
+  background:var(--attention-soft);
+  color:var(--attention);
+}
+.review-card-icon .icon{
+  width:21px;
+  height:21px;
+}
+.review-card-copy{
+  min-width:0;
+}
+.review-card-copy strong,
+.review-card-copy small{
+  display:block;
+}
+.review-card-copy strong{
+  font-size:13px;
+  line-height:1.25;
+}
+.review-card-copy small{
+  margin-top:4px;
+  color:var(--text-faint);
+  font-size:10.5px;
+  line-height:1.4;
+}
+.review-card > .icon:last-child{
+  width:15px;
+  height:15px;
+  color:var(--text-faint);
+}
+.review-clear{
+  min-height:92px;
+  margin-top:17px;
+  padding:16px 18px;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr);
+  align-items:center;
+  gap:13px;
+  border-radius:var(--radius-md);
+}
+.review-clear-icon{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:var(--good-soft);
+  color:var(--good);
+}
+.review-clear-icon .icon{
+  width:22px;
+  height:22px;
+}
+.review-clear h2{
+  margin-top:1px;
+  font-size:17px;
+}
+.review-clear p:last-child{
+  margin-top:4px;
+  color:var(--text-soft);
+  font-size:11px;
+  line-height:1.45;
+}
+
+@media (max-width: 760px){
+  .review-grid{
+    grid-template-columns:1fr;
+  }
+  .review-card{
+    min-height:86px;
+    padding:13px 14px;
+  }
+  .review-section .section-title{
+    align-items:flex-start;
+  }
+}
