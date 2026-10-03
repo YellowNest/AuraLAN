@@ -62,6 +62,41 @@ export function identityCoverage(items) {
   };
 }
 
+export function networkReviewQueue({
+  devices = [],
+  baseline = {},
+  activity = [],
+  services = [],
+} = {}, nowMs = Date.now()) {
+  const inventory = Array.isArray(devices) ? devices : [];
+  const events = Array.isArray(activity) ? activity : [];
+  const serviceItems = Array.isArray(services) ? services : [];
+  const baselineState = baseline && typeof baseline === 'object' ? baseline : {};
+
+  const counts = {
+    favorite_missing: inventory.filter(isFavoriteNotSeen).length,
+    baseline_new: Number(baselineState.new_count || 0),
+    baseline_missing: Number(baselineState.missing_count || 0),
+    identity_limited: inventory.filter((device) => identityQuality(device).level === 'limited').length,
+    service_health: serviceItems.filter((item) => (
+      item?.detected
+      && ['offline', 'degraded', 'critical', 'unhealthy'].includes(String(item.state || '').toLowerCase())
+    )).length,
+    service_changes: events.filter((event) => event?.event_type === 'service_exposure_changed').length,
+    new_devices: inventory.filter((device) => isNewDevice(device, nowMs)).length,
+  };
+
+  return [
+    { id: 'favorite_missing', count: counts.favorite_missing, route: 'devices', filter: 'favorite_missing', icon: 'warning', tone: 'attention' },
+    { id: 'baseline_new', count: counts.baseline_new, route: 'devices', filter: 'baseline_new', icon: 'devices', tone: 'attention' },
+    { id: 'baseline_missing', count: counts.baseline_missing, route: 'devices', filter: 'baseline_missing', icon: 'offline', tone: 'attention' },
+    { id: 'identity_limited', count: counts.identity_limited, route: 'devices', filter: 'identity_limited', icon: 'identity', tone: 'neutral' },
+    { id: 'service_health', count: counts.service_health, route: 'services', filter: null, icon: 'services', tone: 'attention' },
+    { id: 'service_changes', count: counts.service_changes, route: 'activity', filter: 'services', icon: 'uptime', tone: 'neutral' },
+    { id: 'new_devices', count: counts.new_devices, route: 'devices', filter: 'new', icon: 'devices', tone: 'neutral' },
+  ].filter((item) => item.count > 0);
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
   const normalizedQuery = query.trim().toLowerCase();
   return items.filter((device) => {
