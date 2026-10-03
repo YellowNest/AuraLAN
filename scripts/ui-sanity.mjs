@@ -132,6 +132,17 @@ try {
       }
     }
 
+    await openRoute(page, 'overview');
+    await page.focus('#main-content');
+    await page.keyboard.press('/');
+    await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
+    const commandFocus = await page.evaluate(() => document.activeElement?.id);
+    assert.equal(commandFocus, 'command-input', `${viewport.name}/command: search input did not receive focus`);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
+    const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
+    assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
+
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
       hasOverview: Boolean(document.querySelector('.activity-overview')),
@@ -306,7 +317,12 @@ try {
       }
     }
 
-    await deviceRows[0].click();
+    await page.evaluate(() => {
+      const row = document.querySelector('.device-row');
+      if (row) row.setAttribute('data-focus-return-test', 'device');
+    });
+    await page.focus('[data-focus-return-test="device"]');
+    await page.click('[data-focus-return-test="device"]');
     await page.waitForSelector('#device-metadata-form', { timeout: 5000 });
 
     const detailReport = await page.evaluate((isMobile) => {
@@ -343,6 +359,8 @@ try {
     });
     const unlocked = await page.evaluate(() => !document.documentElement.classList.contains('modal-open') && !document.body.classList.contains('modal-open'));
     assert.equal(unlocked, true, `${viewport.name}/details: background remained locked after closing`);
+    const inspectorReturnFocus = await page.evaluate(() => document.activeElement?.getAttribute('data-focus-return-test'));
+    assert.equal(inspectorReturnFocus, 'device', `${viewport.name}/details: device inspector did not restore focus`);
 
     if (screenshotDir) {
       await mkdir(screenshotDir, { recursive: true });
