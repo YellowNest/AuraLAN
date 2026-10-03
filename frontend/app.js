@@ -108,6 +108,27 @@ function normalizeStatus(payload) {
       missing_device_ids: Array.isArray(payload.baseline.missing_device_ids) ? payload.baseline.missing_device_ids : [],
     }
     : { configured: false, captured_at: null, device_count: 0, current_count: 0, new_count: 0, missing_count: 0, new_device_ids: [], missing_device_ids: [] };
+  const emptyActivitySummary = { total: 0, new_devices: 0, watch_changes: 0, service_changes: 0, baseline_changes: 0 };
+  const rawInsights = payload.insights && typeof payload.insights === 'object' ? payload.insights : {};
+  const insights = {
+    state: ['quiet', 'changed', 'attention'].includes(rawInsights.state) ? rawInsights.state : 'quiet',
+    attention_count: Number(rawInsights.attention_count || 0),
+    current_devices: Number(rawInsights.current_devices || 0),
+    remembered_devices: Number(rawInsights.remembered_devices || 0),
+    online_devices: Number(rawInsights.online_devices || 0),
+    identity_needs_review: Number(rawInsights.identity_needs_review || 0),
+    favorites_total: Number(rawInsights.favorites_total || 0),
+    favorites_not_seen_now: Number(rawInsights.favorites_not_seen_now || 0),
+    new_devices_24h: Number(rawInsights.new_devices_24h || 0),
+    baseline_new: Number(rawInsights.baseline_new || 0),
+    baseline_missing: Number(rawInsights.baseline_missing || 0),
+    services_detected: Number(rawInsights.services_detected || 0),
+    services_offline: Number(rawInsights.services_offline || 0),
+    discovery_errors: Number(rawInsights.discovery_errors || 0),
+    activity_24h: { ...emptyActivitySummary, ...(rawInsights.activity_24h || {}) },
+    activity_7d: { ...emptyActivitySummary, ...(rawInsights.activity_7d || {}) },
+    activity_days: Array.isArray(rawInsights.activity_days) ? rawInsights.activity_days : [],
+  };
   const baselineNewIds = new Set(baseline.new_device_ids);
   const baselineMissingIds = new Set(baseline.missing_device_ids);
   for (const device of legacyDevices) {
@@ -140,6 +161,7 @@ function normalizeStatus(payload) {
       ? payload.notifications
       : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
     baseline,
+    insights,
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -389,6 +411,60 @@ function renderActivity() {
   <section class="surface discovery-list activity-center-list">${renderActivityRows(visible)}</section>`;
 }
 
+function renderNetworkPulse() {
+  const insights = state.data?.insights || {};
+  const activity24 = insights.activity_24h || {};
+  const days = Array.isArray(insights.activity_days) ? insights.activity_days : [];
+  const maxDaily = Math.max(1, ...days.map((item) => Number(item.total || 0)));
+  const pulseState = ['quiet', 'changed', 'attention'].includes(insights.state) ? insights.state : 'quiet';
+  const stateCopy = {
+    quiet: [t('pulseQuietTitle'), t('pulseQuietHint'), 'success'],
+    changed: [t('pulseChangedTitle'), t('pulseChangedHint'), 'activity'],
+    attention: [t('pulseAttentionTitle'), t('pulseAttentionHint'), 'warning'],
+  }[pulseState];
+
+  const bars = days.length
+    ? days.map((item) => {
+      const total = Number(item.total || 0);
+      const height = total ? Math.max(14, Math.round((total / maxDaily) * 100)) : 4;
+      const label = new Date(Number(item.start_at || 0) * 1000).toLocaleDateString(state.locale, { weekday: 'short' });
+      return `<div class="pulse-day" title="${escapeHtml(t('pulseEventsCount', { count: total }))}"><span class="pulse-bar-track"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>${total}</small></div>`;
+    }).join('')
+    : `<div class="pulse-empty">${escapeHtml(t('pulseNoHistory'))}</div>`;
+
+  const attention = Number(insights.attention_count || 0);
+  const identityNeedsReview = Number(insights.identity_needs_review || 0);
+  const newDevices = Number(insights.new_devices_24h || 0);
+  const events24 = Number(activity24.total || 0);
+
+  return `<section class="content-section network-pulse-section">
+    <header class="section-title pulse-section-title"><div><p class="eyebrow">${t('networkPulse')}</p><h2>${t('networkPulseTitle')}</h2><p class="section-hint">${t('networkPulseHint')}</p></div><button class="text-button" type="button" data-route="activity">${t('openActivity')}${icon('chevron')}</button></header>
+    <div class="network-pulse surface pulse-${escapeHtml(pulseState)}">
+      <div class="pulse-summary">
+        <span class="pulse-summary-icon">${icon(stateCopy[2])}</span>
+        <div><strong>${escapeHtml(stateCopy[0])}</strong><p>${escapeHtml(stateCopy[1])}</p></div>
+        <span class="pulse-window">${t('pulseLast24h')}</span>
+      </div>
+      <div class="pulse-metrics">
+        <button type="button" data-route="activity"><strong>${events24}</strong><span>${t('pulseEvents24h')}</span></button>
+        <button type="button" data-route="devices" data-device-filter="new"><strong>${newDevices}</strong><span>${t('pulseNewDevices24h')}</span></button>
+        <button type="button" data-route="devices" data-device-filter="identity_limited"><strong>${identityNeedsReview}</strong><span>${t('pulseIdentityReview')}</span></button>
+        <button type="button" data-route="activity"><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span></button>
+      </div>
+      <div class="pulse-history">
+        <div class="pulse-history-head"><div><strong>${t('pulseSevenDays')}</strong><span>${t('pulseSevenDaysHint')}</span></div><b>${Number(insights.activity_7d?.total || 0)} ${t('pulseEvents').toLowerCase()}</b></div>
+        <div class="pulse-chart" role="img" aria-label="${escapeHtml(t('pulseChartLabel'))}">${bars}</div>
+      </div>
+      <div class="pulse-detail-row">
+        <span><b>${Number(insights.baseline_new || 0)}</b> ${t('baselineNew').toLowerCase()}</span>
+        <span><b>${Number(insights.baseline_missing || 0)}</b> ${t('baselineMissing').toLowerCase()}</span>
+        <span><b>${Number(insights.favorites_not_seen_now || 0)}</b> ${t('pulseFavoritesMissing').toLowerCase()}</span>
+        <span><b>${Number(insights.services_offline || 0)}</b> ${t('pulseServicesOffline').toLowerCase()}</span>
+      </div>
+    </div>
+  </section>`;
+}
+
 function renderNetworkReview() {
   const items = networkReviewQueue({
     devices: devices(),
@@ -461,6 +537,7 @@ function renderOverview() {
     : '';
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
   ${baselineCard}
+  ${renderNetworkPulse()}
   ${renderNetworkReview()}
   ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-route="activity">${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
