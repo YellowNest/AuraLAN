@@ -114,6 +114,32 @@ class WebhookNotificationTests(unittest.TestCase):
                 self.assertEqual(notifier.dispatch_pending(), 0)
                 post.assert_not_called()
 
+    def test_activity_retention_preserves_pending_webhook_events(self):
+        with TemporaryDirectory() as temp_dir, patch(
+            "app.persistence.device_store.DEVICE_EVENT_HISTORY_LIMIT",
+            2,
+        ):
+            event_store = DeviceStore(Path(temp_dir))
+            first_id = add_first_seen(event_store, "001122334455", "192.0.2.10")
+            event_store.set_notification_cursor("webhook", first_id)
+
+            pending_ids = [
+                add_first_seen(event_store, f"0011223344{suffix}", f"192.0.2.{index}")
+                for suffix, index in (("66", 11), ("77", 12), ("88", 13), ("99", 14))
+            ]
+
+            self.assertEqual(event_store.pending_event_count(first_id), 4)
+            self.assertEqual(
+                [event["id"] for event in event_store.events_after(first_id, 10)],
+                pending_ids,
+            )
+
+            event_store.set_notification_cursor("webhook", pending_ids[-1])
+            event_store.readiness_check()
+
+            self.assertLessEqual(len(event_store.recent_events(100)), 2)
+            self.assertEqual(event_store.pending_event_count(pending_ids[-1]), 0)
+
     def test_default_payload_omits_network_identifiers(self):
         with TemporaryDirectory() as temp_dir:
             notifier = WebhookNotifier(
