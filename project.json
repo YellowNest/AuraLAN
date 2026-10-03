@@ -2,7 +2,7 @@
   "productName": "AuraLAN",
   "shortName": "AuraLAN",
   "tagline": "Your network, clearly.",
-  "version": "1.0.0",
+  "version": "1.5.0-dev",
   "apiVersion": "v1",
   "repository": {
     "url": "https://github.com/YellowNest/AuraLAN",
