@@ -3206,3 +3206,244 @@ h2 {
     align-items:flex-start;
   }
 }
+
+
+/* AuraLAN 1.5 — Network Pulse */
+.network-pulse-section{
+  margin-top:28px;
+}
+.pulse-section-title{
+  align-items:end;
+}
+.network-pulse{
+  overflow:hidden;
+  border-color:var(--line);
+  background:var(--surface);
+}
+.pulse-summary{
+  min-height:88px;
+  padding:18px 20px;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  border-bottom:1px solid var(--line);
+}
+.pulse-summary-icon{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  background:var(--accent-soft);
+  color:var(--accent);
+}
+.pulse-summary-icon .icon{
+  width:21px;
+  height:21px;
+}
+.pulse-attention .pulse-summary-icon{
+  background:var(--attention-soft);
+  color:var(--attention);
+}
+.pulse-quiet .pulse-summary-icon{
+  background:var(--good-soft);
+  color:var(--good);
+}
+.pulse-summary strong{
+  display:block;
+  font-size:17px;
+  letter-spacing:-.02em;
+}
+.pulse-summary p{
+  margin:3px 0 0;
+  color:var(--text-soft);
+  font-size:11.5px;
+}
+.pulse-window{
+  padding:6px 9px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  color:var(--text-faint);
+  background:var(--surface-muted);
+  font-size:9.5px;
+  font-weight:750;
+}
+.pulse-metrics{
+  padding:12px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  border-bottom:1px solid var(--line);
+}
+.pulse-metrics button{
+  min-width:0;
+  min-height:72px;
+  padding:12px 13px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  border:1px solid transparent;
+  border-radius:13px;
+  background:var(--surface-muted);
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+}
+.pulse-metrics button:hover{
+  border-color:var(--line-strong);
+  background:var(--surface-strong);
+}
+.pulse-metrics strong{
+  font-size:22px;
+  line-height:1;
+  letter-spacing:-.035em;
+}
+.pulse-metrics span{
+  margin-top:6px;
+  color:var(--text-faint);
+  font-size:10px;
+  font-weight:700;
+}
+.pulse-history{
+  padding:18px 20px 14px;
+}
+.pulse-history-head{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  align-items:start;
+}
+.pulse-history-head strong,
+.pulse-history-head span{
+  display:block;
+}
+.pulse-history-head strong{
+  font-size:13px;
+}
+.pulse-history-head span{
+  margin-top:3px;
+  color:var(--text-faint);
+  font-size:10px;
+}
+.pulse-history-head>b{
+  color:var(--text-soft);
+  font-size:10px;
+}
+.pulse-chart{
+  height:126px;
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:9px;
+  align-items:end;
+}
+.pulse-day{
+  min-width:0;
+  height:100%;
+  display:grid;
+  grid-template-rows:1fr auto auto;
+  gap:4px;
+  justify-items:center;
+}
+.pulse-bar-track{
+  width:min(28px,70%);
+  height:100%;
+  display:flex;
+  align-items:flex-end;
+  border-radius:8px;
+  background:var(--surface-muted);
+  overflow:hidden;
+}
+.pulse-bar-track i{
+  width:100%;
+  min-height:4px;
+  display:block;
+  border-radius:8px;
+  background:linear-gradient(180deg,var(--accent),var(--accent-2));
+}
+.pulse-day b{
+  color:var(--text-soft);
+  font-size:9px;
+  font-weight:700;
+}
+.pulse-day small{
+  color:var(--text-faint);
+  font-size:8.5px;
+}
+.pulse-empty{
+  grid-column:1/-1;
+  align-self:center;
+  color:var(--text-faint);
+  text-align:center;
+  font-size:11px;
+}
+.pulse-detail-row{
+  min-height:44px;
+  padding:10px 20px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 18px;
+  align-items:center;
+  border-top:1px solid var(--line);
+  color:var(--text-faint);
+  background:color-mix(in srgb,var(--surface-muted) 54%,var(--surface));
+  font-size:9.5px;
+}
+.pulse-detail-row b{
+  color:var(--text);
+  font-size:10px;
+}
+
+@media (max-width: 760px) {
+  .network-pulse-section{
+    margin-top:22px;
+  }
+  .pulse-summary{
+    padding:15px;
+    grid-template-columns:40px minmax(0,1fr);
+  }
+  .pulse-summary-icon{
+    width:40px;
+    height:40px;
+  }
+  .pulse-window{
+    grid-column:2;
+    justify-self:start;
+    margin-top:-5px;
+  }
+  .pulse-metrics{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .pulse-metrics button{
+    min-height:68px;
+  }
+  .pulse-history{
+    padding:16px 14px 12px;
+  }
+  .pulse-chart{
+    height:108px;
+    gap:5px;
+  }
+  .pulse-bar-track{
+    width:min(24px,78%);
+  }
+  .pulse-detail-row{
+    padding:10px 14px;
+    gap:7px 13px;
+  }
+}
+
+@media(max-width:390px){
+  .pulse-history-head{
+    flex-direction:column;
+    gap:5px;
+  }
+  .pulse-chart{
+    height:96px;
+  }
+  .pulse-day b{
+    font-size:8px;
+  }
+}
