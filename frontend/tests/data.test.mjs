@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -220,4 +220,94 @@ test('device search includes secondary MAC addresses from a multi-NIC host', () 
   }];
   assert.equal(filterDevices(items, 'all', '02:00:00:00:10:01').length, 1);
   assert.equal(filterDevices(items, 'all', '192.0.2.113').length, 1);
+});
+
+
+test('network review queue prioritizes actionable local signals without inventing security verdicts', () => {
+  const nowSeconds = 2_000_000;
+  const inventory = [
+    {
+      display_name: 'Camera',
+      category: 'camera',
+      state: 'known',
+      first_seen_at: nowSeconds - 500_000,
+      metadata: { favorite: true },
+      identity: { display_name: { confidence: 'medium' }, sources: [] },
+    },
+    {
+      display_name: 'New phone',
+      category: 'phone',
+      state: 'online',
+      first_seen_at: nowSeconds - 3600,
+      metadata: {},
+      vendor: 'Example',
+      identity: {
+        display_name: { confidence: 'high' },
+        device_type: { confidence: 'high' },
+        sources: [{ confidence: 'high' }],
+      },
+    },
+    {
+      display_name: 'Mystery',
+      category: 'unknown',
+      state: 'online',
+      first_seen_at: nowSeconds - 500_000,
+      metadata: {},
+      identity: { display_name: { confidence: 'low' }, sources: [{ confidence: 'medium' }] },
+    },
+  ];
+
+  const queue = networkReviewQueue({
+    devices: inventory,
+    baseline: { new_count: 1, missing_count: 2 },
+    activity: [
+      { event_type: 'service_exposure_changed' },
+      { event_type: 'device_first_seen' },
+    ],
+    services: [
+      { detected: true, state: 'offline' },
+      { detected: true, state: 'online' },
+      { detected: false, state: 'offline' },
+    ],
+  }, nowSeconds * 1000);
+
+  assert.deepEqual(
+    queue.map((item) => [item.id, item.count]),
+    [
+      ['favorite_missing', 1],
+      ['baseline_new', 1],
+      ['baseline_missing', 2],
+      ['identity_limited', 2],
+      ['service_health', 1],
+      ['service_changes', 1],
+      ['new_devices', 1],
+    ],
+  );
+  assert.equal(queue.find((item) => item.id === 'service_changes').route, 'activity');
+  assert.equal(queue.find((item) => item.id === 'service_changes').filter, 'services');
+});
+
+test('network review queue is empty when current state has nothing worth review', () => {
+  const queue = networkReviewQueue({
+    devices: [{
+      display_name: 'NAS',
+      hostname: 'nas',
+      vendor: 'Example',
+      model: 'Storage',
+      category: 'server',
+      state: 'online',
+      first_seen_at: 100,
+      metadata: { favorite: false },
+      identity: {
+        display_name: { confidence: 'high' },
+        device_type: { confidence: 'high' },
+        sources: [{ confidence: 'high' }],
+      },
+    }],
+    baseline: { new_count: 0, missing_count: 0 },
+    activity: [],
+    services: [{ detected: true, state: 'online' }],
+  }, 3_000_000_000);
+
+  assert.deepEqual(queue, []);
 });
