@@ -106,6 +106,24 @@ try {
         assert.ok(report.baselineRadius >= 14, `${viewport.name}/overview: network baseline card lost the shared rounded-card geometry`);
         assert.equal(report.baselineOverflow, 'hidden', `${viewport.name}/overview: network baseline card can paint outside its rounded corners`);
       }
+      if (route === 'overview') {
+        const pulse = await page.evaluate(() => {
+          const root = document.querySelector('.network-pulse');
+          const chart = document.querySelector('.pulse-chart');
+          return {
+            hasPulse: Boolean(root),
+            metricCount: root?.querySelectorAll('.pulse-metrics > button').length || 0,
+            dayCount: root?.querySelectorAll('.pulse-day').length || 0,
+            chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
+            pulseOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
+          };
+        });
+        assert.equal(pulse.hasPulse, true, `${viewport.name}/overview: Network Pulse is missing`);
+        assert.equal(pulse.metricCount, 4, `${viewport.name}/overview: Network Pulse metrics are incomplete`);
+        assert.ok(pulse.dayCount === 0 || pulse.dayCount === 7, `${viewport.name}/overview: Network Pulse must show seven activity buckets when history is available`);
+        assert.equal(pulse.chartOverflow, false, `${viewport.name}/overview: Network Pulse chart overflows horizontally`);
+        assert.equal(pulse.pulseOverflow, false, `${viewport.name}/overview: Network Pulse panel overflows horizontally`);
+      }
       if (report.pageTitleFontSize !== null) {
         assert.ok(report.pageTitleFontSize >= 27 && report.pageTitleFontSize <= 42, `${viewport.name}/${route}: page title scale is out of range`);
       }
@@ -131,6 +149,17 @@ try {
         await page.screenshot({ path: `${screenshotDir}/${viewport.name}-${viewport.dark ? 'dark' : 'light'}-${route}.png`, fullPage: false });
       }
     }
+
+    await openRoute(page, 'overview');
+    await page.focus('#main-content');
+    await page.keyboard.press('/');
+    await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
+    const commandFocus = await page.evaluate(() => document.activeElement?.id);
+    assert.equal(commandFocus, 'command-input', `${viewport.name}/command: search input did not receive focus`);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
+    const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
+    assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
 
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
@@ -306,7 +335,12 @@ try {
       }
     }
 
-    await deviceRows[0].click();
+    await page.evaluate(() => {
+      const row = document.querySelector('.device-row');
+      if (row) row.setAttribute('data-focus-return-test', 'device');
+    });
+    await page.focus('[data-focus-return-test="device"]');
+    await page.click('[data-focus-return-test="device"]');
     await page.waitForSelector('#device-metadata-form', { timeout: 5000 });
 
     const detailReport = await page.evaluate((isMobile) => {
@@ -343,6 +377,8 @@ try {
     });
     const unlocked = await page.evaluate(() => !document.documentElement.classList.contains('modal-open') && !document.body.classList.contains('modal-open'));
     assert.equal(unlocked, true, `${viewport.name}/details: background remained locked after closing`);
+    const inspectorReturnFocus = await page.evaluate(() => document.activeElement?.getAttribute('data-focus-return-test'));
+    assert.equal(inspectorReturnFocus, 'device', `${viewport.name}/details: device inspector did not restore focus`);
 
     if (screenshotDir) {
       await mkdir(screenshotDir, { recursive: true });

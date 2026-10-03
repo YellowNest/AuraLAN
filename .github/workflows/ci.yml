@@ -173,3 +173,42 @@ jobs:
 
       - name: Frontend tests
         run: node --test frontend/tests/*.test.mjs
+
+
+  browser:
+    name: Browser sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Boot AuraLAN and run responsive browser checks
+        run: |
+          export AURALAN_DATA_DIR="$RUNNER_TEMP/auralan-browser-state"
+          python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8878 >"$RUNNER_TEMP/auralan-browser.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8878/api/v1/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat "$RUNNER_TEMP/auralan-browser.log"
+              exit 1
+            fi
+            sleep 0.5
+          done
+
+          AURALAN_URL=http://127.0.0.1:8878 bash scripts/test-ui.sh

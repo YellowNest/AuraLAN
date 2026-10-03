@@ -28,7 +28,6 @@ Make local change history more useful without turning AuraLAN into an intrusion-
 
 - Improve grouping for related changes.
 - Improve filtering and empty states.
-- Explore bounded retention controls.
 - Keep richer activity local unless a future integration is explicitly designed with privacy controls.
 
 ### Integrations

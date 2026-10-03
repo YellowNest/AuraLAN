@@ -20,6 +20,7 @@ PRESENCE_HISTORY_PER_DEVICE_LIMIT = 200
 PRESENCE_HISTORY_TOTAL_LIMIT = 5000
 SERVICE_SCAN_PER_DEVICE_LIMIT = 20
 SERVICE_SCAN_TOTAL_LIMIT = 2000
+DEVICE_EVENT_HISTORY_LIMIT = 5000
 
 WATCH_SEEN = 0
 WATCH_NOT_SEEN = 1
@@ -263,6 +264,8 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
+                self._prune_event_history(connection)
+                connection.commit()
                 connection.execute("SELECT 1 FROM device_metadata LIMIT 1").fetchone()
                 version_row = connection.execute("PRAGMA user_version").fetchone()
                 return {
@@ -383,6 +386,7 @@ class DeviceStore:
                             "VALUES (?, ?, ?, ?, ?, ?)",
                             event,
                         )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -394,6 +398,31 @@ class DeviceStore:
         except (TypeError, ValueError):
             return {}
         return loaded if isinstance(loaded, dict) else {}
+
+    @classmethod
+    def _prune_event_history(cls, connection: sqlite3.Connection) -> None:
+        """Bound local activity while preserving webhook events that are still pending."""
+        cursor_row = connection.execute(
+            "SELECT MIN(last_event_id) AS min_cursor FROM notification_cursors"
+        ).fetchone()
+        if cursor_row and cursor_row["min_cursor"] is not None:
+            protected_after = int(cursor_row["min_cursor"])
+        else:
+            latest_row = connection.execute(
+                "SELECT COALESCE(MAX(id), 0) AS latest_id FROM device_events"
+            ).fetchone()
+            protected_after = int(latest_row["latest_id"]) if latest_row else 0
+
+        event_types = tuple(NOTIFICATION_EVENT_TYPES)
+        marks = ",".join("?" for _ in event_types)
+        connection.execute(
+            "DELETE FROM device_events WHERE id IN ("
+            "SELECT id FROM device_events "
+            f"WHERE NOT (event_type IN ({marks}) AND id > ?) "
+            "ORDER BY created_at DESC, id DESC LIMIT -1 OFFSET ?"
+            ")",
+            (*event_types, protected_after, DEVICE_EVENT_HISTORY_LIMIT),
+        )
 
     def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
         """Return recent local activity without external enrichment."""
@@ -416,6 +445,95 @@ class DeviceStore:
         for row in rows:
             row["details"] = self._decode_event_details(row.pop("details_json", "{}"))
         return rows
+
+    def activity_summary_since(self, since: int) -> dict[str, int]:
+        """Return aggregate Activity Center counts since a Unix timestamp."""
+        threshold = max(0, int(since))
+        groups = {
+            "total": 0,
+            "new_devices": 0,
+            "watch_changes": 0,
+            "service_changes": 0,
+            "baseline_changes": 0,
+        }
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = connection.execute(
+                    "SELECT event_type, COUNT(*) AS count "
+                    "FROM device_events WHERE created_at >= ? "
+                    "GROUP BY event_type",
+                    (threshold,),
+                ).fetchall()
+            finally:
+                connection.close()
+
+        for row in rows:
+            event_type = str(row["event_type"])
+            count = int(row["count"])
+            groups["total"] += count
+            if event_type == "device_first_seen":
+                groups["new_devices"] += count
+            elif event_type in {"favorite_not_seen", "favorite_seen_again"}:
+                groups["watch_changes"] += count
+            elif event_type == "service_exposure_changed":
+                groups["service_changes"] += count
+            elif event_type in {"baseline_captured", "baseline_cleared"}:
+                groups["baseline_changes"] += count
+        return groups
+
+    def activity_daily_counts(self, days: int = 7, *, now: int | None = None) -> list[dict[str, int]]:
+        """Return rolling 24-hour Activity Center buckets, oldest first."""
+        bounded_days = max(1, min(int(days), 31))
+        end_at = int(time.time()) if now is None else int(now)
+        day_seconds = 24 * 60 * 60
+        start_at = end_at - (bounded_days * day_seconds)
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = connection.execute(
+                    "SELECT event_type, created_at FROM device_events "
+                    "WHERE created_at >= ? AND created_at <= ? "
+                    "ORDER BY created_at ASC, id ASC",
+                    (start_at, end_at),
+                ).fetchall()
+            finally:
+                connection.close()
+
+        buckets = []
+        for index in range(bounded_days):
+            bucket_start = start_at + (index * day_seconds)
+            buckets.append({
+                "start_at": bucket_start,
+                "total": 0,
+                "new_devices": 0,
+                "watch_changes": 0,
+                "service_changes": 0,
+                "baseline_changes": 0,
+            })
+
+        for row in rows:
+            created_at = int(row["created_at"])
+            index = min(
+                bounded_days - 1,
+                max(0, (created_at - start_at) // day_seconds),
+            )
+            bucket = buckets[index]
+            bucket["total"] += 1
+            event_type = str(row["event_type"])
+            if event_type == "device_first_seen":
+                bucket["new_devices"] += 1
+            elif event_type in {"favorite_not_seen", "favorite_seen_again"}:
+                bucket["watch_changes"] += 1
+            elif event_type == "service_exposure_changed":
+                bucket["service_changes"] += 1
+            elif event_type in {"baseline_captured", "baseline_cleared"}:
+                bucket["baseline_changes"] += 1
+
+        return buckets
 
     def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
         """Record stable watch-state changes for user-favorited devices.
@@ -504,6 +622,7 @@ class DeviceStore:
                         (next_state, now, device_id),
                     )
 
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -726,6 +845,7 @@ class DeviceStore:
                     ")",
                     (SERVICE_SCAN_TOTAL_LIMIT,),
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -967,6 +1087,7 @@ class DeviceStore:
                              AND event.entity_id = inventory.device_id
                        )"""
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
@@ -1133,6 +1254,7 @@ class DeviceStore:
                         captured_at,
                     ),
                 )
+                self._prune_event_history(connection)
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -1168,6 +1290,7 @@ class DeviceStore:
                             int(time.time()),
                         ),
                     )
+                self._prune_event_history(connection)
                 connection.commit()
             finally:
                 connection.close()
