@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from pathlib import Path
 import sqlite3
+import time
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
@@ -26,6 +27,7 @@ from .models import (
     MetaResponse,
     MonitorResponse,
     NetworkBaselineResponse,
+    NetworkInsightsResponse,
     NetworkResponse,
     NotificationStatusResponse,
     PresenceHistoryResponse,
@@ -35,6 +37,7 @@ from .models import (
     WakeResponse,
 )
 from .home_assistant import home_assistant_summary as build_home_assistant_summary
+from .insights import build_network_insights
 from .metrics import render_prometheus
 from .monitor import BackgroundMonitor
 from .notifications import WebhookNotifier
@@ -92,6 +95,39 @@ def _activity_status(snapshot: dict | None = None, limit: int = 50) -> list[dict
         current = snapshot or {}
         activity = current.get("activity")
         return activity if isinstance(activity, list) else []
+
+
+def _network_insights(
+    snapshot: dict | None = None,
+    baseline: dict | None = None,
+) -> dict:
+    current = snapshot or system_snapshot()
+    baseline_status = baseline or _baseline_status(current)
+    now = int(time.time())
+    empty = {
+        "total": 0,
+        "new_devices": 0,
+        "watch_changes": 0,
+        "service_changes": 0,
+        "baseline_changes": 0,
+    }
+    try:
+        activity_24h = store().activity_summary_since(now - (24 * 60 * 60))
+        activity_7d = store().activity_summary_since(now - (7 * 24 * 60 * 60))
+        activity_days = store().activity_daily_counts(7, now=now)
+    except (OSError, sqlite3.Error, ValueError, TypeError):
+        activity_24h = dict(empty)
+        activity_7d = dict(empty)
+        activity_days = []
+
+    return build_network_insights(
+        current,
+        baseline_status,
+        activity_24h,
+        activity_7d,
+        activity_days,
+        now=now,
+    )
 
 
 def _notification_status() -> dict:
@@ -173,6 +209,7 @@ def health() -> dict:
 def status() -> dict:
     metadata = brand()
     snapshot = system_snapshot()
+    baseline = _baseline_status(snapshot)
     return {
         **snapshot,
         "version": metadata["version"],
@@ -180,8 +217,16 @@ def status() -> dict:
         "activity": _activity_status(snapshot),
         "monitor": background_monitor.status(),
         "notifications": _notification_status(),
-        "baseline": _baseline_status(snapshot),
+        "baseline": baseline,
+        "insights": _network_insights(snapshot, baseline),
     }
+
+
+@app.get("/api/v1/insights", response_model=NetworkInsightsResponse)
+def network_insights_status() -> dict:
+    snapshot = system_snapshot()
+    baseline = _baseline_status(snapshot)
+    return _network_insights(snapshot, baseline)
 
 
 @app.get("/api/v1/baseline", response_model=NetworkBaselineResponse)
