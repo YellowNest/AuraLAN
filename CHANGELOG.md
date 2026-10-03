@@ -11,6 +11,8 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 ### Added
 
 - **Network Review** adds a single “Worth a look” queue on Overview for missing favorites, network-baseline differences, limited device identities, detected service-health problems, recent Service Exposure changes and newly discovered devices. Every item links directly to the relevant local evidence and is deliberately presented as a review cue rather than a security verdict.
+- **Network Pulse** adds a privacy-preserving 24-hour and seven-day summary to Overview, including recent activity, newly seen devices, identity gaps, baseline drift, favorite watch state, service health and a seven-day activity chart. It uses aggregate local counts only and links directly to Activity or the relevant device filters.
+- A new `/api/v1/insights` endpoint exposes the same aggregate Network Pulse model for local integrations without returning device names, IDs, IP/MAC addresses, notes, locations or tags.
 
 ### Changed
 
