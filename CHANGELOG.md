@@ -6,6 +6,22 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-04
+
+### Added
+
+- **Network Review** adds a single “Worth a look” queue on Overview for missing favorites, network-baseline differences, limited device identities, detected service-health problems, recent Service Exposure changes and newly discovered devices. Every item links directly to the relevant local evidence and is deliberately presented as a review cue rather than a security verdict.
+
+### Changed
+
+- Activity Center persistence now keeps the newest 5,000 ordinary local events while protecting notification events that are still pending webhook delivery. Once delivery cursors advance, older protected events become eligible for normal retention cleanup.
+- Public product metadata, documentation and the synthetic screenshot fixture now identify the stable release as 1.5.0.
+
+### Fixed
+
+- Closing the command palette or device inspector now restores keyboard focus to the control that opened it, while retaining the existing synchronous scroll-unlock behavior.
+- Browser sanity coverage now checks command-palette and device-inspector focus restoration so the accessibility behavior cannot silently regress.
+
 ## [1.0.0] - 2026-10-02
 
 ### Changed
