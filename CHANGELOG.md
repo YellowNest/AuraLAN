@@ -6,6 +6,13 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### Added
+
+- **Network Pulse** adds a privacy-preserving Overview summary for the last 24 hours and seven days. It combines local Activity Center history, newly seen devices, identity gaps, baseline drift, favorite-device watch state, detected-service health and discovery errors without exposing per-device identifiers through the aggregate insight API.
+- A new `/api/v1/insights` endpoint returns aggregate Network Pulse counts plus seven rolling 24-hour activity buckets. The same aggregate is included in `/api/v1/status`, keeping the dashboard to one status refresh while making the insight model reusable by local integrations.
+- Overview now shows a responsive seven-day activity chart and direct shortcuts into Activity and relevant device filters, so recent change and items worth checking are visible without digging through multiple pages.
+
+
 ## [1.0.0] - 2026-10-02
 
 ### Changed
