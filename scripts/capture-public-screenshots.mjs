@@ -85,9 +85,11 @@ async function newPage(viewport) {
 async function openAndVerify(page, route, counts) {
   await page.goto(`${baseUrl}/#${route}`, { waitUntil: 'networkidle0', timeout: 30000 });
   await page.waitForSelector('#app-view:not([aria-busy="true"])', { timeout: 15000 });
+  const syntheticMarkers = ['YellowNest Demo', 'Living Room TV', 'Guest Phone', 'Office Pi', '192.0.2.'];
   await page.waitForFunction(
-    () => document.body.innerText.includes('YellowNest Demo') || document.body.innerText.includes('Living Room TV'),
+    (markers) => markers.some((marker) => document.body.innerText.includes(marker)),
     { timeout: 10000 },
+    syntheticMarkers,
   );
 
   const bodyText = await page.evaluate(() => document.body.innerText);
@@ -96,10 +98,10 @@ async function openAndVerify(page, route, counts) {
   if (interception.status < 1 || interception.meta < 1) {
     throw new Error(`Synthetic API interception failed for ${route}`);
   }
-  if (!bodyText.includes('YellowNest Demo') && !bodyText.includes('Living Room TV')) {
+  if (!syntheticMarkers.some((marker) => bodyText.includes(marker))) {
     throw new Error(`Synthetic marker missing for ${route}`);
   }
-  if (bodyText.includes('192.168.') || bodyText.includes('10.100.')) {
+  if (bodyText.includes('192.168.') || bodyText.includes('10.100.') || bodyText.includes('172.16.')) {
     throw new Error(`Private-network data appeared in public capture for ${route}`);
   }
 }
