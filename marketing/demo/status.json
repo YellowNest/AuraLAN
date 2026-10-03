@@ -1,0 +1,1051 @@
+{
+  "generated_at": "2026-10-03T10:15:00Z",
+  "system": {
+    "state": "healthy",
+    "title": "Everything looks good",
+    "summary": "Local status is available.",
+    "attention_count": 0
+  },
+  "host": {
+    "name": "demo-pi",
+    "uptime": "12 days",
+    "load": "0.34",
+    "memory_used_percent": 38,
+    "storage_used_percent": 29,
+    "temperature_celsius": 47.2
+  },
+  "network": {
+    "access_point": {
+      "available": true,
+      "connection": "Wi-Fi",
+      "interface": "wlan0",
+      "ssid": "YellowNest Demo",
+      "channel": 44,
+      "band": "5 GHz",
+      "frequency_mhz": 5220,
+      "ipv4": "192.0.2.42",
+      "subnet": "192.0.2.0/24",
+      "state": "online"
+    },
+    "uplink": {
+      "interface": "eth0",
+      "gateway": "192.0.2.1",
+      "ipv4": "192.0.2.42",
+      "state": "healthy"
+    },
+    "dhcp": {
+      "detected": true,
+      "state": "healthy",
+      "unit": "dnsmasq",
+      "interface": "wlan0",
+      "lease_count": 12
+    },
+    "interfaces": [],
+    "routes": []
+  },
+  "baseline": {
+    "configured": true,
+    "captured_at": 1,
+    "device_count": 13,
+    "current_count": 13,
+    "new_count": 1,
+    "missing_count": 1,
+    "new_device_ids": [
+      "guest-phone"
+    ],
+    "missing_device_ids": [
+      "old-laptop"
+    ]
+  },
+  "monitor": {
+    "enabled": true,
+    "interval_seconds": 60,
+    "running": true,
+    "last_attempt_at": 1,
+    "last_success_at": 1,
+    "last_error": null
+  },
+  "notifications": {
+    "configured": false,
+    "include_identifiers": false,
+    "last_attempt_at": null,
+    "last_success_at": null,
+    "last_error": null,
+    "pending_events": 0
+  },
+  "services": {
+    "items": [
+      {
+        "id": "docker",
+        "name": "Docker",
+        "detected": true,
+        "state": "online",
+        "runtime": "local",
+        "summary": "12 running · 12 total",
+        "short_description": "Container runtime",
+        "category": "infrastructure",
+        "importance": "optional",
+        "capabilities": {
+          "read_status": true
+        },
+        "details": {
+          "running": 12,
+          "total": 12
+        }
+      },
+      {
+        "id": "pihole",
+        "name": "Pi-hole",
+        "detected": true,
+        "state": "online",
+        "runtime": "local",
+        "summary": "DNS filtering available",
+        "short_description": "Local DNS filtering",
+        "category": "network",
+        "importance": "optional",
+        "capabilities": {
+          "read_status": true
+        },
+        "details": {
+          "blocking": true
+        }
+      },
+      {
+        "id": "wireguard",
+        "name": "WireGuard",
+        "detected": true,
+        "state": "online",
+        "runtime": "local",
+        "summary": "1 interface",
+        "short_description": "VPN interface",
+        "category": "network",
+        "importance": "optional",
+        "capabilities": {
+          "read_status": true
+        },
+        "details": {
+          "interfaces": [
+            "wg0"
+          ],
+          "peer_count": 3
+        }
+      },
+      {
+        "id": "caddy",
+        "name": "Caddy",
+        "detected": true,
+        "state": "online",
+        "runtime": "local",
+        "summary": "Reverse proxy available",
+        "short_description": "Reverse proxy",
+        "category": "network",
+        "importance": "optional",
+        "capabilities": {
+          "read_status": true
+        },
+        "details": {}
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "router",
+      "display_name": "Router",
+      "hostname": "router",
+      "vendor": "Ubiquiti",
+      "model": "Gateway",
+      "device_type": "router",
+      "category": "router",
+      "icon_key": "router",
+      "ip": "192.0.2.1",
+      "ip_addresses": [
+        "192.0.2.1"
+      ],
+      "mac": "02:00:00:00:00:01",
+      "mac_type": "local",
+      "interface": "eth0",
+      "connection_type": "ethernet",
+      "online": true,
+      "state": "online",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": false,
+      "demo_first_seen_age_seconds": 864000,
+      "demo_last_seen_age_seconds": 20,
+      "identity": {
+        "display_name": {
+          "value": "Router",
+          "source": "dhcp_lease",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Ubiquiti",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Gateway",
+          "source": "dns_sd",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "router",
+          "source": "default_route",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "default_route",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Office",
+        "tags": [
+          "network"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "access-point",
+      "display_name": "Access Point",
+      "hostname": "ap-main",
+      "vendor": "Ubiquiti",
+      "model": "UniFi",
+      "device_type": "access_point",
+      "category": "access_point",
+      "icon_key": "access_point",
+      "ip": "192.0.2.2",
+      "ip_addresses": [
+        "192.0.2.2"
+      ],
+      "mac": "02:00:00:00:00:02",
+      "mac_type": "local",
+      "interface": "eth0",
+      "connection_type": "ethernet",
+      "online": true,
+      "state": "online",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 820000,
+      "demo_last_seen_age_seconds": 25,
+      "identity": {
+        "display_name": {
+          "value": "Access Point",
+          "source": "mdns_name",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Ubiquiti",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "UniFi",
+          "source": "dns_sd",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "access_point",
+          "source": "dns_sd",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "dns_sd",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Hallway",
+        "tags": [
+          "network"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "office-pi",
+      "display_name": "Office Pi",
+      "hostname": "office-pi",
+      "vendor": "Raspberry Pi",
+      "model": "Raspberry Pi 5",
+      "device_type": "server",
+      "category": "raspberry_pi",
+      "icon_key": "raspberry_pi",
+      "ip": "192.0.2.42",
+      "ip_addresses": [
+        "192.0.2.42"
+      ],
+      "mac": "02:00:00:00:00:2A",
+      "mac_type": "local",
+      "interface": "eth0",
+      "connection_type": "ethernet",
+      "online": true,
+      "state": "online",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 700000,
+      "demo_last_seen_age_seconds": 15,
+      "identity": {
+        "display_name": {
+          "value": "Office Pi",
+          "source": "manual_alias",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Raspberry Pi",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Raspberry Pi 5",
+          "source": "local_hosts",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "raspberry_pi",
+          "source": "local_hosts",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "local_hosts",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": "Office Pi",
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Office",
+        "tags": [
+          "server",
+          "homelab"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "living-room-tv",
+      "display_name": "Living Room TV",
+      "hostname": "living-room-tv",
+      "vendor": "Samsung",
+      "model": "Smart TV",
+      "device_type": "tv",
+      "category": "tv",
+      "icon_key": "tv",
+      "ip": "192.0.2.21",
+      "ip_addresses": [
+        "192.0.2.21"
+      ],
+      "mac": "02:00:00:00:00:15",
+      "mac_type": "local",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": true,
+      "state": "online",
+      "signal_dbm": -47,
+      "signal_quality": "good",
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 600000,
+      "demo_last_seen_age_seconds": 30,
+      "identity": {
+        "display_name": {
+          "value": "Living Room TV",
+          "source": "mdns_name",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Samsung",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Smart TV",
+          "source": "ssdp",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "tv",
+          "source": "ssdp",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "ssdp",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Living room",
+        "tags": [
+          "media"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "apple-tv",
+      "display_name": "Apple TV",
+      "hostname": "apple-tv",
+      "vendor": "Apple",
+      "model": "Apple TV",
+      "device_type": "media_player",
+      "category": "media_player",
+      "icon_key": "apple_tv",
+      "ip": "192.0.2.22",
+      "ip_addresses": [
+        "192.0.2.22"
+      ],
+      "mac": "02:00:00:00:00:16",
+      "mac_type": "local",
+      "interface": "eth0",
+      "connection_type": "ethernet",
+      "online": true,
+      "state": "online",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 590000,
+      "demo_last_seen_age_seconds": 35,
+      "identity": {
+        "display_name": {
+          "value": "Apple TV",
+          "source": "dns_sd",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Apple",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Apple TV",
+          "source": "dns_sd",
+          "confidence": "high"
+        },
+        "device_type": {
+          "value": "media_player",
+          "source": "dns_sd",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "dns_sd",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Living room",
+        "tags": [
+          "media"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "work-laptop",
+      "display_name": "Work Laptop",
+      "hostname": "work-laptop",
+      "vendor": "Lenovo",
+      "model": "ThinkPad",
+      "device_type": "computer",
+      "category": "computer",
+      "icon_key": "laptop",
+      "ip": "192.0.2.31",
+      "ip_addresses": [
+        "192.0.2.31"
+      ],
+      "mac": "02:00:00:00:00:1F",
+      "mac_type": "local",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": true,
+      "state": "online",
+      "signal_dbm": -54,
+      "signal_quality": "good",
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 500000,
+      "demo_last_seen_age_seconds": 45,
+      "identity": {
+        "display_name": {
+          "value": "Work Laptop",
+          "source": "dhcp_lease",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Lenovo",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "ThinkPad",
+          "source": "netbios_name",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "computer",
+          "source": "netbios_name",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "dhcp_lease",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Office",
+        "tags": [
+          "work"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "family-iphone",
+      "display_name": "Family iPhone",
+      "hostname": "family-iphone",
+      "vendor": "Apple",
+      "model": "iPhone",
+      "device_type": "phone",
+      "category": "phone",
+      "icon_key": "phone",
+      "ip": "192.0.2.60",
+      "ip_addresses": [
+        "192.0.2.60"
+      ],
+      "mac": "02:00:00:00:00:3C",
+      "mac_type": "private",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": true,
+      "state": "online",
+      "signal_dbm": -49,
+      "signal_quality": "good",
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 420000,
+      "demo_last_seen_age_seconds": 25,
+      "identity": {
+        "display_name": {
+          "value": "Family iPhone",
+          "source": "dhcp_lease",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Apple",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "model": {
+          "value": null,
+          "source": null,
+          "confidence": null
+        },
+        "device_type": {
+          "value": "phone",
+          "source": "dns_sd",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "dns_sd",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": "Family iPhone",
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Home",
+        "tags": [
+          "mobile"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "kids-tablet",
+      "display_name": "Kids Tablet",
+      "hostname": "kids-tablet",
+      "vendor": "Samsung",
+      "model": "Galaxy Tab",
+      "device_type": "tablet",
+      "category": "tablet",
+      "icon_key": "tablet",
+      "ip": "192.0.2.61",
+      "ip_addresses": [
+        "192.0.2.61"
+      ],
+      "mac": "02:00:00:00:00:3D",
+      "mac_type": "private",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": null,
+      "state": "recently_seen",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 380000,
+      "demo_last_seen_age_seconds": 900,
+      "identity": {
+        "display_name": {
+          "value": "Kids Tablet",
+          "source": "dhcp_lease",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Samsung",
+          "source": "oui_vendor",
+          "confidence": "medium"
+        },
+        "model": {
+          "value": "Galaxy Tab",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "tablet",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "dhcp_lease",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Bedroom",
+        "tags": [
+          "mobile"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "robot-vacuum",
+      "display_name": "Robot Vacuum",
+      "hostname": "robot-vacuum",
+      "vendor": "Roborock",
+      "model": "Vacuum",
+      "device_type": "smart_home",
+      "category": "smart_home",
+      "icon_key": "vacuum",
+      "ip": "192.0.2.70",
+      "ip_addresses": [
+        "192.0.2.70"
+      ],
+      "mac": "02:00:00:00:00:46",
+      "mac_type": "local",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": true,
+      "state": "online",
+      "signal_dbm": -61,
+      "signal_quality": "fair",
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 260000,
+      "demo_last_seen_age_seconds": 70,
+      "identity": {
+        "display_name": {
+          "value": "Robot Vacuum",
+          "source": "mdns_name",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Roborock",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Vacuum",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "smart_home",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "mdns_name",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Home",
+        "tags": [
+          "smart-home"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "printer",
+      "display_name": "Office Printer",
+      "hostname": "printer",
+      "vendor": "Brother",
+      "model": "Laser Printer",
+      "device_type": "printer",
+      "category": "printer",
+      "icon_key": "printer",
+      "ip": "192.0.2.81",
+      "ip_addresses": [
+        "192.0.2.81"
+      ],
+      "mac": "02:00:00:00:00:51",
+      "mac_type": "local",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": null,
+      "state": "recently_seen",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 240000,
+      "demo_last_seen_age_seconds": 1500,
+      "identity": {
+        "display_name": {
+          "value": "Office Printer",
+          "source": "mdns_name",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Brother",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Laser Printer",
+          "source": "dns_sd",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "printer",
+          "source": "dns_sd",
+          "confidence": "high"
+        },
+        "sources": [
+          {
+            "source": "dns_sd",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Office",
+        "tags": [
+          "printer"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "nas",
+      "display_name": "NAS",
+      "hostname": "nas",
+      "vendor": "Synology",
+      "model": "DiskStation",
+      "device_type": "server",
+      "category": "server",
+      "icon_key": "server",
+      "ip": "192.0.2.90",
+      "ip_addresses": [
+        "192.0.2.90"
+      ],
+      "mac": "02:00:00:00:00:5A",
+      "mac_type": "local",
+      "interface": "eth0",
+      "connection_type": "ethernet",
+      "online": true,
+      "state": "online",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 220000,
+      "demo_last_seen_age_seconds": 20,
+      "identity": {
+        "display_name": {
+          "value": "NAS",
+          "source": "local_hosts",
+          "confidence": "high"
+        },
+        "vendor": {
+          "value": "Synology",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "DiskStation",
+          "source": "ssdp",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "server",
+          "source": "ssdp",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "local_hosts",
+            "confidence": "high"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Office",
+        "tags": [
+          "storage"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "guest-phone",
+      "display_name": "Guest Phone",
+      "hostname": "guest-phone",
+      "vendor": "Google",
+      "model": "Pixel",
+      "device_type": "phone",
+      "category": "phone",
+      "icon_key": "phone",
+      "ip": "192.0.2.98",
+      "ip_addresses": [
+        "192.0.2.98"
+      ],
+      "mac": "02:00:00:00:00:62",
+      "mac_type": "private",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": true,
+      "state": "online",
+      "signal_dbm": -58,
+      "signal_quality": "good",
+      "dhcp": true,
+      "demo_first_seen_age_seconds": 5400,
+      "demo_last_seen_age_seconds": 120,
+      "identity": {
+        "display_name": {
+          "value": "Guest Phone",
+          "source": "dhcp_lease",
+          "confidence": "medium"
+        },
+        "vendor": {
+          "value": "Google",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "model": {
+          "value": "Pixel",
+          "source": "mdns_name",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "phone",
+          "source": "dns_sd",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "dhcp_lease",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": false,
+        "location": "Guest",
+        "tags": [
+          "guest"
+        ]
+      },
+      "observations": []
+    },
+    {
+      "id": "old-laptop",
+      "display_name": "Old Laptop",
+      "hostname": "old-laptop",
+      "vendor": "Dell",
+      "model": "Latitude",
+      "device_type": "computer",
+      "category": "computer",
+      "icon_key": "laptop",
+      "ip": "192.0.2.111",
+      "ip_addresses": [
+        "192.0.2.111"
+      ],
+      "mac": "02:00:00:00:00:6F",
+      "mac_type": "local",
+      "interface": "wlan0",
+      "connection_type": "wifi",
+      "online": null,
+      "state": "known",
+      "signal_dbm": null,
+      "signal_quality": null,
+      "dhcp": false,
+      "demo_first_seen_age_seconds": 900000,
+      "demo_last_seen_age_seconds": 172800,
+      "identity": {
+        "display_name": {
+          "value": "Old Laptop",
+          "source": "inventory_cache",
+          "confidence": "medium"
+        },
+        "vendor": {
+          "value": "Dell",
+          "source": "oui_vendor",
+          "confidence": "high"
+        },
+        "model": {
+          "value": "Latitude",
+          "source": "inventory_cache",
+          "confidence": "medium"
+        },
+        "device_type": {
+          "value": "computer",
+          "source": "inventory_cache",
+          "confidence": "medium"
+        },
+        "sources": [
+          {
+            "source": "inventory_cache",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "metadata": {
+        "alias": null,
+        "category_override": null,
+        "note": null,
+        "favorite": true,
+        "location": "Storage",
+        "tags": [
+          "legacy"
+        ]
+      },
+      "observations": []
+    }
+  ],
+  "activity": [
+    {
+      "id": 501,
+      "event_type": "device_first_seen",
+      "entity_id": "guest-phone",
+      "display_name": "Guest Phone",
+      "ip": "192.0.2.98",
+      "mac": "02:00:00:00:00:62",
+      "details": {},
+      "demo_age_seconds": 1200
+    },
+    {
+      "id": 502,
+      "event_type": "favorite_seen_again",
+      "entity_id": "nas",
+      "display_name": "NAS",
+      "ip": "192.0.2.90",
+      "mac": "02:00:00:00:00:5A",
+      "details": {},
+      "demo_age_seconds": 2100
+    },
+    {
+      "id": 503,
+      "event_type": "service_exposure_changed",
+      "entity_id": "office-pi",
+      "display_name": "Office Pi",
+      "ip": "192.0.2.42",
+      "mac": "02:00:00:00:00:2A",
+      "details": {
+        "newly_open": [
+          8123
+        ],
+        "no_longer_open": [],
+        "open_ports": [
+          22,
+          80,
+          443,
+          8123
+        ]
+      },
+      "demo_age_seconds": 3300
+    },
+    {
+      "id": 504,
+      "event_type": "favorite_not_seen",
+      "entity_id": "old-laptop",
+      "display_name": "Old Laptop",
+      "ip": "192.0.2.111",
+      "mac": "02:00:00:00:00:6F",
+      "details": {},
+      "demo_age_seconds": 5200
+    },
+    {
+      "id": 505,
+      "event_type": "baseline_captured",
+      "entity_id": null,
+      "display_name": null,
+      "ip": null,
+      "mac": null,
+      "details": {
+        "device_count": 13
+      },
+      "demo_age_seconds": 14400
+    }
+  ],
+  "errors": []
+}
