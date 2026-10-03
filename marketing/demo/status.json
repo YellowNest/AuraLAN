@@ -125,7 +125,7 @@
         },
         "details": {
           "interfaces": [
-            "wg0"
+            "demo-vpn"
           ],
           "peer_count": 3
         }
