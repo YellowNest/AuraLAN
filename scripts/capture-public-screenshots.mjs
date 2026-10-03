@@ -34,6 +34,15 @@ function prepareStatus(template) {
     return prepared;
   });
 
+  if (status.insights && Array.isArray(status.insights.activity_days)) {
+    status.insights.activity_days = status.insights.activity_days.map((day) => {
+      const prepared = { ...day };
+      prepared.start_at = now - (Number(prepared.demo_age_days || 0) * 24 * 60 * 60);
+      delete prepared.demo_age_days;
+      return prepared;
+    });
+  }
+
   return status;
 }
 
