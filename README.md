@@ -258,6 +258,14 @@ AuraLAN 1.5.0 is the current stable release. It builds on the 1.0 foundation wit
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
+## Professional support
+
+Need help deploying AuraLAN, integrating it with an existing self-hosted environment, diagnosing network-discovery problems, or building a related integration?
+
+YellowNest is available for selected paid development and technical work.
+
+**[View services and request paid work →](https://yellownest.github.io/hire.html)**
+
 ## Contributing
 
 Contributions are welcome when they preserve AuraLAN's local-first, evidence-based design.
