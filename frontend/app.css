@@ -3266,7 +3266,7 @@ h2 {
   font-size:10px;
 }
 
-@media(max-width:760px){
+@media (max-width: 760px) {
   .network-pulse-section{
     margin-top:22px;
   }
