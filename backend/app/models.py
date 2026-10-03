@@ -335,6 +335,38 @@ class MonitorResponse(BaseModel):
     last_error: str | None = None
 
 
+class ActivityCountSummaryResponse(BaseModel):
+    total: int = 0
+    new_devices: int = 0
+    watch_changes: int = 0
+    service_changes: int = 0
+    baseline_changes: int = 0
+
+
+class ActivityDaySummaryResponse(ActivityCountSummaryResponse):
+    start_at: int
+
+
+class NetworkInsightsResponse(BaseModel):
+    state: Literal["quiet", "changed", "attention"] = "quiet"
+    attention_count: int = 0
+    current_devices: int = 0
+    remembered_devices: int = 0
+    online_devices: int = 0
+    identity_needs_review: int = 0
+    favorites_total: int = 0
+    favorites_not_seen_now: int = 0
+    new_devices_24h: int = 0
+    baseline_new: int = 0
+    baseline_missing: int = 0
+    services_detected: int = 0
+    services_offline: int = 0
+    discovery_errors: int = 0
+    activity_24h: ActivityCountSummaryResponse = Field(default_factory=ActivityCountSummaryResponse)
+    activity_7d: ActivityCountSummaryResponse = Field(default_factory=ActivityCountSummaryResponse)
+    activity_days: list[ActivityDaySummaryResponse] = Field(default_factory=list)
+
+
 class StatusResponse(BaseModel):
     version: str = ""
     api_version: str = "v1"
@@ -348,6 +380,7 @@ class StatusResponse(BaseModel):
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     baseline: NetworkBaselineResponse = Field(default_factory=NetworkBaselineResponse)
+    insights: NetworkInsightsResponse = Field(default_factory=NetworkInsightsResponse)
     errors: list[str] = Field(default_factory=list)
 
 
