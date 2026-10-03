@@ -1047,5 +1047,93 @@
       "demo_age_seconds": 14400
     }
   ],
-  "errors": []
+  "errors": [],
+  "insights": {
+    "state": "attention",
+    "attention_count": 2,
+    "current_devices": 12,
+    "remembered_devices": 1,
+    "online_devices": 10,
+    "identity_needs_review": 0,
+    "favorites_total": 5,
+    "favorites_not_seen_now": 1,
+    "new_devices_24h": 1,
+    "baseline_new": 1,
+    "baseline_missing": 1,
+    "services_detected": 4,
+    "services_offline": 0,
+    "discovery_errors": 0,
+    "activity_24h": {
+      "total": 5,
+      "new_devices": 1,
+      "watch_changes": 2,
+      "service_changes": 1,
+      "baseline_changes": 1
+    },
+    "activity_7d": {
+      "total": 12,
+      "new_devices": 3,
+      "watch_changes": 3,
+      "service_changes": 2,
+      "baseline_changes": 4
+    },
+    "activity_days": [
+      {
+        "demo_age_days": 6,
+        "total": 1,
+        "new_devices": 0,
+        "watch_changes": 0,
+        "service_changes": 0,
+        "baseline_changes": 1
+      },
+      {
+        "demo_age_days": 5,
+        "total": 0,
+        "new_devices": 0,
+        "watch_changes": 0,
+        "service_changes": 0,
+        "baseline_changes": 0
+      },
+      {
+        "demo_age_days": 4,
+        "total": 2,
+        "new_devices": 1,
+        "watch_changes": 1,
+        "service_changes": 0,
+        "baseline_changes": 0
+      },
+      {
+        "demo_age_days": 3,
+        "total": 1,
+        "new_devices": 0,
+        "watch_changes": 0,
+        "service_changes": 1,
+        "baseline_changes": 0
+      },
+      {
+        "demo_age_days": 2,
+        "total": 3,
+        "new_devices": 1,
+        "watch_changes": 0,
+        "service_changes": 0,
+        "baseline_changes": 2
+      },
+      {
+        "demo_age_days": 1,
+        "total": 0,
+        "new_devices": 0,
+        "watch_changes": 0,
+        "service_changes": 0,
+        "baseline_changes": 0
+      },
+      {
+        "demo_age_days": 0,
+        "total": 5,
+        "new_devices": 1,
+        "watch_changes": 2,
+        "service_changes": 1,
+        "baseline_changes": 1
+      }
+    ]
+  }
 }
