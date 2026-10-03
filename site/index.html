@@ -14,13 +14,16 @@
   <meta property="og:title" content="AuraLAN — Your network, clearly.">
   <meta property="og:description" content="Local-first LAN inventory and network monitoring for Linux and Raspberry Pi.">
   <meta property="og:url" content="https://yellownest.github.io/AuraLAN/">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://yellownest.github.io/AuraLAN/screenshots/overview-desktop-dark.png">
+  <meta property="og:image:alt" content="AuraLAN network overview with synthetic demo data">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://yellownest.github.io/AuraLAN/screenshots/overview-desktop-dark.png">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AuraLAN","applicationCategory":"NetworkApplication","operatingSystem":"Linux","softwareVersion":"1.0.0","license":"https://opensource.org/license/mit","url":"https://yellownest.github.io/AuraLAN/","codeRepository":"https://github.com/YellowNest/AuraLAN","description":"A self-hosted, local-first LAN inventory and network monitoring console for Linux and Raspberry Pi."}</script>
 </head>
 <body>
 <header class="nav shell">
   <a class="brand" href="#top" aria-label="AuraLAN home"><img src="./logo-mark.svg" alt="" width="38" height="38"><span>AuraLAN</span></a>
-  <nav aria-label="Primary"><a href="#features">Features</a><a href="#how">How it works</a><a href="#contribute">Contribute</a><a class="nav-github" href="https://github.com/YellowNest/AuraLAN">GitHub</a></nav>
+  <nav aria-label="Primary"><a href="#features">Features</a><a href="#gallery">Screenshots</a><a href="#how">How it works</a><a href="#contribute">Contribute</a><a class="nav-github" href="https://github.com/YellowNest/AuraLAN">GitHub</a></nav>
 </header>
 <main id="top">
 <section class="hero shell">
@@ -31,25 +34,42 @@
     <div class="actions"><a class="button primary" href="https://github.com/YellowNest/AuraLAN#quick-start">Get started</a><a class="button secondary" href="https://github.com/YellowNest/AuraLAN">View on GitHub</a></div>
     <div class="trust"><span>MIT licensed</span><span>Local-first</span><span>No telemetry</span><span>Version 1.0</span></div>
   </div>
-  <div class="product-preview" aria-label="Illustrative AuraLAN interface preview">
-    <div class="preview-bar"><div class="preview-brand"><img src="./logo-mark.svg" alt="" width="26" height="26"><strong>AuraLAN</strong></div><span class="status"><i></i> Local</span></div>
-    <div class="preview-body">
-      <aside><b>Overview</b><span>Network</span><span>Devices</span><span>Activity</span><span>Services</span></aside>
-      <div class="preview-main">
-        <div class="preview-title"><div><small>OVERVIEW</small><h2>Network at a glance</h2></div><span>Just now</span></div>
-        <div class="metrics"><article><span>Devices</span><strong>18</strong><small>16 seen now</small></article><article><span>Identity</span><strong>94%</strong><small>Locally resolved</small></article><article><span>Services</span><strong>4</strong><small>Infrastructure</small></article></div>
-        <div class="preview-card">
-          <div class="card-head"><strong>Recently seen</strong><span>View all</span></div>
-          <div class="device"><div class="device-icon">TV<i></i></div><div><b>Living room TV</b><small>Samsung · Smart TV</small><code>192.0.2.21</code></div><span class="chev">›</span></div>
-          <div class="device"><div class="device-icon">AP<i></i></div><div><b>Access point</b><small>Wireless infrastructure</small><code>192.0.2.1</code></div><span class="chev">›</span></div>
-          <div class="device"><div class="device-icon">Pi<i class="warn"></i></div><div><b>Home server</b><small>Raspberry Pi</small><code>192.0.2.42</code></div><span class="chev">›</span></div>
-        </div>
-      </div>
-    </div>
-    <p class="preview-note">Illustrative interface preview using documentation-only example addresses.</p>
-  </div>
+  <figure class="product-preview real-product-preview">
+    <img src="./screenshots/overview-desktop-dark.png" alt="AuraLAN Overview showing a synthetic demo network">
+    <figcaption>Actual AuraLAN interface · synthetic demo network · no real household data</figcaption>
+  </figure>
+iv>
 </section>
 <section class="proof"><div class="shell proof-grid"><div><strong>No cloud account</strong><span>Runs where your network runs.</span></div><div><strong>Evidence first</strong><span>Conservative identity, no magic claims.</span></div><div><strong>Useful on day one</strong><span>Inventory, changes, services and history.</span></div><div><strong>Built to contribute</strong><span>Python, FastAPI and native web modules.</span></div></div></section>
+<section id="gallery" class="section shell">
+  <div class="section-heading">
+    <p class="eyebrow">ACTUAL INTERFACE</p>
+    <h2>See AuraLAN before you install it.</h2>
+    <p>Every screenshot below is captured from the real AuraLAN frontend using a synthetic LAN. The devices, names, MAC addresses and documentation-range IP addresses are deliberately fictional.</p>
+  </div>
+  <div class="screenshot-grid">
+    <figure class="screenshot-card screenshot-wide">
+      <a href="./screenshots/overview-desktop-dark.png"><img src="./screenshots/overview-desktop-dark.png" alt="AuraLAN Overview with network status, activity, devices and services"></a>
+      <figcaption><strong>Overview</strong><span>Your network, recent changes and local infrastructure in one place.</span></figcaption>
+    </figure>
+    <figure class="screenshot-card">
+      <a href="./screenshots/network-desktop-dark.png"><img src="./screenshots/network-desktop-dark.png" alt="AuraLAN Network view with access point, uplink, DHCP and device groups"></a>
+      <figcaption><strong>Network</strong><span>Evidence-based connection groups without invented topology.</span></figcaption>
+    </figure>
+    <figure class="screenshot-card">
+      <a href="./screenshots/devices-desktop-dark.png"><img src="./screenshots/devices-desktop-dark.png" alt="AuraLAN Devices inventory with identity, IP, room and connection status"></a>
+      <figcaption><strong>Devices</strong><span>Readable local inventory with identity context and state.</span></figcaption>
+    </figure>
+    <figure class="screenshot-card">
+      <a href="./screenshots/activity-desktop-dark.png"><img src="./screenshots/activity-desktop-dark.png" alt="AuraLAN Activity Center with recent network changes"></a>
+      <figcaption><strong>Activity Center</strong><span>New devices, watch changes, service diffs and baseline activity.</span></figcaption>
+    </figure>
+    <figure class="screenshot-card screenshot-mobile">
+      <a href="./screenshots/overview-mobile-dark.png"><img src="./screenshots/overview-mobile-dark.png" alt="AuraLAN Overview on a phone-sized viewport"></a>
+      <figcaption><strong>Mobile</strong><span>The same network view designed for a phone-sized screen.</span></figcaption>
+    </figure>
+  </div>
+</section>
 <section id="features" class="section shell">
   <div class="section-heading"><p class="eyebrow">WHAT AURALAN DOES</p><h2>Network visibility without the cloud baggage.</h2><p>Use the information your Linux host can already observe and turn it into something understandable.</p></div>
   <div class="feature-grid">
