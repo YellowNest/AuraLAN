@@ -42,6 +42,14 @@ async function openRoute(page, route) {
   );
 }
 
+async function tabUntil(page, predicate, maxTabs, label, argument) {
+  for (let index = 0; index < maxTabs; index += 1) {
+    if (await page.evaluate(predicate, argument)) return;
+    await page.keyboard.press('Tab');
+  }
+  assert.fail(`${label}: keyboard focus did not reach the expected control`);
+}
+
 try {
   for (const viewport of viewports) {
     const page = await browser.newPage();
@@ -343,6 +351,60 @@ try {
     });
     const unlocked = await page.evaluate(() => !document.documentElement.classList.contains('modal-open') && !document.body.classList.contains('modal-open'));
     assert.equal(unlocked, true, `${viewport.name}/details: background remained locked after closing`);
+
+    if (viewport.name === 'iphone' || viewport.name === 'desktop') {
+      const navSelector = viewport.name === 'iphone' ? '[data-nav-mobile]' : '[data-nav-desktop]';
+      await openRoute(page, 'overview');
+      await page.evaluate(() => document.activeElement?.blur());
+      await tabUntil(
+        page,
+        (selector) => {
+          const nav = document.querySelector(selector);
+          return Boolean(nav?.contains(document.activeElement)
+            && document.activeElement.matches('button.nav-item'));
+        },
+        60,
+        `${viewport.name}/navigation`,
+        navSelector,
+      );
+
+      await tabUntil(
+        page,
+        (selector) => document.activeElement?.matches(`${selector} [data-route="devices"]`) || false,
+        12,
+        `${viewport.name}/devices navigation`,
+        navSelector,
+      );
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => location.hash === '#devices');
+      await page.waitForSelector('.device-row', { timeout: 10000 });
+      await tabUntil(
+        page,
+        () => document.activeElement?.matches('.device-row') || false,
+        40,
+        `${viewport.name}/device row`,
+      );
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#inspector-dialog[open]', { timeout: 5000 });
+      await page.click('[data-close-inspector]');
+      await page.waitForFunction(() => !document.querySelector('#inspector-dialog')?.open);
+
+      await page.focus('#main-content');
+      await page.keyboard.press('/');
+      await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
+      assert.equal(
+        await page.evaluate(() => document.activeElement?.id),
+        'command-input',
+        `${viewport.name}/command: keyboard shortcut did not move focus into the command UI`,
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
+      assert.equal(
+        await page.evaluate(() => document.activeElement?.id),
+        'main-content',
+        `${viewport.name}/command: closing the dialog did not restore usable focus`,
+      );
+    }
 
     if (screenshotDir) {
       await mkdir(screenshotDir, { recursive: true });
