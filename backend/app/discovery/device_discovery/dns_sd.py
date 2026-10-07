@@ -15,6 +15,8 @@ from ..command import command_exists, run_command
 from .base import DeviceObservation
 
 CACHE_TTL_SECONDS = 120.0
+MAX_CACHE_ROWS = 512
+MAX_VALUES_PER_DEVICE = 32
 
 HOMEKIT_CATEGORY_HINTS = {
     "2": "homekit-bridge",
@@ -127,6 +129,8 @@ def _browse_rows() -> list[tuple[str, str, str, str, str, str | None, str | None
                     profile_hints.append(hint)
 
         rows.append((ip, interface, service_name, service_type, hostname, model, manufacturer, friendly_name, tuple(profile_hints)))
+        if len(rows) >= MAX_CACHE_ROWS:
+            break
     return rows
 
 
@@ -212,26 +216,26 @@ def observations(seed: list[DeviceObservation]) -> list[DeviceObservation]:
         })
         if hostname and not row["hostname"]:
             row["hostname"] = hostname
-        if service_type and service_type not in row["service_types"]:
+        if service_type and service_type not in row["service_types"] and len(row["service_types"]) < MAX_VALUES_PER_DEVICE:
             row["service_types"].append(service_type)
         if service_type == "_sleep-proxy._udp":
             # Apple's Sleep Proxy instance convention can carry a useful human
             # label after an implementation prefix. Keep only that label.
             sleep_name = _sleep_proxy_name(service_name, hostname)
-            if sleep_name and sleep_name not in row["service_names"]:
+            if sleep_name and sleep_name not in row["service_names"] and len(row["service_names"]) < MAX_VALUES_PER_DEVICE:
                 row["service_names"].insert(0, sleep_name)
         else:
             service_hostname = "" if service_type in HUMAN_NAME_SERVICE_TYPES else hostname
             for candidate, comparison_hostname in ((friendly_name, ""), (service_name, service_hostname)):
                 useful_name = _useful_service_name(candidate or "", comparison_hostname)
-                if useful_name and useful_name not in row["service_names"]:
+                if useful_name and useful_name not in row["service_names"] and len(row["service_names"]) < MAX_VALUES_PER_DEVICE:
                     row["service_names"].append(useful_name)
-        if model and model not in row["models"]:
+        if model and model not in row["models"] and len(row["models"]) < MAX_VALUES_PER_DEVICE:
             row["models"].append(model)
-        if manufacturer and manufacturer not in row["manufacturers"]:
+        if manufacturer and manufacturer not in row["manufacturers"] and len(row["manufacturers"]) < MAX_VALUES_PER_DEVICE:
             row["manufacturers"].append(manufacturer)
         for hint in profile_hints:
-            if hint not in row["profile_hints"]:
+            if hint not in row["profile_hints"] and len(row["profile_hints"]) < MAX_VALUES_PER_DEVICE:
                 row["profile_hints"].append(hint)
 
     result: list[DeviceObservation] = []
