@@ -19,6 +19,8 @@ AuraLAN releases are cut deliberately. A green application test suite is not eno
 - [ ] Missing optional providers degrade gracefully.
 - [ ] At least one Debian/Raspberry Pi test host is verified.
 - [ ] At least one non-Raspberry-Pi Linux host is verified before calling a release broadly portable.
+- [ ] Container smoke build passes as non-root with a read-only root filesystem.
+- [ ] AMD64 and ARM64 image builds are green for a container release.
 
 ## Product
 
@@ -35,3 +37,4 @@ AuraLAN releases are cut deliberately. A green application test suite is not eno
 - [ ] CI is green on the exact release commit.
 - [ ] Release tag is created from the exact reviewed commit.
 - [ ] GitHub repository description/topics/social preview match the release.
+- [ ] GHCR manifest contains the expected semantic-version tags, SBOM and provenance attestations.
