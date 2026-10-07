@@ -20,10 +20,11 @@ CACHE_TTL_SECONDS = 60.0
 def _host_files() -> tuple[Path, ...]:
     configured = os.environ.get("AURALAN_HOSTS_FILE", "").strip()
     primary = Path(configured).expanduser() if configured else Path("/etc/hosts")
+    pihole_root = Path(os.environ.get("AURALAN_PIHOLE_DIR", "/etc/pihole")).expanduser()
     return (
         primary,
-        Path("/etc/pihole/hosts/custom.list"),
-        Path("/etc/pihole/custom.list"),
+        pihole_root / "hosts/custom.list",
+        pihole_root / "custom.list",
     )
 
 _lock = threading.Lock()
