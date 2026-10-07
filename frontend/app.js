@@ -543,6 +543,8 @@ function renderNetworkHistory() {
           <line class="history-grid-line" x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}"></line>
           <polyline class="history-line history-line-observed" points="${pointsFor('current_devices')}"></polyline>
           <polyline class="history-line history-line-online" points="${pointsFor('online_devices')}"></polyline>
+          <circle class="history-endpoint history-endpoint-observed" cx="${xFor(samples.length - 1).toFixed(1)}" cy="${yFor(samples.at(-1).current_devices).toFixed(1)}" r="4"></circle>
+          <circle class="history-endpoint history-endpoint-online" cx="${xFor(samples.length - 1).toFixed(1)}" cy="${yFor(samples.at(-1).online_devices).toFixed(1)}" r="3.5"></circle>
           ${attention}
         </svg>
         <div class="history-axis"><span>${escapeHtml(firstTime)}</span><span>${escapeHtml(lastTime)}</span></div>
