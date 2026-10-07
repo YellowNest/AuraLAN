@@ -172,3 +172,12 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
+
+      - name: Verify public multi-arch latest image
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          docker buildx imagetools inspect --raw ghcr.io/yellownest/auralan:latest >manifest.json
+          python -c 'import json; d=json.load(open("manifest.json", encoding="utf-8")); a={m.get("platform",{}).get("architecture") for m in d.get("manifests",[]) if m.get("platform",{}).get("os")=="linux"}; missing={"amd64","arm64"}-a; assert not missing, f"missing architectures: {sorted(missing)}"; print("Public GHCR manifest OK:", sorted(a))'
