@@ -45,32 +45,33 @@ jobs:
           DOCKER_GID=999 docker compose -f compose.yaml -f compose.docker-socket.yaml config >/dev/null
 
       - name: Build native-architecture image
-        run: docker build --pull --tag auralan:ci .
+        run: docker build --pull --tag ghcr.io/yellownest/auralan:latest .
 
-      - name: Verify hardened container boot
+      - name: Verify hardened Compose deployment
         run: |
           set -euo pipefail
-          docker volume create auralan-ci-data >/dev/null
-          docker run -d --name auralan-ci --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --mount type=volume,src=auralan-ci-data,dst=/data -e AURALAN_PORT=8799 -p 127.0.0.1:8878:8799 auralan:ci
+          export AURALAN_PORT=8878
 
           cleanup() {
-            docker rm -f auralan-ci >/dev/null 2>&1 || true
-            docker volume rm auralan-ci-data >/dev/null 2>&1 || true
+            docker compose down -v >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
 
-          test "$(docker exec auralan-ci id -u)" = "10001"
-          test "$(docker exec auralan-ci id -g)" = "10001"
+          docker compose up -d --pull never
+
+          test "$(docker exec auralan id -u)" = "10001"
+          test "$(docker exec auralan id -g)" = "10001"
 
           for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8878/api/v1/health >health.json; then
-              python -c 'import json; d=json.load(open("health.json", encoding="utf-8")); assert d.get("ok") is True; print("AuraLAN container smoke OK:", d.get("version"))'
+            if curl -fsS http://127.0.0.1:8878/api/v1/health >health.json &&
+               curl -fsS http://127.0.0.1:8878/api/v1/status >status.json; then
+              python -c 'import json; h=json.load(open("health.json", encoding="utf-8")); s=json.load(open("status.json", encoding="utf-8")); assert h.get("ok") is True; assert isinstance(s.get("devices"), list); print("AuraLAN container smoke OK:", h.get("version"), "devices=", len(s["devices"]))'
               exit 0
             fi
             sleep 0.5
           done
 
-          docker logs auralan-ci
+          docker compose logs auralan
           exit 1
 
   multiarch:
