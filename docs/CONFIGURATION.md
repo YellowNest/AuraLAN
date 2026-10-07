@@ -12,6 +12,12 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_WIFI_INTERFACE` | automatic | Prefer one wireless interface when several exist |
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
+| `AURALAN_DOCKER_SOCKET` | unset | Explicit local Docker Engine UNIX socket for bounded read-only service discovery |
+| `AURALAN_HOST_PROC` | `/proc` | Alternate host procfs root, primarily for the container deployment |
+| `AURALAN_HOST_SYS` | `/sys` | Alternate host sysfs root, primarily for the container deployment |
+| `AURALAN_HOSTNAME_FILE` | unset | Alternate read-only hostname file used by container deployments |
+| `AURALAN_HOSTS_FILE` | `/etc/hosts` | Alternate read-only hosts file used for local-name enrichment |
+| `AURALAN_HOST_ROOT` | `/` natively; unset in container mode | Filesystem path used only for host storage usage |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
 | `AURALAN_WATCH_MISSING_GRACE` | `120` | Seconds a favorite must remain unobserved before AuraLAN emits `favorite_not_seen`; bounded to 0–86400 |
 | `AURALAN_PRESENCE_MISSING_GRACE` | `180` | Seconds a device must remain unobserved before AuraLAN records a general presence-history absence; bounded to 0–86400 |
@@ -24,6 +30,16 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_SERVICE` | `auralan` | Service name used by the local deployment helper |
 | `AURALAN_HEALTH_URL` | `http://127.0.0.1:8787/api/v1/health` | Deployment/upgrade health-check URL |
 | `AURALAN_URL` | `http://127.0.0.1:8787` | Browser sanity-test target |
+
+## Container-specific host views
+
+The official container keeps host access explicit. Its Compose file sets `AURALAN_HOST_PROC`, `AURALAN_HOST_SYS`, `AURALAN_HOSTNAME_FILE` and `AURALAN_HOSTS_FILE` to read-only bind mounts so host identity and metrics are not confused with the container itself.
+
+`AURALAN_CONTAINER_MODE=1` is set by the official image. In that mode AuraLAN deliberately leaves host storage usage unavailable unless `AURALAN_HOST_ROOT` is explicitly configured; reporting the container overlay filesystem as the host disk would be misleading.
+
+`AURALAN_DOCKER_SOCKET` is opt-in. When configured, AuraLAN uses a small bounded set of Docker Engine GET requests and only retains presentation fields needed for service visibility. Docker socket access is still highly privileged at the host level and should only be granted deliberately.
+
+See **[Docker](DOCKER.md)** for the supported Compose deployment, capability choices, optional D-Bus access and Docker-socket overlay.
 
 ## Wi-Fi interface selection
 
