@@ -51,10 +51,10 @@ The supplied Compose file:
 - makes the container root filesystem read-only
 - gives AuraLAN one writable persistent volume at `/data`
 - uses a small temporary `/tmp`
-- mounts host `/proc`, `/sys`, hostname and hosts data read-only
+- mounts only host `/proc/uptime` and `/proc/meminfo`, plus `/sys`, hostname and hosts data read-only
 - does not mount the Docker socket or system D-Bus by default
 
-The `/proc` and `/sys` mounts are used for host uptime, memory and thermal readings. Host root filesystem usage is intentionally not exposed by the default container because doing that would require a broad host-root bind mount.
+The two procfs file mounts provide host uptime and memory without exposing the full host process tree. The read-only `/sys` view is used for thermal readings. Host root filesystem usage is intentionally not exposed by the default container because doing that would require a broad host-root bind mount.
 
 ## Discovery available in the default container
 
