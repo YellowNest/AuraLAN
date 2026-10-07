@@ -593,6 +593,19 @@ class DeviceStore:
             connection = self._connect()
             try:
                 self._ensure_schema(connection)
+                existing = connection.execute(
+                    "SELECT current_devices, online_devices, remembered_devices, "
+                    "services_detected, services_offline, discovery_errors, system_state "
+                    "FROM network_history WHERE bucket_start = ?",
+                    (bucket_start,),
+                ).fetchone()
+                aggregate_values = values[1:8]
+                if existing is not None and tuple(existing) == aggregate_values:
+                    # Quiet monitor passes in the same 15-minute bucket add no
+                    # information. Avoid rewriting SQLite/WAL merely to bump a
+                    # counter when the aggregate network state did not change.
+                    return
+
                 connection.execute(
                     """INSERT INTO network_history(
                         bucket_start, current_devices, online_devices, remembered_devices,
