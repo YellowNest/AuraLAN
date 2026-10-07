@@ -24,6 +24,18 @@ Optional capabilities appear automatically when the relevant local tool or servi
 
 Missing optional tools do not prevent AuraLAN from starting.
 
+## Docker
+
+AuraLAN also ships as a Linux container image for AMD64 and ARM64:
+
+```bash
+docker compose up -d
+```
+
+The container deployment uses host networking so network discovery sees the host namespace rather than Docker's bridge. It deliberately avoids `privileged: true`, runs as an unprivileged user, keeps the root filesystem read-only, and leaves higher-trust host integrations such as the Docker socket and system D-Bus opt-in.
+
+See **[Docker](DOCKER.md)** for the complete supported deployment and security model.
+
 ## Development or evaluation
 
 ```bash
