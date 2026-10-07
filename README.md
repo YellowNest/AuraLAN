@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YellowNest/AuraLAN/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
   <img alt="Release 1.5.0" src="https://img.shields.io/badge/release-1.5.0-2563EB">
@@ -117,7 +118,23 @@ AuraLAN also includes an explicitly enabled Wake-on-LAN action. It sends one sta
 
 ## Quick start
 
-For development or evaluation:
+### Docker
+
+The official image supports AMD64 and ARM64, including 64-bit Raspberry Pi systems:
+
+```bash
+git clone https://github.com/YellowNest/AuraLAN.git
+cd AuraLAN
+docker compose up -d
+```
+
+Then open `http://HOST-IP:8787`.
+
+The supplied Compose deployment uses host networking so AuraLAN sees the Linux host's real routes, interfaces and neighbour table rather than a Docker bridge. It runs unprivileged, uses a read-only root filesystem, persists state in a named volume, and does **not** mount the Docker socket or system D-Bus by default.
+
+See **[Docker](docs/DOCKER.md)** for optional Docker service visibility, NetworkManager/Avahi integration, Wi-Fi capability details, upgrades and security boundaries.
+
+### Native development or evaluation
 
 ```bash
 git clone https://github.com/YellowNest/AuraLAN.git
@@ -125,17 +142,13 @@ cd AuraLAN
 ./scripts/dev.sh
 ```
 
-By default the development server binds to `127.0.0.1:8787`.
-
-To test from another device on your LAN:
+By default the development server binds to `127.0.0.1:8787`. To expose it directly on the LAN:
 
 ```bash
 AURALAN_HOST=0.0.0.0 ./scripts/dev.sh
 ```
 
-Then open `http://HOST-IP:8787`.
-
-For a system service, a clean installer, permissions, reverse proxy setup and production layout, read **[Installation](docs/INSTALLATION.md)**.
+For the native systemd deployment, which provides the deepest host-service integration without container namespace boundaries, read **[Installation](docs/INSTALLATION.md)**.
 
 ## Configuration
 
@@ -147,6 +160,7 @@ See **[Configuration](docs/CONFIGURATION.md)** for:
 - bind address and port
 - data directory
 - non-standard Pi-hole FTL database location
+- container host-view and Docker Engine socket overrides
 - continuous background monitoring interval
 - per-device presence-history absence grace period
 - Home Assistant REST summary, webhook notifications and privacy controls
