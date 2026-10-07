@@ -10,6 +10,10 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 - Official Docker deployment with an unprivileged read-only container, persistent state volume, Linux host-network discovery, AMD64/ARM64 GHCR publishing, container smoke tests, SBOM/provenance attestations, explicit host-metric mounts and opt-in Docker Engine socket discovery.
 
+### Fixed
+
+- Container deployments can now detect a Pi-hole service running directly on the host through an explicit read-only Pi-hole overlay. Runtime health is verified from the shared host network namespace instead of attempting to control or query the host systemd manager, and the overlay grants only the FTL database group needed for read-only identity enrichment.
+
 ## [1.5.0] - 2026-10-04
 
 ### Added
