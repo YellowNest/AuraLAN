@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from app.discovery.device_discovery import local_names
+from app.discovery.integrations import pihole
 from app.discovery.integrations.docker import containers, parse_docker_list
 from app.services import system
 
@@ -52,6 +53,59 @@ class ContainerHostViewTests(unittest.TestCase):
             with patch.dict(os.environ, {"AURALAN_HOSTS_FILE": str(hosts)}, clear=False):
                 names = local_names._read_names()
         self.assertEqual(names["192.0.2.50"], "living-room")
+
+
+class ContainerPiHoleDiscoveryTests(unittest.TestCase):
+    def test_host_pihole_uses_mounted_paths_and_host_network_listener(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "pihole"
+            root.mkdir()
+            database = root / "pihole-FTL.db"
+            database.write_bytes(b"fixture")
+
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "AURALAN_CONTAINER_MODE": "1",
+                        "AURALAN_PIHOLE_DIR": str(root),
+                        "AURALAN_PIHOLE_FTL_DB": str(database),
+                    },
+                    clear=False,
+                ),
+                patch("app.discovery.integrations.pihole._dns_listener_state", return_value="online"),
+            ):
+                result = pihole.discover([])
+
+        self.assertTrue(result["detected"])
+        self.assertEqual(result["state"], "online")
+        self.assertEqual(result["runtime"], "host")
+        self.assertEqual(result["summary"], "DNS filtering is running")
+        self.assertTrue(result["details"]["ftl_database_readable"])
+        self.assertEqual(result["details"]["state_source"], "host-network-tcp-53")
+
+    def test_host_pihole_without_dns_listener_is_reported_offline(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "pihole"
+            root.mkdir()
+
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "AURALAN_CONTAINER_MODE": "1",
+                        "AURALAN_PIHOLE_DIR": str(root),
+                        "AURALAN_PIHOLE_FTL_DB": str(root / "pihole-FTL.db"),
+                    },
+                    clear=False,
+                ),
+                patch("app.discovery.integrations.pihole._dns_listener_state", return_value="offline"),
+            ):
+                result = pihole.discover([])
+
+        self.assertTrue(result["detected"])
+        self.assertEqual(result["state"], "offline")
+        self.assertEqual(result["runtime"], "host")
 
 
 class ContainerDockerDiscoveryTests(unittest.TestCase):

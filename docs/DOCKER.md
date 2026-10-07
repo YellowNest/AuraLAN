@@ -116,19 +116,28 @@ Treat Docker-socket access as host-level trust. Do not enable it merely to remov
 
 ## Pi-hole FTL enrichment
 
-If Pi-hole runs on the host, mount its database directory read-only and point AuraLAN at the mounted database. Example for the common path:
+If Pi-hole runs directly on the host, use the supplied opt-in overlay. Pi-hole commonly restricts its FTL database to the `pihole` group, so the container needs that host group ID in addition to a read-only directory mount:
 
-```yaml
-services:
-  auralan:
-    environment:
-      AURALAN_PIHOLE_FTL_DB: /host/pihole/pihole-FTL.db
-      AURALAN_PIHOLE_DIR: /host/pihole
-    volumes:
-      - /etc/pihole:/host/pihole:ro
+```bash
+export PIHOLE_GID="$(stat -c '%g' /etc/pihole/pihole-FTL.db)"
+docker compose -f compose.yaml -f compose.pihole.yaml up -d
 ```
 
-Mount the directory rather than only the SQLite file so SQLite can see companion WAL/SHM files when the host database uses them.
+The overlay mounts `/etc/pihole` read-only at `/host/pihole`, points AuraLAN at the mounted FTL database and adds only the database's host group ID. Mounting the directory rather than one SQLite file lets SQLite see companion WAL/SHM files.
+
+A container cannot safely depend on querying the host systemd manager. For an explicitly mounted host Pi-hole installation, AuraLAN therefore confirms runtime state from the shared host network namespace: a TCP DNS listener on port 53 is treated as online, while the mounted Pi-hole files establish the service identity. This avoids `privileged: true`, host PID access and broad systemd socket access.
+
+The Docker-socket and Pi-hole overlays can be combined when both integrations are wanted:
+
+```bash
+export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+export PIHOLE_GID="$(stat -c '%g' /etc/pihole/pihole-FTL.db)"
+docker compose \
+  -f compose.yaml \
+  -f compose.docker-socket.yaml \
+  -f compose.pihole.yaml \
+  up -d
+```
 
 ## Host storage usage
 
