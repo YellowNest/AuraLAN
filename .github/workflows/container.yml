@@ -1,0 +1,141 @@
+name: Container
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "compose*.yaml"
+      - "backend/**"
+      - "frontend/**"
+      - "project.json"
+      - ".github/workflows/container.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "compose*.yaml"
+      - "backend/**"
+      - "frontend/**"
+      - "project.json"
+      - ".github/workflows/container.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Container smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build native-architecture image
+        run: docker build --pull --tag auralan:ci .
+
+      - name: Verify image runs unprivileged and becomes healthy
+        run: |
+          set -euo pipefail
+          docker volume create auralan-ci-data >/dev/null
+          docker run -d             --name auralan-ci             --read-only             --tmpfs /tmp:rw,noexec,nosuid,size=16m             --mount type=volume,src=auralan-ci-data,dst=/data             -p 127.0.0.1:8878:8787             auralan:ci
+
+          cleanup() {
+            docker rm -f auralan-ci >/dev/null 2>&1 || true
+            docker volume rm auralan-ci-data >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          test "$(docker exec auralan-ci id -u)" = "10001"
+          test "$(docker exec auralan-ci id -g)" = "10001"
+
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8878/api/v1/health >health.json; then
+              python - <<'PY'
+          import json
+          with open("health.json", encoding="utf-8") as handle:
+              data = json.load(handle)
+          if data.get("ok") is not True:
+              raise SystemExit("container health payload is not OK")
+          print("AuraLAN container smoke OK:", data.get("version"))
+          PY
+              exit 0
+            fi
+            sleep 0.5
+          done
+
+          docker logs auralan-ci
+          exit 1
+
+  publish:
+    name: Publish multi-arch image
+    needs: smoke
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read AuraLAN version
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python -c 'import json; print(json.load(open("project.json", encoding="utf-8"))["version"])')"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Container metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/yellownest/auralan
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.title=AuraLAN
+            org.opencontainers.image.description=Local-first LAN inventory and network monitoring
+            org.opencontainers.image.version=${{ steps.project.outputs.version }}
+
+      - name: Build and publish AMD64/ARM64
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          pull: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            AURALAN_VERSION=${{ steps.project.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
