@@ -143,7 +143,7 @@ If an operator explicitly wants host filesystem usage, mount only the filesystem
 - `ghcr.io/yellownest/auralan:latest`
 - a commit-SHA tag
 
-Semantic Git tags such as `v1.6.0` additionally publish:
+Semantic Git tags such as `v1.6.0` publish versioned tags without moving `latest`:
 
 - `1.6.0`
 - `1.6`
