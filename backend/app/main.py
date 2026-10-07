@@ -57,7 +57,12 @@ webhook_notifier = WebhookNotifier(store())
 
 def _after_background_snapshot(snapshot: dict) -> None:
     devices = snapshot.get("devices") or []
-    store().record_network_snapshot(snapshot)
+    try:
+        store().record_network_snapshot(snapshot)
+    except (OSError, sqlite3.Error, ValueError, TypeError):
+        # Network History is additive. A local history-write problem must not
+        # prevent presence/watch processing or pending webhook delivery.
+        pass
     store().record_presence_transitions(devices)
     store().record_watch_transitions(devices)
     webhook_notifier.dispatch_pending()
