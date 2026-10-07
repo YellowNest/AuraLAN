@@ -137,7 +137,7 @@ def _socket_containers(socket_path: str) -> tuple[bool, list[dict[str, Any]], st
 
 def _cli_containers() -> tuple[bool, list[dict[str, Any]], str | None]:
     if not command_exists("docker"):
-        return False, [], "Docker binary is unavailable"
+        return False, [], None
 
     names = run_command(["docker", "ps", "-a", "--format", "{{.Names}}"], timeout=3.0)
     if names.code != 0:
