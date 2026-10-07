@@ -136,6 +136,9 @@ try {
         });
         assert.equal(history.hasHistory, true, `${viewport.name}/overview: Network History is missing`);
         assert.ok(history.metricCount === 0 || history.metricCount === 3, `${viewport.name}/overview: Network History metrics are incomplete`);
+        if (history.metricCount === 3) {
+          assert.equal(history.hasChart, true, `${viewport.name}/overview: Network History chart is missing when samples exist`);
+        }
         assert.equal(history.chartOverflow, false, `${viewport.name}/overview: Network History chart overflows horizontally`);
         assert.equal(history.panelOverflow, false, `${viewport.name}/overview: Network History panel overflows horizontally`);
       }
