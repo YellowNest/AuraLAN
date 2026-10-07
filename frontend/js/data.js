@@ -97,6 +97,54 @@ export function networkReviewQueue({
   ].filter((item) => item.count > 0);
 }
 
+export function networkHistorySummary(items) {
+  const samples = (Array.isArray(items) ? items : [])
+    .filter((item) => Number.isFinite(Number(item?.bucket_start)))
+    .map((item) => ({
+      ...item,
+      bucket_start: Number(item.bucket_start),
+      current_devices: Math.max(0, Number(item.current_devices || 0)),
+      online_devices: Math.max(0, Number(item.online_devices || 0)),
+      remembered_devices: Math.max(0, Number(item.remembered_devices || 0)),
+      services_offline: Math.max(0, Number(item.services_offline || 0)),
+      discovery_errors: Math.max(0, Number(item.discovery_errors || 0)),
+      sample_count: Math.max(1, Number(item.sample_count || 1)),
+    }))
+    .sort((left, right) => left.bucket_start - right.bucket_start);
+
+  if (!samples.length) {
+    return {
+      samples: [],
+      min_current: 0,
+      max_current: 0,
+      current_delta: 0,
+      healthy_percent: 0,
+      attention_samples: 0,
+      first_at: null,
+      last_at: null,
+    };
+  }
+
+  const healthySamples = samples.filter((item) => (
+    item.system_state === 'healthy'
+    && item.services_offline === 0
+    && item.discovery_errors === 0
+  )).length;
+  const attentionSamples = samples.length - healthySamples;
+  const current = samples.map((item) => item.current_devices);
+
+  return {
+    samples,
+    min_current: Math.min(...current),
+    max_current: Math.max(...current),
+    current_delta: current.at(-1) - current[0],
+    healthy_percent: Math.round((healthySamples * 100) / samples.length),
+    attention_samples: attentionSamples,
+    first_at: samples[0].bucket_start,
+    last_at: samples.at(-1).bucket_start,
+  };
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
   const normalizedQuery = query.trim().toLowerCase();
   return items.filter((device) => {
