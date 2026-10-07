@@ -11,6 +11,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_DATA_DIR` | user state directory; `/var/lib/auralan` in supplied systemd unit | AuraLAN-owned SQLite/runtime state |
 | `AURALAN_WIFI_INTERFACE` | automatic | Prefer one wireless interface when several exist |
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
+| `AURALAN_PIHOLE_DIR` | `/etc/pihole` | Alternate Pi-hole directory for local custom-name files |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
 | `AURALAN_DOCKER_SOCKET` | unset | Explicit local Docker Engine UNIX socket for bounded read-only service discovery |
 | `AURALAN_HOST_PROC` | `/proc` | Alternate host procfs root, primarily for the container deployment |
