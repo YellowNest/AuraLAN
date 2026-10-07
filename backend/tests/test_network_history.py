@@ -56,8 +56,9 @@ class NetworkHistoryStoreTests(unittest.TestCase):
 
             store.record_network_snapshot(snapshot(current=2), now=first)
             store.record_network_snapshot(snapshot(current=3, remembered=2), now=second)
+            store.record_network_snapshot(snapshot(current=3, remembered=2), now=second + 60)
 
-            history = store.network_history(24, now=second)
+            history = store.network_history(24, now=second + 60)
 
         self.assertEqual(len(history["items"]), 1)
         sample = history["items"][0]
