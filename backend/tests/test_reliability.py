@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from app.discovery.command import CommandResult
 from app.discovery.network import dnsmasq, networkmanager
-from app.main import activity_status, device_presence_history, forget_remembered_device, health, home_assistant_status, status, update_device_metadata
+from app.main import activity_status, device_presence_history, forget_remembered_device, health, home_assistant_status, network_history_status, status, update_device_metadata
 from app.models import DeviceMetadataUpdate
 from app.persistence.device_store import DeviceStore, SCHEMA_VERSION
 from app.services import system
@@ -88,6 +88,32 @@ class HomeAssistantReliabilityTests(unittest.TestCase):
         self.assertTrue(result["monitor_running"])
         self.assertFalse(result["webhook_configured"])
         self.assertFalse(result["wake_on_lan_enabled"])
+
+
+class NetworkHistoryReliabilityTests(unittest.TestCase):
+    def test_history_endpoint_uses_bounded_store_query(self):
+        history = {
+            "bucket_seconds": 900,
+            "retention_days": 30,
+            "window_hours": 48,
+            "items": [{"bucket_start": 100, "updated_at": 100}],
+        }
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.network_history.return_value = history
+            result = network_history_status(48)
+
+        store_factory.return_value.network_history.assert_called_once_with(48)
+        self.assertEqual(result, history)
+
+    def test_history_endpoint_degrades_to_empty_history_on_storage_failure(self):
+        with patch("app.main.store") as store_factory:
+            store_factory.return_value.network_history.side_effect = sqlite3.DatabaseError("broken")
+            result = network_history_status(24)
+
+        self.assertEqual(result["window_hours"], 24)
+        self.assertEqual(result["items"], [])
+        self.assertEqual(result["bucket_seconds"], 900)
+        self.assertEqual(result["retention_days"], 30)
 
 
 class ActivityReliabilityTests(unittest.TestCase):
