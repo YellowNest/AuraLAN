@@ -27,6 +27,7 @@ from .models import (
     MetaResponse,
     MonitorResponse,
     NetworkBaselineResponse,
+    NetworkHistoryResponse,
     NetworkInsightsResponse,
     NetworkResponse,
     NotificationStatusResponse,
@@ -56,6 +57,7 @@ webhook_notifier = WebhookNotifier(store())
 
 def _after_background_snapshot(snapshot: dict) -> None:
     devices = snapshot.get("devices") or []
+    store().record_network_snapshot(snapshot)
     store().record_presence_transitions(devices)
     store().record_watch_transitions(devices)
     webhook_notifier.dispatch_pending()
@@ -128,6 +130,18 @@ def _network_insights(
         activity_days,
         now=now,
     )
+
+
+def _network_history(hours: int = 24) -> dict:
+    try:
+        return store().network_history(hours)
+    except (OSError, sqlite3.Error, ValueError, TypeError):
+        return {
+            "bucket_seconds": 900,
+            "retention_days": 30,
+            "window_hours": max(1, min(int(hours), 30 * 24)),
+            "items": [],
+        }
 
 
 def _notification_status() -> dict:
@@ -219,6 +233,7 @@ def status() -> dict:
         "notifications": _notification_status(),
         "baseline": baseline,
         "insights": _network_insights(snapshot, baseline),
+        "history": _network_history(24),
     }
 
 
@@ -227,6 +242,13 @@ def network_insights_status() -> dict:
     snapshot = system_snapshot()
     baseline = _baseline_status(snapshot)
     return _network_insights(snapshot, baseline)
+
+
+@app.get("/api/v1/history", response_model=NetworkHistoryResponse)
+def network_history_status(
+    hours: int = Query(default=24, ge=1, le=720),
+) -> dict:
+    return _network_history(hours)
 
 
 @app.get("/api/v1/baseline", response_model=NetworkBaselineResponse)
