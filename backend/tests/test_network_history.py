@@ -123,6 +123,39 @@ class NetworkHistoryStoreTests(unittest.TestCase):
         self.assertIn("network_history", tables)
         self.assertGreaterEqual(version, 11)
 
+    def test_schema_ten_upgrades_to_network_history_without_losing_metadata(self):
+        with TemporaryDirectory() as directory:
+            store = DeviceStore(Path(directory))
+            store.readiness_check()
+            store.update_metadata("001122334455", alias="Preserved device")
+
+            connection = sqlite3.connect(store.path)
+            try:
+                connection.execute("DROP TABLE network_history")
+                connection.execute("PRAGMA user_version = 10")
+                connection.commit()
+            finally:
+                connection.close()
+
+            result = store.readiness_check()
+            metadata = store.enrich(["001122334455"])["001122334455"]
+
+            connection = sqlite3.connect(store.path)
+            try:
+                tables = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                }
+            finally:
+                connection.close()
+
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["schema_version"], 11)
+        self.assertEqual(metadata["alias"], "Preserved device")
+        self.assertIn("network_history", tables)
+
 
 if __name__ == "__main__":
     unittest.main()
