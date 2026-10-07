@@ -14,7 +14,8 @@ services:
       AURALAN_HOSTS_FILE: /host/etc/hosts
     volumes:
       - auralan-data:/data
-      - /proc:/host/proc:ro
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
       - /sys:/host/sys:ro
       - /etc/hostname:/host/etc/hostname:ro
       - /etc/hosts:/host/etc/hosts:ro
