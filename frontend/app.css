@@ -3629,6 +3629,13 @@ h2 {
   stroke-width:2;
   opacity:.78;
 }
+.history-endpoint{
+  stroke:var(--surface);
+  stroke-width:2;
+  vector-effect:non-scaling-stroke;
+}
+.history-endpoint-observed{fill:var(--accent)}
+.history-endpoint-online{fill:var(--good)}
 .history-attention-point{
   fill:var(--attention);
   stroke:var(--surface);
