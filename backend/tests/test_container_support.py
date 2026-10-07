@@ -33,6 +33,7 @@ class ContainerHostViewTests(unittest.TestCase):
                     "AURALAN_HOST_PROC": str(proc),
                     "AURALAN_HOST_SYS": str(sys),
                     "AURALAN_HOSTNAME_FILE": str(hostname),
+                    "AURALAN_HOST_ROOT": "",
                 },
                 clear=False,
             ):
@@ -74,6 +75,16 @@ class ContainerDockerDiscoveryTests(unittest.TestCase):
         self.assertEqual(rows[0]["network_mode"], "host")
         self.assertEqual(rows[0]["ports"], "443→443/tcp")
         self.assertNotIn("Labels", rows[0])
+
+    def test_absent_docker_cli_is_an_optional_capability(self):
+        with patch.dict(os.environ, {"AURALAN_DOCKER_SOCKET": ""}, clear=False), patch(
+            "app.discovery.integrations.docker.command_exists",
+            return_value=False,
+        ):
+            detected, rows, error = containers()
+        self.assertFalse(detected)
+        self.assertEqual(rows, [])
+        self.assertIsNone(error)
 
     def test_configured_missing_socket_is_reported_without_cli_fallback(self):
         with TemporaryDirectory() as tmp:
