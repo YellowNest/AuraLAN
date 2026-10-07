@@ -43,6 +43,17 @@ function prepareStatus(template) {
     });
   }
 
+  if (status.history && Array.isArray(status.history.items)) {
+    status.history.items = status.history.items.map((sample) => {
+      const prepared = { ...sample };
+      const sampleAt = now - (Number(prepared.demo_age_minutes || 0) * 60);
+      prepared.bucket_start = sampleAt - (sampleAt % Number(status.history.bucket_seconds || 900));
+      prepared.updated_at = prepared.bucket_start + Number(status.history.bucket_seconds || 900) - 1;
+      delete prepared.demo_age_minutes;
+      return prepared;
+    });
+  }
+
   return status;
 }
 

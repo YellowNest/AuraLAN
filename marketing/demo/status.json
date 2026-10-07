@@ -1135,5 +1135,111 @@
         "baseline_changes": 1
       }
     ]
+  },
+  "history": {
+    "bucket_seconds": 900,
+    "retention_days": 30,
+    "window_hours": 24,
+    "items": [
+      {
+        "demo_age_minutes": 1440,
+        "sample_count": 15,
+        "current_devices": 11,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 1260,
+        "sample_count": 15,
+        "current_devices": 10,
+        "online_devices": 9,
+        "remembered_devices": 2,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 1080,
+        "sample_count": 15,
+        "current_devices": 10,
+        "online_devices": 9,
+        "remembered_devices": 2,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 900,
+        "sample_count": 15,
+        "current_devices": 12,
+        "online_devices": 11,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 720,
+        "sample_count": 15,
+        "current_devices": 11,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 1,
+        "discovery_errors": 0,
+        "system_state": "degraded"
+      },
+      {
+        "demo_age_minutes": 540,
+        "sample_count": 15,
+        "current_devices": 11,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 360,
+        "sample_count": 15,
+        "current_devices": 12,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 180,
+        "sample_count": 15,
+        "current_devices": 12,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      },
+      {
+        "demo_age_minutes": 0,
+        "sample_count": 15,
+        "current_devices": 12,
+        "online_devices": 10,
+        "remembered_devices": 1,
+        "services_detected": 4,
+        "services_offline": 0,
+        "discovery_errors": 0,
+        "system_state": "healthy"
+      }
+    ]
   }
 }

@@ -6,13 +6,23 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-07
+
 ### Added
 
+- **Network History** adds a rolling local view of how the LAN has been behaving. AuraLAN stores only aggregate device/service health counts in 15-minute buckets, keeps at most 30 days, renders a responsive observed-vs-online device chart on Overview, and exposes the same privacy-preserving data through `/api/v1/history`.
 - Official Docker deployment with an unprivileged read-only container, persistent state volume, Linux host-network discovery, AMD64/ARM64 GHCR publishing, container smoke tests, SBOM/provenance attestations, explicit host-metric mounts and opt-in Docker Engine socket discovery.
+
+### Changed
+
+- The Overview now combines Network Pulse, Network History and Network Review: recent events explain what changed, rolling history shows longer-running behavior, and the review queue keeps actionable local evidence separate from ordinary variation.
+- Network History coalesces repeated monitor passes into one bounded 15-minute bucket instead of persisting every refresh, keeping long-running installations predictable in both database size and write volume.
 
 ### Fixed
 
 - Container deployments can now detect a Pi-hole service running directly on the host through an explicit read-only Pi-hole overlay. Runtime health is verified from the shared host network namespace instead of attempting to control or query the host systemd manager, and the overlay grants only the FTL database group needed for read-only identity enrichment.
+- DNS-SD discovery now caps retained browse rows and per-device evidence lists, preventing a noisy service-discovery domain from growing the in-process cache without a hard bound.
+- Network History storage is retention-bounded and contains no device names, IDs, IP/MAC addresses, notes, locations or tags.
 
 ## [1.5.0] - 2026-10-04
 

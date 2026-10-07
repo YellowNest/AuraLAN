@@ -347,6 +347,26 @@ class ActivityDaySummaryResponse(ActivityCountSummaryResponse):
     start_at: int
 
 
+class NetworkHistorySampleResponse(BaseModel):
+    bucket_start: int
+    sample_count: int = 1
+    current_devices: int = 0
+    online_devices: int = 0
+    remembered_devices: int = 0
+    services_detected: int = 0
+    services_offline: int = 0
+    discovery_errors: int = 0
+    system_state: HealthState = "unknown"
+    updated_at: int
+
+
+class NetworkHistoryResponse(BaseModel):
+    bucket_seconds: int = 900
+    retention_days: int = 30
+    window_hours: int = 24
+    items: list[NetworkHistorySampleResponse] = Field(default_factory=list)
+
+
 class NetworkInsightsResponse(BaseModel):
     state: Literal["quiet", "changed", "attention"] = "quiet"
     attention_count: int = 0
@@ -381,6 +401,7 @@ class StatusResponse(BaseModel):
     notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)
     baseline: NetworkBaselineResponse = Field(default_factory=NetworkBaselineResponse)
     insights: NetworkInsightsResponse = Field(default_factory=NetworkInsightsResponse)
+    history: NetworkHistoryResponse = Field(default_factory=NetworkHistoryResponse)
     errors: list[str] = Field(default_factory=list)
 
 

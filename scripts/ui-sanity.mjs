@@ -123,6 +123,24 @@ try {
         assert.ok(pulse.dayCount === 0 || pulse.dayCount === 7, `${viewport.name}/overview: Network Pulse must show seven activity buckets when history is available`);
         assert.equal(pulse.chartOverflow, false, `${viewport.name}/overview: Network Pulse chart overflows horizontally`);
         assert.equal(pulse.pulseOverflow, false, `${viewport.name}/overview: Network Pulse panel overflows horizontally`);
+        const history = await page.evaluate(() => {
+          const root = document.querySelector('.network-history');
+          const chart = document.querySelector('.history-chart');
+          return {
+            hasHistory: Boolean(root),
+            metricCount: root?.querySelectorAll('.history-metrics > div').length || 0,
+            hasChart: Boolean(chart),
+            chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
+            panelOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
+          };
+        });
+        assert.equal(history.hasHistory, true, `${viewport.name}/overview: Network History is missing`);
+        assert.ok(history.metricCount === 0 || history.metricCount === 3, `${viewport.name}/overview: Network History metrics are incomplete`);
+        if (history.metricCount === 3) {
+          assert.equal(history.hasChart, true, `${viewport.name}/overview: Network History chart is missing when samples exist`);
+        }
+        assert.equal(history.chartOverflow, false, `${viewport.name}/overview: Network History chart overflows horizontally`);
+        assert.equal(history.panelOverflow, false, `${viewport.name}/overview: Network History panel overflows horizontally`);
       }
       if (report.pageTitleFontSize !== null) {
         assert.ok(report.pageTitleFontSize >= 27 && report.pageTitleFontSize <= 42, `${viewport.name}/${route}: page title scale is out of range`);

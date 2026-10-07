@@ -27,6 +27,14 @@ AuraLAN also reads the host's systemd/udev OUI hardware database when present, i
 
 The frontend is deliberately framework-free native ES modules. `app.js` owns route and client preference state; `i18n.js`, `icons.js`, and `brand.js` centralize shared UI definitions. The status API remains the single refresh request for normal navigation. A detail panel requests diagnostics only on user action.
 
+## Network History
+
+The background monitor records one privacy-preserving aggregate network sample into a 15-minute SQLite bucket. Repeated discovery passes in the same bucket update that row instead of appending one row per monitor interval. History retains at most 30 days and is additionally capped by bucket count.
+
+A history row contains only the bucket timestamp, aggregate current/online/remembered device counts, detected/offline service counts, the number of discovery errors, overall system state and sample count. Device names, AuraLAN device IDs, IP/MAC addresses, aliases, notes, locations and tags are never written to `network_history`.
+
+The normal status response includes the latest 24-hour window so Overview still refreshes with one HTTP request. `GET /api/v1/history?hours=N` exposes the same bounded aggregate model for local integrations.
+
 ## Caching
 
 The backend caches an aggregate discovery result for two seconds. API responses are sent with `Cache-Control: no-store`. During pre-release development, the service-worker endpoint is a recovery worker: it clears old AuraLAN caches and unregisters itself. This avoids a stale app shell surviving an API-contract change; offline caching will return only with content-hashed production assets.

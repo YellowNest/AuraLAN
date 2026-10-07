@@ -10,8 +10,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 NOTIFICATION_EVENT_TYPES = ("device_first_seen", "favorite_not_seen", "favorite_seen_again")
+NETWORK_HISTORY_BUCKET_SECONDS = 15 * 60
+NETWORK_HISTORY_RETENTION_DAYS = 30
+NETWORK_HISTORY_MAX_BUCKETS = NETWORK_HISTORY_RETENTION_DAYS * 24 * 4
 PRESENCE_WRITE_INTERVAL_SECONDS = 60
 DEFAULT_WATCH_MISSING_GRACE_SECONDS = 120
 DEFAULT_PRESENCE_MISSING_GRACE_SECONDS = 180
@@ -98,6 +101,7 @@ class DeviceStore:
             "schema_migrations", "device_metadata", "device_presence", "device_identity_cache",
             "device_events", "device_inventory", "device_watch_state", "notification_cursors",
             "device_presence_state", "device_presence_history", "network_baseline", "device_service_scans",
+            "network_history",
         }
         required_indexes = {
             "idx_device_events_created_at",
@@ -247,6 +251,18 @@ class DeviceStore:
             "CREATE INDEX IF NOT EXISTS idx_device_service_scans_device_time "
             "ON device_service_scans(device_id, checked_at DESC, id DESC)"
         )
+        connection.execute("""CREATE TABLE IF NOT EXISTS network_history (
+            bucket_start INTEGER PRIMARY KEY,
+            sample_count INTEGER NOT NULL DEFAULT 1,
+            current_devices INTEGER NOT NULL,
+            online_devices INTEGER NOT NULL,
+            remembered_devices INTEGER NOT NULL,
+            services_detected INTEGER NOT NULL,
+            services_offline INTEGER NOT NULL,
+            discovery_errors INTEGER NOT NULL,
+            system_state TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )""")
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, int(time.time())),
@@ -534,6 +550,130 @@ class DeviceStore:
                 bucket["baseline_changes"] += 1
 
         return buckets
+
+    def record_network_snapshot(
+        self,
+        snapshot: dict[str, Any],
+        *,
+        now: int | None = None,
+    ) -> None:
+        """Persist one privacy-preserving aggregate sample in a 15-minute bucket.
+
+        Only aggregate counts and the overall system state are stored. Device
+        identifiers, names, addresses and user metadata never enter this table.
+        Repeated monitor passes update the current bucket instead of growing the
+        database once per discovery interval.
+        """
+        timestamp = int(time.time()) if now is None else int(now)
+        bucket_start = timestamp - (timestamp % NETWORK_HISTORY_BUCKET_SECONDS)
+
+        devices = list(snapshot.get("devices") or [])
+        services = [
+            item
+            for item in (snapshot.get("services") or {}).get("items", [])
+            if item.get("detected")
+        ]
+        system_state = str((snapshot.get("system") or {}).get("state") or "unknown")
+        if system_state not in {"healthy", "degraded", "warning", "critical", "unknown"}:
+            system_state = "unknown"
+
+        values = (
+            bucket_start,
+            sum(1 for item in devices if item.get("state") != "known"),
+            sum(1 for item in devices if item.get("online") is True),
+            sum(1 for item in devices if item.get("state") == "known"),
+            len(services),
+            sum(1 for item in services if item.get("state") == "offline"),
+            len(snapshot.get("errors") or []),
+            system_state,
+            timestamp,
+        )
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                existing = connection.execute(
+                    "SELECT current_devices, online_devices, remembered_devices, "
+                    "services_detected, services_offline, discovery_errors, system_state "
+                    "FROM network_history WHERE bucket_start = ?",
+                    (bucket_start,),
+                ).fetchone()
+                aggregate_values = values[1:8]
+                if existing is not None and tuple(existing) == aggregate_values:
+                    # Quiet monitor passes in the same 15-minute bucket add no
+                    # information. Avoid rewriting SQLite/WAL merely to bump a
+                    # counter when the aggregate network state did not change.
+                    return
+
+                connection.execute(
+                    """INSERT INTO network_history(
+                        bucket_start, current_devices, online_devices, remembered_devices,
+                        services_detected, services_offline, discovery_errors, system_state, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(bucket_start) DO UPDATE SET
+                        sample_count=network_history.sample_count + 1,
+                        current_devices=excluded.current_devices,
+                        online_devices=excluded.online_devices,
+                        remembered_devices=excluded.remembered_devices,
+                        services_detected=excluded.services_detected,
+                        services_offline=excluded.services_offline,
+                        discovery_errors=excluded.discovery_errors,
+                        system_state=excluded.system_state,
+                        updated_at=excluded.updated_at""",
+                    values,
+                )
+                cutoff = bucket_start - (NETWORK_HISTORY_RETENTION_DAYS * 24 * 60 * 60)
+                connection.execute(
+                    "DELETE FROM network_history WHERE bucket_start < ?",
+                    (cutoff,),
+                )
+                connection.execute(
+                    "DELETE FROM network_history WHERE bucket_start NOT IN ("
+                    "SELECT bucket_start FROM network_history "
+                    "ORDER BY bucket_start DESC LIMIT ?"
+                    ")",
+                    (NETWORK_HISTORY_MAX_BUCKETS,),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+    def network_history(
+        self,
+        hours: int = 24,
+        *,
+        now: int | None = None,
+    ) -> dict[str, Any]:
+        """Return bounded aggregate network history, oldest sample first."""
+        bounded_hours = max(1, min(int(hours), NETWORK_HISTORY_RETENTION_DAYS * 24))
+        end_at = int(time.time()) if now is None else int(now)
+        start_at = end_at - (bounded_hours * 60 * 60)
+
+        with self._lock:
+            connection = self._connect()
+            try:
+                self._ensure_schema(connection)
+                rows = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT bucket_start, sample_count, current_devices, online_devices, "
+                        "remembered_devices, services_detected, services_offline, discovery_errors, "
+                        "system_state, updated_at "
+                        "FROM network_history WHERE bucket_start >= ? AND bucket_start <= ? "
+                        "ORDER BY bucket_start ASC",
+                        (start_at, end_at),
+                    )
+                ]
+            finally:
+                connection.close()
+
+        return {
+            "bucket_seconds": NETWORK_HISTORY_BUCKET_SECONDS,
+            "retention_days": NETWORK_HISTORY_RETENTION_DAYS,
+            "window_hours": bounded_hours,
+            "items": rows,
+        }
 
     def record_watch_transitions(self, records: list[dict[str, Any]]) -> None:
         """Record stable watch-state changes for user-favorited devices.

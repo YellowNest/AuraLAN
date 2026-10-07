@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -310,4 +310,35 @@ test('network review queue is empty when current state has nothing worth review'
   }, 3_000_000_000);
 
   assert.deepEqual(queue, []);
+});
+
+
+test('network history summary stays aggregate, ordered, and health-aware', () => {
+  const summary = networkHistorySummary([
+    { bucket_start: 200, current_devices: 5, online_devices: 4, remembered_devices: 1, services_offline: 1, discovery_errors: 0, system_state: 'degraded' },
+    { bucket_start: 100, current_devices: 4, online_devices: 4, remembered_devices: 0, services_offline: 0, discovery_errors: 0, system_state: 'healthy' },
+    { bucket_start: 300, current_devices: 6, online_devices: 6, remembered_devices: 1, services_offline: 0, discovery_errors: 0, system_state: 'healthy' },
+  ]);
+
+  assert.deepEqual(summary.samples.map((item) => item.bucket_start), [100, 200, 300]);
+  assert.equal(summary.min_current, 4);
+  assert.equal(summary.max_current, 6);
+  assert.equal(summary.current_delta, 2);
+  assert.equal(summary.healthy_percent, 67);
+  assert.equal(summary.attention_samples, 1);
+  assert.equal(summary.first_at, 100);
+  assert.equal(summary.last_at, 300);
+});
+
+test('network history summary has safe empty defaults', () => {
+  assert.deepEqual(networkHistorySummary([]), {
+    samples: [],
+    min_current: 0,
+    max_current: 0,
+    current_delta: 0,
+    healthy_percent: 0,
+    attention_samples: 0,
+    first_at: null,
+    last_at: null,
+  });
 });

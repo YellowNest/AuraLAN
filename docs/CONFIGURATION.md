@@ -68,6 +68,14 @@ Set it to `0` to disable background discovery. Positive values below 15 seconds 
 
 The monitor uses the same bounded discovery code and local cache/store as normal dashboard refreshes. It does not enable telemetry or send device information anywhere.
 
+## Network History
+
+When background monitoring is enabled, AuraLAN automatically maintains a rolling aggregate Network History. Samples are grouped into 15-minute buckets and retained for at most 30 days. Repeated monitor passes with unchanged aggregate state do not rewrite the current bucket.
+
+Network History stores only counts and health state: current/online/remembered device totals, detected/offline service totals, discovery-error count and overall system state. It does not store device names, IDs, IP/MAC addresses, notes, locations or tags.
+
+No configuration is required. Disabling background monitoring with `AURALAN_MONITOR_INTERVAL=0` also stops new history samples; existing bounded history remains local until it ages out through normal monitoring.
+
 ## Device presence history
 
 AuraLAN can keep a compact local transition history for each remembered device. The history records only meaningful state changes: when a device has remained unobserved long enough to be considered **not seen**, and when AuraLAN later sees it again.
