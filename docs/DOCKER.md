@@ -123,6 +123,7 @@ services:
   auralan:
     environment:
       AURALAN_PIHOLE_FTL_DB: /host/pihole/pihole-FTL.db
+      AURALAN_PIHOLE_DIR: /host/pihole
     volumes:
       - /etc/pihole:/host/pihole:ro
 ```
