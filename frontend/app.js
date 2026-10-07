@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -129,6 +129,26 @@ function normalizeStatus(payload) {
     activity_7d: { ...emptyActivitySummary, ...(rawInsights.activity_7d || {}) },
     activity_days: Array.isArray(rawInsights.activity_days) ? rawInsights.activity_days : [],
   };
+  const rawHistory = payload.history && typeof payload.history === 'object' ? payload.history : {};
+  const history = {
+    bucket_seconds: Number(rawHistory.bucket_seconds || 900),
+    retention_days: Number(rawHistory.retention_days || 30),
+    window_hours: Number(rawHistory.window_hours || 24),
+    items: Array.isArray(rawHistory.items)
+      ? rawHistory.items.map((item) => ({
+        bucket_start: Number(item?.bucket_start || 0),
+        sample_count: Number(item?.sample_count || 1),
+        current_devices: Number(item?.current_devices || 0),
+        online_devices: Number(item?.online_devices || 0),
+        remembered_devices: Number(item?.remembered_devices || 0),
+        services_detected: Number(item?.services_detected || 0),
+        services_offline: Number(item?.services_offline || 0),
+        discovery_errors: Number(item?.discovery_errors || 0),
+        system_state: item?.system_state || 'unknown',
+        updated_at: Number(item?.updated_at || item?.bucket_start || 0),
+      })).filter((item) => item.bucket_start > 0)
+      : [],
+  };
   const baselineNewIds = new Set(baseline.new_device_ids);
   const baselineMissingIds = new Set(baseline.missing_device_ids);
   for (const device of legacyDevices) {
@@ -162,6 +182,7 @@ function normalizeStatus(payload) {
       : { configured: false, include_identifiers: false, last_attempt_at: null, last_success_at: null, last_error: null, pending_events: 0 },
     baseline,
     insights,
+    history,
     errors: Array.isArray(payload.errors) ? payload.errors : []
   };
 }
@@ -465,6 +486,72 @@ function renderNetworkPulse() {
   </section>`;
 }
 
+function renderNetworkHistory() {
+  const summary = networkHistorySummary(state.data?.history?.items || []);
+  const samples = summary.samples;
+
+  if (!samples.length) {
+    return `<section class="content-section network-history-section">
+      <header class="section-title"><div><p class="eyebrow">${t('networkHistory')}</p><h2>${t('networkHistoryTitle')}</h2><p class="section-hint">${t('networkHistoryHint')}</p></div><span class="history-window">${t('historyLast24h')}</span></header>
+      <div class="network-history surface history-empty"><span class="history-empty-icon">${icon('uptime')}</span><div><strong>${escapeHtml(t('historyNoDataTitle'))}</strong><p>${escapeHtml(t('historyNoDataHint'))}</p><small>${escapeHtml(t('historyPrivacyHint'))}</small></div></div>
+    </section>`;
+  }
+
+  const width = 1000;
+  const height = 190;
+  const padX = 14;
+  const padY = 20;
+  const allCounts = samples.flatMap((item) => [item.current_devices, item.online_devices]);
+  const low = Math.max(0, Math.min(...allCounts) - 1);
+  const high = Math.max(low + 1, Math.max(...allCounts) + 1);
+  const span = high - low;
+  const xFor = (index) => samples.length === 1
+    ? width / 2
+    : padX + ((width - (2 * padX)) * index / (samples.length - 1));
+  const yFor = (value) => height - padY - (((Number(value) - low) / span) * (height - (2 * padY)));
+  const pointsFor = (field) => samples
+    .map((item, index) => `${xFor(index).toFixed(1)},${yFor(item[field]).toFixed(1)}`)
+    .join(' ');
+  const attention = samples.map((item, index) => {
+    if (item.system_state === 'healthy' && item.services_offline === 0 && item.discovery_errors === 0) return '';
+    return `<circle class="history-attention-point" cx="${xFor(index).toFixed(1)}" cy="${yFor(item.current_devices).toFixed(1)}" r="5"></circle>`;
+  }).join('');
+  const firstTime = new Date(samples[0].bucket_start * 1000).toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
+  const lastTime = new Date(samples.at(-1).bucket_start * 1000).toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
+  const range = summary.min_current === summary.max_current
+    ? String(summary.min_current)
+    : `${summary.min_current}–${summary.max_current}`;
+  const latest = samples.at(-1);
+
+  return `<section class="content-section network-history-section">
+    <header class="section-title"><div><p class="eyebrow">${t('networkHistory')}</p><h2>${t('networkHistoryTitle')}</h2><p class="section-hint">${t('networkHistoryHint')}</p></div><span class="history-window">${t('historyLast24h')}</span></header>
+    <div class="network-history surface">
+      <div class="history-metrics">
+        <div><strong>${summary.healthy_percent}%</strong><span>${t('historyHealthySamples')}</span></div>
+        <div><strong>${escapeHtml(range)}</strong><span>${t('historyDeviceRange')}</span></div>
+        <div class="${summary.attention_samples ? 'has-attention' : ''}"><strong>${summary.attention_samples}</strong><span>${t('historyAttentionSamples')}</span></div>
+      </div>
+      <div class="history-chart-shell">
+        <div class="history-chart-head">
+          <div class="history-legend">
+            <span><i class="history-legend-observed"></i>${t('historyObserved')} <b>${latest.current_devices}</b></span>
+            <span><i class="history-legend-online"></i>${t('historyOnline')} <b>${latest.online_devices}</b></span>
+          </div>
+          <small>${escapeHtml(t('historyLastSample', { time: formatTimestamp(summary.last_at) }))}</small>
+        </div>
+        <svg class="history-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(t('historyChartLabel'))}">
+          <line class="history-grid-line" x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}"></line>
+          <polyline class="history-line history-line-observed" points="${pointsFor('current_devices')}"></polyline>
+          <polyline class="history-line history-line-online" points="${pointsFor('online_devices')}"></polyline>
+          ${attention}
+        </svg>
+        <div class="history-axis"><span>${escapeHtml(firstTime)}</span><span>${escapeHtml(lastTime)}</span></div>
+      </div>
+      <p class="history-privacy">${icon('info')}${escapeHtml(t('historyPrivacyHint'))}</p>
+    </div>
+  </section>`;
+}
+
 function renderNetworkReview() {
   const items = networkReviewQueue({
     devices: devices(),
@@ -538,6 +625,7 @@ function renderOverview() {
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
   ${baselineCard}
   ${renderNetworkPulse()}
+  ${renderNetworkHistory()}
   ${renderNetworkReview()}
   ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-route="activity">${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
   <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
