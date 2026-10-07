@@ -1,0 +1,8 @@
+services:
+  auralan:
+    environment:
+      AURALAN_DOCKER_SOCKET: /var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID to the host docker.sock group id}"

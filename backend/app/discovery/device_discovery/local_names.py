@@ -7,6 +7,7 @@ performed, so private network identifiers never leave the host.
 from __future__ import annotations
 
 import ipaddress
+import os
 import threading
 import time
 from pathlib import Path
@@ -14,11 +15,17 @@ from pathlib import Path
 from .base import DeviceObservation
 
 CACHE_TTL_SECONDS = 60.0
-HOST_FILES = (
-    Path("/etc/hosts"),
-    Path("/etc/pihole/hosts/custom.list"),
-    Path("/etc/pihole/custom.list"),
-)
+
+
+def _host_files() -> tuple[Path, ...]:
+    configured = os.environ.get("AURALAN_HOSTS_FILE", "").strip()
+    primary = Path(configured).expanduser() if configured else Path("/etc/hosts")
+    pihole_root = Path(os.environ.get("AURALAN_PIHOLE_DIR", "/etc/pihole")).expanduser()
+    return (
+        primary,
+        pihole_root / "hosts/custom.list",
+        pihole_root / "custom.list",
+    )
 
 _lock = threading.Lock()
 _cached_at = 0.0
@@ -35,7 +42,7 @@ def _valid_ipv4(value: str) -> bool:
 
 def _read_names() -> dict[str, str]:
     names: dict[str, str] = {}
-    for path in HOST_FILES:
+    for path in _host_files():
         try:
             lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
         except OSError:

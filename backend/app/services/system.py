@@ -22,13 +22,30 @@ _cache_lock = threading.Lock()
 _cache: tuple[float, dict[str, Any]] | None = None
 
 
+def _env_path(name: str, fallback: str) -> Path:
+    configured = os.environ.get(name, "").strip()
+    return Path(configured).expanduser() if configured else Path(fallback)
+
+
+def _container_mode() -> bool:
+    return os.environ.get("AURALAN_CONTAINER_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _hostname() -> str:
+    configured = os.environ.get("AURALAN_HOSTNAME_FILE", "").strip()
+    if configured:
+        try:
+            value = Path(configured).read_text(encoding="utf-8", errors="ignore").strip()
+            if value:
+                return value[:255]
+        except OSError:
+            pass
     return socket.gethostname() or "localhost"
 
 
 def _uptime() -> str:
     try:
-        seconds = float(Path("/proc/uptime").read_text(encoding="utf-8").split()[0])
+        seconds = float((_env_path("AURALAN_HOST_PROC", "/proc") / "uptime").read_text(encoding="utf-8").split()[0])
     except (OSError, ValueError, IndexError):
         return "Unknown"
     days, remainder = divmod(int(seconds), 86_400)
@@ -39,7 +56,8 @@ def _uptime() -> str:
 
 def _memory_used_percent() -> int | None:
     try:
-        fields = {line.split(":", 1)[0]: int(line.split()[1]) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line}
+        source = _env_path("AURALAN_HOST_PROC", "/proc") / "meminfo"
+        fields = {line.split(":", 1)[0]: int(line.split()[1]) for line in source.read_text().splitlines() if ":" in line}
         total, available = fields.get("MemTotal", 0), fields.get("MemAvailable", 0)
         return round((total - available) * 100 / total) if total else None
     except (OSError, ValueError, IndexError):
@@ -47,7 +65,11 @@ def _memory_used_percent() -> int | None:
 
 
 def _temperature() -> float | None:
-    for path in (Path("/sys/class/thermal/thermal_zone0/temp"), Path("/sys/devices/virtual/thermal/thermal_zone0/temp")):
+    sys_root = _env_path("AURALAN_HOST_SYS", "/sys")
+    for path in (
+        sys_root / "class/thermal/thermal_zone0/temp",
+        sys_root / "devices/virtual/thermal/thermal_zone0/temp",
+    ):
         try:
             raw = float(path.read_text().strip())
             value = raw / 1000 if raw > 1000 else raw
@@ -57,17 +79,33 @@ def _temperature() -> float | None:
     return None
 
 
-def host() -> dict[str, Any]:
+def _storage_used_percent() -> int | None:
+    configured = os.environ.get("AURALAN_HOST_ROOT", "").strip()
+    if _container_mode() and not configured:
+        # The container overlay filesystem is not the host disk. Returning no
+        # value is more accurate than presenting container storage as host state.
+        return None
+    target = configured or "/"
     try:
-        disk = shutil.disk_usage("/")
-        storage = round(disk.used * 100 / disk.total)
+        disk = shutil.disk_usage(target)
+        return round(disk.used * 100 / disk.total)
     except OSError:
-        storage = None
+        return None
+
+
+def host() -> dict[str, Any]:
     try:
         load = " · ".join(f"{value:.2f}" for value in os.getloadavg())
     except OSError:
         load = "Unknown"
-    return {"name": _hostname(), "uptime": _uptime(), "load": load, "memory_used_percent": _memory_used_percent(), "storage_used_percent": storage, "temperature_celsius": _temperature()}
+    return {
+        "name": _hostname(),
+        "uptime": _uptime(),
+        "load": load,
+        "memory_used_percent": _memory_used_percent(),
+        "storage_used_percent": _storage_used_percent(),
+        "temperature_celsius": _temperature(),
+    }
 
 
 def _access_point() -> tuple[dict[str, Any], bool]:

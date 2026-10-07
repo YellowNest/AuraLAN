@@ -6,6 +6,10 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### Added
+
+- Official Docker deployment with an unprivileged read-only container, persistent state volume, Linux host-network discovery, AMD64/ARM64 GHCR publishing, container smoke tests, SBOM/provenance attestations, explicit host-metric mounts and opt-in Docker Engine socket discovery.
+
 ## [1.5.0] - 2026-10-04
 
 ### Added
