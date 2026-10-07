@@ -834,6 +834,51 @@ class DeviceIdentityTests(unittest.TestCase):
             self.assertEqual(data["category_override"], "tv")
             self.assertIn("first_seen_at", data)
 
+    def test_dns_sd_browse_cache_has_a_hard_row_bound(self):
+        output = "\n".join(
+            f"=;wifi-ap;IPv4;Service {index};_http._tcp;local;sample.local;192.0.2.90;80;"
+            for index in range(5)
+        )
+        with (
+            patch.object(dns_sd, "MAX_CACHE_ROWS", 2),
+            patch(
+                "app.discovery.device_discovery.dns_sd.run_command",
+                return_value=CommandResult(0, output),
+            ),
+        ):
+            rows = dns_sd._browse_rows()
+
+        self.assertEqual(len(rows), 2)
+
+    def test_dns_sd_per_device_evidence_is_bounded(self):
+        seed = [self._observation(mac="02:00:00:00:00:90", ip="192.0.2.90")]
+        rows = [
+            (
+                "192.0.2.90",
+                "wifi-ap",
+                f"Service {index}",
+                f"_service{index}._tcp",
+                "sample",
+                f"Model {index}",
+                f"Vendor {index}",
+                None,
+                (),
+            )
+            for index in range(6)
+        ]
+        with (
+            patch.object(dns_sd, "MAX_VALUES_PER_DEVICE", 2),
+            patch("app.discovery.device_discovery.dns_sd.command_exists", return_value=True),
+            patch("app.discovery.device_discovery.dns_sd._cached_browse_rows", return_value=rows),
+        ):
+            found = dns_sd.observations(seed)
+
+        self.assertEqual(len(found), 1)
+        self.assertEqual(len(found[0].service_types), 2)
+        self.assertEqual(found[0].model, "Model 0")
+        self.assertEqual(found[0].manufacturer, "Vendor 0")
+
+
 
 if __name__ == "__main__":
     unittest.main()
