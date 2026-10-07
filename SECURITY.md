@@ -16,6 +16,8 @@ Never commit:
 
 Use generic example values and documentation-only addresses in tests and examples. Prefer RFC 5737 ranges such as `192.0.2.0/24`, `198.51.100.0/24`, and `203.0.113.0/24`. Do not copy hostnames, MAC addresses, paths, or private LAN addresses from a live installation.
 
+CI audits the full reachable Git history, including commit messages and deleted file versions, for high-confidence credentials and machine-specific data. In addition to credential formats, the history guard rejects RFC1918 addresses and concrete Linux, macOS and Windows user-home paths so removing a value only from the latest tree cannot hide an earlier leak. A small set of pre-guard synthetic test fixtures is exempted only by exact reviewed commit and path; new matches on any reachable ref still fail CI.
+
 ## Device privacy
 
 Tests and documentation must not contain real household device names, personal names, production MAC addresses, or identifiers copied from a live installation.
