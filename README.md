@@ -16,6 +16,7 @@
   <img alt="Release 1.5.0" src="https://img.shields.io/badge/release-1.5.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
+  <a href="https://ossdrop.com/tool/auralan"><img alt="AuraLAN on OSSDrop" src="https://ossdrop.com/badge/auralan"></a>
 </p>
 
 AuraLAN turns the network state already available on a Linux host into a focused dashboard for people who want to understand their LAN without living in terminals.
