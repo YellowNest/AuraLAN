@@ -505,16 +505,23 @@ function renderNetworkHistory() {
   const low = Math.max(0, Math.min(...allCounts) - 1);
   const high = Math.max(low + 1, Math.max(...allCounts) + 1);
   const span = high - low;
-  const xFor = (index) => samples.length === 1
+  const bucketSeconds = Math.max(1, Number(state.data?.history?.bucket_seconds || 900));
+  const firstAt = samples[0].bucket_start;
+  const lastAt = samples.at(-1).bucket_start;
+  const timeSpan = Math.max(bucketSeconds, lastAt - firstAt);
+  const xForTime = (timestamp) => samples.length === 1
     ? width / 2
-    : padX + ((width - (2 * padX)) * index / (samples.length - 1));
+    : padX + ((width - (2 * padX)) * (Number(timestamp) - firstAt) / timeSpan);
   const yFor = (value) => height - padY - (((Number(value) - low) / span) * (height - (2 * padY)));
-  const pointsFor = (field) => samples
-    .map((item, index) => `${xFor(index).toFixed(1)},${yFor(item[field]).toFixed(1)}`)
-    .join(' ');
-  const attention = samples.map((item, index) => {
+  const pathFor = (field) => samples.map((item, index) => {
+    const previous = samples[index - 1];
+    const gap = previous && (item.bucket_start - previous.bucket_start) > (bucketSeconds * 1.5);
+    const command = index === 0 || gap ? 'M' : 'L';
+    return `${command}${xForTime(item.bucket_start).toFixed(1)},${yFor(item[field]).toFixed(1)}`;
+  }).join(' ');
+  const attention = samples.map((item) => {
     if (item.system_state === 'healthy' && item.services_offline === 0 && item.discovery_errors === 0) return '';
-    return `<circle class="history-attention-point" cx="${xFor(index).toFixed(1)}" cy="${yFor(item.current_devices).toFixed(1)}" r="5"></circle>`;
+    return `<circle class="history-attention-point" cx="${xForTime(item.bucket_start).toFixed(1)}" cy="${yFor(item.current_devices).toFixed(1)}" r="5"></circle>`;
   }).join('');
   const firstTime = new Date(samples[0].bucket_start * 1000).toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
   const lastTime = new Date(samples.at(-1).bucket_start * 1000).toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
@@ -541,10 +548,10 @@ function renderNetworkHistory() {
         </div>
         <svg class="history-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(t('historyChartLabel'))}">
           <line class="history-grid-line" x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}"></line>
-          <polyline class="history-line history-line-observed" points="${pointsFor('current_devices')}"></polyline>
-          <polyline class="history-line history-line-online" points="${pointsFor('online_devices')}"></polyline>
-          <circle class="history-endpoint history-endpoint-observed" cx="${xFor(samples.length - 1).toFixed(1)}" cy="${yFor(samples.at(-1).current_devices).toFixed(1)}" r="4"></circle>
-          <circle class="history-endpoint history-endpoint-online" cx="${xFor(samples.length - 1).toFixed(1)}" cy="${yFor(samples.at(-1).online_devices).toFixed(1)}" r="3.5"></circle>
+          <path class="history-line history-line-observed" d="${pathFor('current_devices')}"></path>
+          <path class="history-line history-line-online" d="${pathFor('online_devices')}"></path>
+          <circle class="history-endpoint history-endpoint-observed" cx="${xForTime(samples.at(-1).bucket_start).toFixed(1)}" cy="${yFor(samples.at(-1).current_devices).toFixed(1)}" r="4"></circle>
+          <circle class="history-endpoint history-endpoint-online" cx="${xForTime(samples.at(-1).bucket_start).toFixed(1)}" cy="${yFor(samples.at(-1).online_devices).toFixed(1)}" r="3.5"></circle>
           ${attention}
         </svg>
         <div class="history-axis"><span>${escapeHtml(firstTime)}</span><span>${escapeHtml(lastTime)}</span></div>
