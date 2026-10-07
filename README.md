@@ -14,7 +14,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 1.5.0" src="https://img.shields.io/badge/release-1.5.0-2563EB">
+  <img alt="Release 1.6.0" src="https://img.shields.io/badge/release-1.6.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
 </p>
@@ -45,6 +45,7 @@ More views are available on the **[AuraLAN website](https://yellownest.github.io
 |---|---|
 | **Human-readable devices** | Combines DHCP, neighbours, Wi-Fi station data, local names and service discovery into conservative device identities. |
 | **Network Pulse** | Summarizes the last 24 hours and seven days of local network activity with an at-a-glance state, actionable counts and a seven-day trend chart — without exposing per-device identity through the aggregate insight API. |
+| **Network History** | Builds a rolling 24-hour view from privacy-preserving 15-minute aggregate samples, showing observed/online device trends and service-health anomalies while retaining at most 30 days and never storing device identities in the history table. |
 | **Network Review** | Brings missing favorites, baseline differences, weak identities, service health/exposure changes and newly discovered devices into one local “Worth a look” queue with direct links to the underlying evidence. |
 | **Identity Intelligence** | Shows how much local evidence supports each identity, highlights devices that still need attention, and improves recognition through HomeKit, Matter, UPnP/DNS-SD and offline Linux OUI data without cloud fingerprinting. |
 | **Network Baseline** | Capture the devices you expect to see and let AuraLAN highlight what appeared or disappeared since that reference point, entirely locally and without pretending a change is automatically a threat. |
@@ -200,6 +201,7 @@ GET   /api/v1/meta
 GET   /api/v1/health
 GET   /api/v1/status
 GET   /api/v1/insights
+GET   /api/v1/history?hours=24
 GET   /api/v1/host
 GET   /api/v1/network
 GET   /api/v1/devices
@@ -232,6 +234,8 @@ Normal dashboard refreshes use the aggregated status endpoint. Discovery is cach
 Runtime network information stays on the machine running AuraLAN. Device identity is not sent to external lookup services.
 
 The Prometheus endpoint intentionally exposes aggregate counts and host-health gauges only. It does not emit device names, IDs, IP/MAC addresses, notes, or per-device labels.
+
+Network History follows the same boundary: its SQLite rows contain only time buckets, aggregate device/service counts, discovery-error counts and overall system state. They contain no device names, IDs, IP/MAC addresses, notes, locations or tags.
 
 Webhook delivery is disabled unless explicitly configured. Event payloads omit IP/MAC/internal device IDs by default; the endpoint URL and optional bearer token are never exposed through the browser-facing status, diagnostics, or Prometheus surfaces.
 
@@ -268,7 +272,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN 1.5.0 is the current stable release. It builds on the 1.0 foundation with **Network Pulse**, **Network Review**, bounded Activity Center retention that protects pending webhook deliveries, and improved keyboard focus restoration for command and inspector dialogs. Activity Center, Network Baseline, local Identity Intelligence, persistent inventory and presence history, Home Assistant integration, Wake-on-LAN, on-demand reachability checks and local Service Exposure snapshots remain part of the stable v1 product. The v1 API remains intentionally small and local-first.
+AuraLAN 1.6.0 is the current stable release. It adds **Network History**, a bounded privacy-preserving 15-minute aggregate timeline with a fresh Overview visualization and a dedicated history API, plus the official hardened AMD64/ARM64 Docker distribution. The release also tightens long-running DNS-SD cache bounds and fixes host Pi-hole visibility in container deployments. Network Pulse, Network Review, Activity Center, Network Baseline, Identity Intelligence, persistent inventory/presence history, Home Assistant integration, Wake-on-LAN, reachability checks and local Service Exposure snapshots remain part of the stable v1 product.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
