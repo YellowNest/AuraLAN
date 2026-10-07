@@ -50,6 +50,7 @@ RUN python -m pip install --requirement /tmp/requirements.txt \
 COPY --chown=root:root backend/app /app/backend/app
 COPY --chown=root:root frontend /app/frontend
 COPY --chown=root:root project.json /app/project.json
+COPY --chown=root:root docker /app/docker
 
 VOLUME ["/data"]
 EXPOSE 8787
@@ -58,7 +59,7 @@ USER 10001:10001
 WORKDIR /app/backend
 
 HEALTHCHECK --interval=30s --timeout=4s --start-period=10s --retries=3 \
-  CMD ["python", "-c", "import json, urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8787/api/v1/health', timeout=3); d=json.load(r); raise SystemExit(0 if r.status == 200 and d.get('ok') is True else 1)"]
+  CMD ["python", "-c", "import json, os, urllib.request; port=os.environ.get('AURALAN_PORT','8787'); r=urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/health', timeout=3); d=json.load(r); raise SystemExit(0 if r.status == 200 and d.get('ok') is True else 1)"]
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8787", "--no-access-log"]
+CMD ["python", "/app/docker/entrypoint.py"]
