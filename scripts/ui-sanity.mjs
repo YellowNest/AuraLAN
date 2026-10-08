@@ -221,7 +221,7 @@ try {
       input.value = '__auralan_never_matching_123456__';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    assert.equal((await page.$('.device-results .device-row')).length, 0, `${viewport.name}/devices: unmatched query still shows results`);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 0, `${viewport.name}/devices: unmatched query still shows results`);
     assert.ok(await page.$('.device-results [data-reset-device-filters]'), `${viewport.name}/devices: empty search has no reset action`);
     await page.click('.device-results [data-reset-device-filters]');
     assert.equal(await page.$eval('#device-search', (el) => el.value), '', `${viewport.name}/devices: reset did not clear query`);
@@ -248,7 +248,7 @@ try {
     assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
     assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
     assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
-    assert.equal(await page.$eval('.activity-center-list button.activity-row:not([data-route]):not([data-device])', (items) => items.length), 0, `${viewport.name}/activity: an inert event looks clickable`);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.activity-center-list button.activity-row:not([data-route]):not([data-device])').length), 0, `${viewport.name}/activity: an inert event looks clickable`);
 
     const zeroFilter = await page.evaluate(() => [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')]
       .find((el) => el.dataset.activityFilter !== 'all' && Number(el.querySelector('b')?.textContent || -1) === 0)?.dataset.activityFilter || '');
