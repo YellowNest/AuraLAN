@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -28,6 +28,8 @@ const state = {
   locale: preferredLocale(localStorage.getItem('auralan.locale')),
   deviceFilter: 'all',
   deviceQuery: '',
+  mapQuery: '',
+  mapView: 'all',
   deviceSort: localStorage.getItem('auralan.device-sort') || 'smart',
   activityFilter: 'all',
   pulseExpanded: false,
@@ -695,8 +697,9 @@ function renderTopologyDevices(items) {
     : ''}`;
 }
 
-function renderNetworkMap(network) {
-  const { apClients, other } = partitionNetworkMapDevices(network, devices());
+function renderNetworkMapResults(network) {
+  const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
+  const { apClients, other, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
   const accessPoints = networkMapAccessPoints(network);
   const definitions = [
     ['wifi', t('wifi'), 'wifi'],
@@ -709,8 +712,8 @@ function renderNetworkMap(network) {
   const gatewayAp = accessPoints.find((item) => item.gateway);
   const rootName = gatewayAp?.label || t('defaultGateway');
   const remainingCount = visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
-  if (!accessPoints.length && !remainingCount) {
-    return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
+  if (!accessPoints.length && !remainingCount && !state.mapQuery) {
+    return `<div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div>`;
   }
 
   const accessPointCards = accessPoints.map((point) => {
@@ -728,10 +731,7 @@ function renderNetworkMap(network) {
     </article>`;
   }).join('');
 
-  return `<section class="content-section network-map-section">
-    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapMultiApHint')}</p></div></header>
-    <div class="surface network-map">
-      <div class="topology-infrastructure">
+  return `<div class="topology-infrastructure">
         <div class="topology-root" data-topology-gateway><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(gatewayAddress || t('notConfirmed'))}</small></div></div>
       </div>
       ${accessPoints.length ? `<section class="topology-access-points"><div class="topology-section-heading"><div><strong>${t('wifiAccessPoints')}</strong><small>${t('accessPointObservationHint')}</small></div><span class="topology-section-count">${accessPoints.length}</span></div><div class="topology-ap-grid">${accessPointCards}</div></section>` : ''}
@@ -742,8 +742,73 @@ function renderNetworkMap(network) {
           ${renderTopologyDevices(other[id])}
         </article>`).join('')}</div>
       </section>` : ''}
+      ${!matched ? `<p class="topology-no-matches">${escapeHtml(t('mapNoMatches'))}</p>` : ''}
+  `;
+}
+
+function renderNetworkMap(network) {
+  const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
+  const { counts, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  const views = [
+    ['all', t('all'), counts.total],
+    ['local', t('mapObservedOnAp'), counts.local],
+    ['unassigned', t('mapUnassigned'), counts.unassigned],
+    ['online', t('online'), counts.online],
+  ];
+  return `<section class="content-section network-map-section">
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapMultiApHint')}</p></div></header>
+    <div class="surface network-map">
+      <div class="topology-explorer">
+        <div class="topology-explorer-title"><div><strong>${t('mapExplorer')}</strong><small>${t('mapExplorerHint')}</small></div>
+          <span class="topology-explorer-result" id="topology-search-count" aria-live="polite">${escapeHtml(t('mapShowing', { matched, count: counts.total }))}</span>
+        </div>
+        <label class="topology-search-field" for="topology-search">${icon('search')}
+          <input id="topology-search" type="search" autocomplete="off" spellcheck="false"
+            placeholder="${escapeHtml(t('mapSearchPlaceholder'))}" aria-label="${escapeHtml(t('mapSearchPlaceholder'))}"
+            value="${escapeHtml(state.mapQuery)}" maxlength="120">
+        </label>
+        <div class="topology-explorer-filters" role="group" aria-label="${escapeHtml(t('mapFilterLabel'))}">
+          ${views.map(([id, label, count]) => `<button type="button" class="topology-filter ${state.mapView === id ? 'active' : ''}"
+            data-map-filter="${id}" aria-pressed="${state.mapView === id}">${escapeHtml(label)}<span data-map-filter-count="${id}">${count}</span></button>`).join('')}
+          ${state.mapQuery || state.mapView !== 'all' ? `<button type="button" class="topology-filter-reset" data-map-reset>${t('mapReset')}</button>` : ''}
+        </div>
+      </div>
+      <div id="topology-explorer-results">${renderNetworkMapResults(network)}</div>
     </div>
   </section>`;
+}
+
+function refreshNetworkExplorer() {
+  if (state.route !== 'network' || !state.data || !$('#topology-explorer-results')) return;
+  const network = state.data.network || {};
+  const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
+  const { counts, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  $('#topology-explorer-results').innerHTML = renderNetworkMapResults(network);
+  const count = $('#topology-search-count');
+  if (count) count.textContent = t('mapShowing', { matched, count: counts.total });
+  for (const button of document.querySelectorAll('[data-map-filter]')) {
+    const active = button.dataset.mapFilter === state.mapView;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    const value = button.querySelector('[data-map-filter-count]');
+    if (value) value.textContent = String(counts[button.dataset.mapFilter] ?? 0);
+  }
+  const filters = $('.topology-explorer-filters');
+  if (filters) {
+    let reset = filters.querySelector('[data-map-reset]');
+    if (state.mapQuery || state.mapView !== 'all') {
+      if (!reset) {
+        reset = document.createElement('button');
+        reset.type = 'button';
+        reset.className = 'topology-filter-reset';
+        reset.dataset.mapReset = '';
+        reset.textContent = t('mapReset');
+        filters.append(reset);
+      }
+    } else {
+      reset?.remove();
+    }
+  }
 }
 
 function renderNetwork() {
@@ -1215,6 +1280,11 @@ async function refresh(manual = false) {
       renderNav();
       renderPageHeader();
       refreshDeviceSearchResults();
+    } else if (state.route === 'network' && $('#topology-search')) {
+      // Refresh results in place so live polling never closes the mobile keyboard.
+      renderNav();
+      renderPageHeader();
+      refreshNetworkExplorer();
     } else {
       renderView();
     }
@@ -1588,6 +1658,20 @@ document.addEventListener('click', (event) => {
         ?.focus({ preventScroll: true });
     }
   }
+  if (trigger.matches('[data-map-filter]')) {
+    state.mapView = ['all', 'local', 'unassigned', 'online'].includes(trigger.dataset.mapFilter)
+      ? trigger.dataset.mapFilter : 'all';
+    refreshNetworkExplorer();
+    document.querySelector(`[data-map-filter="${state.mapView}"]`)?.focus({ preventScroll: true });
+  }
+  if (trigger.matches('[data-map-reset]')) {
+    state.mapQuery = '';
+    state.mapView = 'all';
+    const search = $('#topology-search');
+    if (search) search.value = '';
+    refreshNetworkExplorer();
+    search?.focus({ preventScroll: true });
+  }
   if (trigger.matches('[data-activity-filter]')) {
     state.activityFilter = trigger.dataset.activityFilter;
     renderView();
@@ -1646,6 +1730,11 @@ commandDialog.addEventListener('click', (event) => { if (event.target === comman
 inspectorDialog.addEventListener('click', (event) => { if (event.target === inspectorDialog) closeDialog(inspectorDialog); });
 commandDialog.addEventListener('close', () => { syncModalScrollLock(); restoreDialogFocus(commandDialog); });
 inspectorDialog.addEventListener('close', () => { syncModalScrollLock(); restoreDialogFocus(inspectorDialog); });
+document.addEventListener('input', (event) => {
+  if (!event.target.matches('#topology-search')) return;
+  state.mapQuery = event.target.value.slice(0, 120);
+  refreshNetworkExplorer();
+});
 $('#command-input').addEventListener('input', (event) => renderCommandResults(event.target.value));
 $('#command-input').addEventListener('keydown', (event) => {
   const count = commandItems(event.currentTarget.value).length;

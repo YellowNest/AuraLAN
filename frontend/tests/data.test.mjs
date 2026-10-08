@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -52,6 +52,30 @@ test('network map shows two different access points but never invents router-sid
   const partition = partitionNetworkMapDevices(network, inventory);
   assert.deepEqual(partition.apClients.map((x) => x.id), ['ap']);
   assert.deepEqual(partition.other.unknown.map((x) => x.id), ['gateway-lan']);
+});
+
+test('Network Explorer searches across network evidence without inventing associations', () => {
+  const network = {
+    access_point: { available: true, interface: 'local-ap', ssid: 'Local Lab', ipv4: '198.51.100.1/24' },
+    known_access_points: [{ ssid: 'External Router', address: '192.0.2.1', label: 'Gateway' }],
+  };
+  const inventory = [
+    { id: 'heat', state: 'online', online: true, display_name: 'Värmepump', vendor: 'Daikin', ip: '198.51.100.2', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'local-ap' }] },
+    { id: 'tv', state: 'online', online: true, display_name: 'Apple TV', ip: '192.0.2.102', connection_type: 'unknown', observations: [{ source: 'ip_neigh', interface: 'uplink' }] },
+    { id: 'camera', state: 'recently_seen', online: false, display_name: 'Kamera', ip: '192.0.2.105', connection_type: 'unknown', observations: [] },
+    { id: 'remembered', state: 'known', online: false, display_name: 'Old', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'local-ap' }] },
+  ];
+  const all = exploreNetworkMap(network, inventory);
+  assert.deepEqual(all.counts, { total: 3, local: 1, unassigned: 2, online: 2 });
+  assert.equal(all.matched, 3);
+  assert.deepEqual(exploreNetworkMap(network, inventory, 'DAIKIN', 'all').apClients.map((d) => d.id), ['heat']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, 'varmepump', 'all').apClients.map((d) => d.id), ['heat']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '192.0.2.102', 'unassigned').other.unknown.map((d) => d.id), ['tv']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '', 'local').other.unknown, []);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '', 'online').other.unknown.map((d) => d.id), ['tv']);
+  assert.equal(exploreNetworkMap(network, inventory, 'missing', 'all').matched, 0);
+  assert.equal(exploreNetworkMap(network, inventory, '', 'malformed').view, 'all');
+  assert.equal(all.counts.total, 3, 'search and filters must not alter the source inventory');
 });
 
 test('network map remains meaningful with no declared external APs', () => {
