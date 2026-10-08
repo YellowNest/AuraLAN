@@ -16,6 +16,7 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 - Reduced Activity Center to descriptive context and actionable filter chips instead of redundant counters; made identity review a one-click task on Devices.
 - Made Network History expandable and kept expanded reports open across refreshes; removed the misleading green local-label status dot from the sidebar.
 - Kept the Devices search input and mobile keyboard stable while filtering and refreshing, with a live count of matching devices.
+- Suppressed zero-count dashboard actions, linked baseline and missing-favorite counts to their actual device filters, and focused the filtered results when starting an identity review.
 
 ## [1.6.0] - 2026-10-07
 
