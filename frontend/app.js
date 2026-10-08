@@ -1305,7 +1305,12 @@ function rememberDialogOpener(dialog) {
 function restoreDialogFocus(dialog) {
   const opener = dialogOpeners.get(dialog);
   dialogOpeners.delete(dialog);
-  if (opener instanceof HTMLElement && opener.isConnected && !opener.hasAttribute('disabled')) {
+  // Native Escape dispatches the "close" event asynchronously. Do not steal
+  // focus back from a search field or route entered after the dialog closed.
+  const focused = document.activeElement;
+  const focusIsFree = focused === document.body || focused === document.documentElement
+    || focused === opener || dialog.contains(focused);
+  if (focusIsFree && opener instanceof HTMLElement && opener.isConnected && !opener.hasAttribute('disabled')) {
     opener.focus({ preventScroll: true });
   }
 }
