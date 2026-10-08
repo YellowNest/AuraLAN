@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Only the newest revision of a development branch needs full validation.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   hygiene:
     name: Release hygiene
