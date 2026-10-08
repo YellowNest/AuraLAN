@@ -226,7 +226,7 @@ try {
     await page.click('.device-results [data-reset-device-filters]');
     assert.equal(await page.$eval('#device-search', (el) => el.value), '', `${viewport.name}/devices: reset did not clear query`);
     assert.equal(await page.$eval('.device-toolbar [data-device-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: reset did not select all`);
-    assert.ok((await page.$('.device-row')).length > 0, `${viewport.name}/devices: reset did not restore results`);
+    assert.ok(await page.evaluate(() => document.querySelectorAll('.device-results .device-row').length) > 0, `${viewport.name}/devices: reset did not restore results`);
     await page.click('.device-toolbar [data-device-filter="online"]');
     assert.equal(await page.$eval('.device-toolbar [data-device-filter="online"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: filter selection is not announced`);
     assert.equal(await page.evaluate(() => document.activeElement?.dataset?.deviceFilter), 'online', `${viewport.name}/devices: filter selection lost focus`);
