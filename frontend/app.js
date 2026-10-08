@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -694,15 +694,21 @@ function renderNetworkMap(network) {
     return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
   }
 
-  const uplink = network.uplink || {};
-  const ap = network.access_point || {};
-  const rootName = ap.ssid || ap.connection || t('localNetwork');
-  const rootDetail = uplink.gateway ? `${t('gateway')} · ${uplink.gateway}` : t('localNetwork');
+  const { gatewayAddress, accessPoint } = networkMapInfrastructure(network);
+  const rootName = gatewayAddress ? t('defaultGateway') : t('localNetwork');
+  const rootDetail = gatewayAddress || t('notConfirmed');
+  const apName = accessPoint?.name || t('accessPoint');
+  const apDetail = accessPoint?.address
+    ? `${t('accessPoint')} · ${accessPoint.address}`
+    : t('accessPoint');
 
   return `<section class="content-section network-map-section">
     <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapHint')}</p></div></header>
     <div class="surface network-map">
-      <div class="topology-root"><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(rootDetail)}</small></div></div>
+      <div class="topology-infrastructure">
+        <div class="topology-root" data-topology-gateway><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(rootDetail)}</small></div></div>
+        ${accessPoint ? `<div class="topology-ap" data-topology-access-point><span class="topology-root-icon">${icon('wifi')}</span><div><strong>${escapeHtml(apName)}</strong><small>${escapeHtml(apDetail)}</small></div></div>` : ''}
+      </div>
       <div class="topology-trunk" aria-hidden="true"></div>
       <div class="topology-groups">
         ${visibleGroups.map(([id, label, glyph]) => {

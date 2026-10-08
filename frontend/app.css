@@ -319,12 +319,13 @@ p { margin: 0; }
 .network-map-section .section-title > div { max-width: 720px; }
 .section-hint { margin-top: 5px; color: var(--text-faint); font-size: 11px; line-height: 1.5; }
 .network-map { padding: 22px; overflow: hidden; border-radius: var(--radius-md); }
-.topology-root { width: fit-content; max-width: 100%; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-muted); }
+.topology-infrastructure { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 10px; }
+.topology-root, .topology-ap { min-width: 0; width: fit-content; max-width: 100%; padding: 12px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-muted); }
 .topology-root-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
 .topology-root-icon .icon { width: 20px; height: 20px; }
-.topology-root strong, .topology-root small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.topology-root strong { font-size: 13px; }
-.topology-root small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }
+.topology-root strong, .topology-root small, .topology-ap strong, .topology-ap small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-root strong, .topology-ap strong { font-size: 13px; }
+.topology-root small, .topology-ap small { margin-top: 2px; color: var(--text-faint); font-size: 10px; }
 .topology-trunk { width: 1px; height: 26px; margin: 0 auto; background: var(--line-strong); }
 .topology-groups { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .topology-groups::before { content: ''; position: absolute; top: -1px; left: 12.5%; right: 12.5%; height: 1px; background: var(--line-strong); }
@@ -1786,9 +1787,9 @@ textarea{
     padding:14px;
     border-radius:var(--mobile-radius);
   }
-  .topology-root{
+  .topology-root,
+  .topology-ap{
     width:100%;
-    margin:0;
   }
   .topology-trunk{
     height:16px;

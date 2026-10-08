@@ -223,6 +223,23 @@ export function sortDevices(items, sort = 'smart') {
   });
 }
 
+// Gateway and locally hosted Wi-Fi are independent observations: never pair
+// an AP SSID with the upstream gateway address in a single topology node.
+export function networkMapInfrastructure(network = {}) {
+  const uplink = network?.uplink || {};
+  const ap = network?.access_point || {};
+  const address = String(uplink.gateway || '').trim();
+  return {
+    gatewayAddress: address || null,
+    accessPoint: ap.available
+      ? {
+          name: String(ap.ssid || ap.connection || '').trim() || null,
+          address: String(ap.ipv4 || '').trim() || null,
+        }
+      : null,
+  };
+}
+
 export function groupCurrentDevicesByConnection(items) {
   const groups = { wifi: [], ethernet: [], vpn: [], unknown: [] };
   for (const device of items) {

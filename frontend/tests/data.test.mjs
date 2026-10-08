@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -8,6 +8,26 @@ const devices = [
   { display_name: 'Living room TV', hostname: 'living-room-tv', vendor: 'Samsung', model: 'QE65Q70T', category: 'tv', ip: '192.0.2.20', mac: '02:00:00:00:00:02', interface: 'lan0', connection_type: 'ethernet', online: false },
   { display_name: 'Network device', vendor: null, model: null, category: 'unknown', ip: '192.0.2.30', mac: '02:00:00:00:00:03', interface: 'lan0', connection_type: 'ethernet', online: false, metadata: { alias: null } }
 ];
+
+
+test('network topology keeps the upstream gateway separate from the local Wi-Fi AP', () => {
+  const network = {
+    uplink: { gateway: '192.0.2.1', ipv4: '192.0.2.44' },
+    access_point: { available: true, ssid: 'Lab-Pi', ipv4: '198.51.100.1' },
+  };
+  assert.deepEqual(networkMapInfrastructure(network), {
+    gatewayAddress: '192.0.2.1',
+    accessPoint: { name: 'Lab-Pi', address: '198.51.100.1' },
+  });
+  assert.deepEqual(networkMapInfrastructure({
+    uplink: { gateway: '192.0.2.1' },
+    access_point: { available: false, ssid: 'Inactive AP', ipv4: '198.51.100.1' },
+  }), {
+    gatewayAddress: '192.0.2.1',
+    accessPoint: null,
+  });
+  assert.deepEqual(networkMapInfrastructure({}), { gatewayAddress: null, accessPoint: null });
+});
 
 test('device filtering supports friendly names, vendor, category, IP, and MAC', () => {
   assert.equal(filterDevices(devices, 'online').length, 1);
