@@ -187,9 +187,11 @@ if not viewport_match:
     fail("frontend/index.html is missing the mobile viewport meta tag")
 else:
     viewport = viewport_match.group(1)
-    for required in ("width=device-width", "initial-scale=1", "maximum-scale=1", "user-scalable=no", "viewport-fit=cover"):
+    for required in ("width=device-width", "initial-scale=1", "viewport-fit=cover"):
         if required not in viewport:
             fail(f"mobile viewport is missing required setting: {required}")
+    if re.search(r"(?:maximum-scale\\s*=\\s*1|user-scalable\\s*=\\s*no)", viewport, re.IGNORECASE):
+        fail("mobile viewport must allow user zoom")
 
 if "network-orbit" in app_source or "network-orbit" in css_source:
     fail("retired decorative network-orbit UI returned")
