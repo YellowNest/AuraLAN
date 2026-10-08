@@ -3836,3 +3836,15 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .history-disclosure-toggle,.history-disclosure-chevron{transition:none}
 }
+
+
+/* Zero-count pulse entries are informational, not fake navigation. */
+.pulse-metrics{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+.pulse-day-empty{cursor:default;opacity:.6}
+.pulse-day-empty:hover .pulse-bar-track{outline:0}
+.device-results{scroll-margin-top:18px}
+.device-results:focus{outline:0}
+.device-results:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (max-width: 760px) {
+  .pulse-metrics{grid-template-columns:repeat(auto-fit,minmax(128px,1fr))}
+}
