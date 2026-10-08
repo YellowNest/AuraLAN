@@ -1188,8 +1188,16 @@ async function refresh(manual = false) {
     const candidateDate = state.data.generated_at ? new Date(state.data.generated_at) : null;
     state.lastUpdated = candidateDate && !Number.isNaN(candidateDate.valueOf()) ? candidateDate : null;
     setConnection(true);
-    if (state.route === 'devices' && document.activeElement?.id === 'device-search') refreshDeviceSearchResults();
-    else renderView();
+    if (state.route === 'devices' && $('#device-search')) {
+      // Live polling must not replace the device-search input (or close the
+      // mobile keyboard) while the operator is looking through the inventory.
+      // Rebuild the full toolbar when the user next navigates or changes filters.
+      renderNav();
+      renderPageHeader();
+      refreshDeviceSearchResults();
+    } else {
+      renderView();
+    }
     if (manual) toast(t('lastUpdated', { time: state.lastUpdated.toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' }) }));
   } catch (error) {
     setConnection(false);
