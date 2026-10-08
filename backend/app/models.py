@@ -95,7 +95,15 @@ class InterfaceResponse(BaseModel):
     role: InterfaceRole = "unknown"
 
 
+class KnownAccessPointResponse(BaseModel):
+    """Operator-supplied infrastructure identity, not an observed association."""
+    ssid: str
+    address: str
+    label: str | None = None
+
+
 class NetworkResponse(BaseModel):
+    known_access_points: list[KnownAccessPointResponse] = Field(default_factory=list)
     access_point: AccessPointResponse
     uplink: UplinkResponse
     dhcp: DhcpResponse
