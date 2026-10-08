@@ -442,7 +442,7 @@ function renderActivity() {
     ['baseline', t('activityBaselineChanges'), groups.baseline || 0],
   ];
 
-  return `<section class="activity-toolbar surface"><div class="activity-toolbar-intro"><strong>${t('activityCenter')}</strong><p>${t('activityCenterHint')}</p></div><div class="filter-row activity-filter-row" role="group" aria-label="${escapeHtml(t('activity'))}">${filters.map(([id, label, count]) => `<button type="button" class="filter-chip ${state.activityFilter === id ? 'active' : ''}" data-activity-filter="${id}">${escapeHtml(label)} <b>${count}</b></button>`).join('')}</div></section>
+  return `<section class="activity-toolbar surface"><div class="activity-toolbar-intro"><strong>${t('activityCenter')}</strong><p>${t('activityCenterHint')}</p></div><div class="filter-row activity-filter-row" role="group" aria-label="${escapeHtml(t('activity'))}">${filters.map(([id, label, count]) => `<button type="button" class="filter-chip ${state.activityFilter === id ? 'active' : ''}" data-activity-filter="${id}" aria-pressed="${state.activityFilter === id}">${escapeHtml(label)} <b>${count}</b></button>`).join('')}</div></section>
   <section class="surface discovery-list activity-center-list">${visible.length ? renderActivityRows(visible) : activityEmptyState(state.activityFilter !== 'all')}</section>`;
 }
 
@@ -786,7 +786,7 @@ function renderDevices() {
     <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityNeedsReviewCount', { count: identity.limited })}</h2><small>${t('identityCoverageHint')}</small></div></div>
     <button type="button" class="secondary-button identity-review-action" data-device-filter="identity_limited" data-focus-results>${t('reviewDevices')}${icon('chevron')}</button>
   </section>` : '';
-  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" data-focus-results aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results" tabindex="-1">${result.length ? renderDeviceRows(result) : deviceEmptyState()}</section>`;
+  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}" aria-pressed="${state.deviceFilter === id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" data-focus-results aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results" tabindex="-1">${result.length ? renderDeviceRows(result) : deviceEmptyState()}</section>`;
 }
 
 function renderServices() {
@@ -1549,9 +1549,19 @@ document.addEventListener('click', (event) => {
       const results = $('.device-results');
       results?.focus({ preventScroll: true });
       results?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    } else {
+      [...document.querySelectorAll('[data-device-filter]')]
+        .find((item) => item.dataset.deviceFilter === state.deviceFilter)
+        ?.focus({ preventScroll: true });
     }
   }
-  if (trigger.matches('[data-activity-filter]')) { state.activityFilter = trigger.dataset.activityFilter; renderView(); }
+  if (trigger.matches('[data-activity-filter]')) {
+    state.activityFilter = trigger.dataset.activityFilter;
+    renderView();
+    [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')]
+      .find((item) => item.dataset.activityFilter === state.activityFilter)
+      ?.focus({ preventScroll: true });
+  }
   if (trigger.matches('[data-device]')) showDevice(trigger.dataset.device);
   if (trigger.matches('[data-service]')) showService(trigger.dataset.service);
   if (trigger.matches('[data-theme]')) applyTheme(trigger.dataset.theme);
