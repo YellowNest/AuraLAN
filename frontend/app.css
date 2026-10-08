@@ -3761,3 +3761,78 @@ h2 {
  .pulse-metrics button,.pulse-explore>summary,.pulse-expand-icon{transition:none}
  .pulse-metrics button:hover{transform:none}
 }
+
+
+/* 1.6.1 usability refinement: show evidence and actions, not duplicate dashboards */
+.sidebar-version{
+  margin:13px 9px 0;
+  padding:13px 2px 0;
+  border-top:1px solid var(--line);
+  color:var(--text-faint);
+  font-size:11px;
+  text-align:right;
+}
+.sidebar-version small{font-size:11px;font-variant-numeric:tabular-nums}
+.activity-toolbar{padding:15px 16px}
+.activity-toolbar-intro{margin-bottom:12px}
+.activity-toolbar-intro strong{display:block;font-size:15px;letter-spacing:-.015em}
+.activity-toolbar-intro p{margin-top:3px;color:var(--text-soft);font-size:12px;line-height:1.5}
+.identity-overview{padding:15px 18px;gap:12px;grid-template-columns:minmax(0,1fr) auto}
+.identity-overview-copy h2{font-size:16px}
+.identity-overview-copy small{font-size:11px}
+.identity-review-action{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  gap:8px;
+  white-space:nowrap;
+}
+.identity-review-action .icon{width:15px;height:15px}
+.identity-review-action:focus-visible,
+.history-disclosure-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.network-history.history-disclosure{padding:0}
+.history-disclosure-toggle{
+  min-height:48px;
+  padding:13px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  list-style:none;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:750;
+  color:var(--text);
+  transition:background .16s ease;
+}
+.history-disclosure-toggle::-webkit-details-marker{display:none}
+.history-disclosure-toggle:hover{background:var(--surface-muted)}
+.history-disclosure-chevron{
+  flex:none;
+  display:inline-flex;
+  color:var(--text-faint);
+  transform:rotate(90deg);
+  transition:transform .16s ease;
+}
+.history-disclosure-chevron .icon{width:17px;height:17px}
+.history-disclosure[open] .history-disclosure-chevron{transform:rotate(-90deg)}
+.history-disclosure-body{padding:18px;border-top:1px solid var(--line)}
+.review-section{scroll-margin-top:20px}
+@media (max-width: 760px) {
+  .activity-toolbar{padding:13px}
+  .activity-toolbar-intro strong{font-size:14px}
+  .activity-toolbar-intro p{font-size:12px}
+  .identity-overview{
+    grid-template-columns:minmax(0,1fr);
+    padding:13px 14px;
+  }
+  .identity-overview-copy small{display:block;font-size:11px}
+  .identity-review-action{width:100%;min-height:44px}
+  .history-disclosure-toggle{min-height:46px;padding:12px 14px}
+  .history-disclosure-body{padding:13px}
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-disclosure-toggle,.history-disclosure-chevron{transition:none}
+}
