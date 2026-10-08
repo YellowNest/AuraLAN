@@ -244,6 +244,43 @@ export function networkMapInfrastructure(network = {}) {
 // Place a client beneath this AP only when the inventory has explicit evidence
 // for the AP interface. Everything else stays unassigned, even if the device
 // happens to have an address on a nearby subnet.
+// Only explicitly declared external APs and the host's directly observed AP
+// belong in this list. Identical IP addresses describe the same access point,
+// and no clients are assigned to external APs without station evidence.
+export function networkMapAccessPoints(network = {}) {
+  const local = network?.access_point || {};
+  const gateway = String(network?.uplink?.gateway || '').trim();
+  const seen = new Set();
+  const accessPoints = [];
+  if (local.available) {
+    const address = String(local.ipv4 || '').trim();
+    if (address) seen.add(address.split('/')[0]);
+    accessPoints.push({
+      ssid: String(local.ssid || local.connection || '').trim() || null,
+      address: address || null,
+      label: null,
+      kind: 'local',
+      gateway: address.split('/')[0] === gateway,
+    });
+  }
+  const external = Array.isArray(network?.known_access_points)
+    ? network.known_access_points.slice(0, 8) : [];
+  for (const point of external) {
+    if (!point || typeof point.ssid !== 'string' || typeof point.address !== 'string') continue;
+    const address = point.address.trim();
+    const ssid = point.ssid.trim();
+    if (!address || !ssid || seen.has(address)) continue;
+    seen.add(address);
+    accessPoints.push({
+      ssid, address,
+      label: String(point.label || '').trim() || null,
+      kind: 'configured',
+      gateway: address === gateway,
+    });
+  }
+  return accessPoints;
+}
+
 export function partitionNetworkMapDevices(network, items) {
   const accessPoint = network?.access_point || {};
   const apInterface = accessPoint.available && typeof accessPoint.interface === 'string'
