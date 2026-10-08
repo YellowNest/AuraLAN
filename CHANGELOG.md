@@ -6,6 +6,13 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-08
+
+### Changed
+- Redesigned Network Pulse into a compact status dashboard with clearly navigable metrics and an accessible, expandable seven-day chart.
+- Added keyboard-accessible daily activity buttons and linked baseline, favorite and service counts to relevant routes.
+- Refined mobile spacing, focus states, hover feedback and reduced-motion behavior while keeping the existing privacy-preserving insights API unchanged.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added
