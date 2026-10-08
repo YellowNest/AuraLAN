@@ -12,8 +12,8 @@ const devices = [
 
 test('network topology keeps the upstream gateway separate from the local Wi-Fi AP', () => {
   const network = {
-    uplink: { interface: 'eth0', gateway: '192.0.2.1', ipv4: '192.0.2.44' },
-    access_point: { available: true, interface: 'wlan0', ssid: 'Lab-Pi', ipv4: '198.51.100.1' },
+    uplink: { gateway: '192.0.2.1', ipv4: '192.0.2.44' },
+    access_point: { available: true, ssid: 'Lab-Pi', ipv4: '198.51.100.1' },
   };
   assert.deepEqual(networkMapInfrastructure(network), {
     gatewayAddress: '192.0.2.1',
