@@ -338,6 +338,33 @@ try {
         `${viewport.name}/network: external access-point SSID missing`);
     }
 
+    // Search and filter without navigating away or losing the input on mobile.
+    await page.waitForSelector('#topology-search');
+    await page.focus('#topology-search');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'topology-search',
+      `${viewport.name}/network: Network Explorer search cannot receive keyboard focus`);
+    await page.type('#topology-search', 'nonexistent-map-result-xyz');
+    assert.equal(await page.$eval('#topology-search', (el) => el.value), 'nonexistent-map-result-xyz',
+      `${viewport.name}/network: typed network search was lost`);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'topology-search',
+      `${viewport.name}/network: network search lost focus while filtering`);
+    const emptyMap = await page.evaluate(() => ({
+      devices: document.querySelectorAll('#topology-explorer-results .topology-device').length,
+      empty: Boolean(document.querySelector('.topology-no-matches')),
+      count: document.querySelector('#topology-search-count')?.textContent?.trim(),
+    }));
+    assert.equal(emptyMap.devices, 0, `${viewport.name}/network: impossible search retained devices`);
+    assert.equal(emptyMap.empty, true, `${viewport.name}/network: no-results feedback missing`);
+    assert.ok(emptyMap.count?.length > 0, `${viewport.name}/network: match counter missing`);
+    await page.click('[data-map-filter="unassigned"]');
+    assert.equal(await page.$eval('[data-map-filter="unassigned"]', (el) => el.getAttribute('aria-pressed')), 'true',
+      `${viewport.name}/network: filter state not conveyed`);
+    await page.click('[data-map-reset]');
+    assert.equal(await page.$eval('#topology-search', (el) => el.value), '',
+      `${viewport.name}/network: reset did not clear search`);
+    assert.equal(await page.$eval('[data-map-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true',
+      `${viewport.name}/network: reset did not restore all devices`);
+
     const topologyDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.topology-device');
       const symbol = row?.querySelector('.topology-device-symbol');
