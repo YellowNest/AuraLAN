@@ -6,6 +6,20 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-10-08
+
+### Added
+- **Network Explorer** adds an interactive, responsive search rail to the network map. Search device names, IP addresses, vendors, location notes and other known identity evidence, including multiple terms and Swedish characters.
+- Quick filters show all devices, clients directly observed on the local access point, devices with an unconfirmed connection path, or those currently observed online.
+- Live counts distinguish the total observed inventory from current filtered results without presenting a configured router's Wi-Fi clients as confirmed.
+
+### Improved
+- Background status refresh updates network-map results and counters **in place** rather than rebuilding the active search field or dismissing the mobile keyboard.
+- Accessible buttons, pressed states and an explicit reset action help users explore large installations on phones, tablets and desktop.
+- Corrected the stale frontend fallback metadata to match the real `1.6.3` version.
+- Extended automated browser checks across six viewports and pure-data tests for searching, no matches, association evidence, live counts and filtering.
+
+
 ### Improved
 - Network Map now supports explicitly configured external Wi-Fi access points alongside the directly observed host AP, with clear upstream gateway labeling and an adaptable two-column layout.
 - Distinguishes manually known access-point identities from measured associations; devices on an external LAN remain unassigned unless their Wi-Fi association is independently observed.
