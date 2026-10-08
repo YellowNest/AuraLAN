@@ -114,11 +114,19 @@ try {
             hasPulse: Boolean(root),
             metricCount: root?.querySelectorAll('.pulse-metrics > button').length || 0,
             dayCount: root?.querySelectorAll('.pulse-day').length || 0,
+            expandable: Boolean(root?.querySelector('details.pulse-explore > summary')),
+            initiallyCollapsed: !root?.querySelector('details.pulse-explore')?.open,
+            navigableDays: root?.querySelectorAll('.pulse-day[data-route="activity"]').length || 0,
+            navigableDetails: root?.querySelectorAll('.pulse-detail-row button[data-route]').length || 0,
             chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
             pulseOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
           };
         });
         assert.equal(pulse.hasPulse, true, `${viewport.name}/overview: Network Pulse is missing`);
+        assert.equal(pulse.expandable, true, `${viewport.name}/overview: seven-day details must be expandable`);
+        assert.equal(pulse.initiallyCollapsed, true, `${viewport.name}/overview: pulse details must start compact`);
+        assert.equal(pulse.navigableDetails, 4, `${viewport.name}/overview: detail counters must link to evidence`);
+        assert.ok(pulse.navigableDays === 0 || pulse.navigableDays === 7, `${viewport.name}/overview: daily bars must be navigable`);
         assert.equal(pulse.metricCount, 4, `${viewport.name}/overview: Network Pulse metrics are incomplete`);
         assert.ok(pulse.dayCount === 0 || pulse.dayCount === 7, `${viewport.name}/overview: Network Pulse must show seven activity buckets when history is available`);
         assert.equal(pulse.chartOverflow, false, `${viewport.name}/overview: Network Pulse chart overflows horizontally`);
