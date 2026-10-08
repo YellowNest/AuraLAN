@@ -771,9 +771,9 @@ function renderDevices() {
   ];
   const identityOverview = identity.limited ? `<section class="identity-overview surface">
     <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityNeedsReviewCount', { count: identity.limited })}</h2><small>${t('identityCoverageHint')}</small></div></div>
-    <button type="button" class="secondary-button identity-review-action" data-device-filter="identity_limited">${t('reviewDevices')}${icon('chevron')}</button>
+    <button type="button" class="secondary-button identity-review-action" data-device-filter="identity_limited" data-focus-results>${t('reviewDevices')}${icon('chevron')}</button>
   </section>` : '';
-  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
+  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" data-focus-results aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results" tabindex="-1">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
 
 function renderServices() {
@@ -1522,7 +1522,15 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-close-command]')) closeDialog(commandDialog);
   if (trigger.matches('[data-close-inspector]')) closeDialog(inspectorDialog);
   if (trigger.matches('[data-retry]')) refresh(true);
-  if (trigger.matches('[data-device-filter]')) { state.deviceFilter = trigger.dataset.deviceFilter; renderView(); }
+  if (trigger.matches('[data-device-filter]')) {
+    state.deviceFilter = trigger.dataset.deviceFilter;
+    renderView();
+    if (trigger.hasAttribute('data-focus-results')) {
+      const results = $('.device-results');
+      results?.focus({ preventScroll: true });
+      results?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    }
+  }
   if (trigger.matches('[data-activity-filter]')) { state.activityFilter = trigger.dataset.activityFilter; renderView(); }
   if (trigger.matches('[data-device]')) showDevice(trigger.dataset.device);
   if (trigger.matches('[data-service]')) showService(trigger.dataset.service);
