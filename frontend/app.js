@@ -1280,6 +1280,11 @@ async function refresh(manual = false) {
       renderNav();
       renderPageHeader();
       refreshDeviceSearchResults();
+    } else if (state.route === 'network' && $('#topology-search')) {
+      // Refresh results in place so live polling never closes the mobile keyboard.
+      renderNav();
+      renderPageHeader();
+      refreshNetworkExplorer();
     } else {
       renderView();
     }
@@ -1653,6 +1658,20 @@ document.addEventListener('click', (event) => {
         ?.focus({ preventScroll: true });
     }
   }
+  if (trigger.matches('[data-map-filter]')) {
+    state.mapView = ['all', 'local', 'unassigned', 'online'].includes(trigger.dataset.mapFilter)
+      ? trigger.dataset.mapFilter : 'all';
+    refreshNetworkExplorer();
+    document.querySelector(`[data-map-filter="${state.mapView}"]`)?.focus({ preventScroll: true });
+  }
+  if (trigger.matches('[data-map-reset]')) {
+    state.mapQuery = '';
+    state.mapView = 'all';
+    const search = $('#topology-search');
+    if (search) search.value = '';
+    refreshNetworkExplorer();
+    search?.focus({ preventScroll: true });
+  }
   if (trigger.matches('[data-activity-filter]')) {
     state.activityFilter = trigger.dataset.activityFilter;
     renderView();
@@ -1711,6 +1730,11 @@ commandDialog.addEventListener('click', (event) => { if (event.target === comman
 inspectorDialog.addEventListener('click', (event) => { if (event.target === inspectorDialog) closeDialog(inspectorDialog); });
 commandDialog.addEventListener('close', () => { syncModalScrollLock(); restoreDialogFocus(commandDialog); });
 inspectorDialog.addEventListener('close', () => { syncModalScrollLock(); restoreDialogFocus(inspectorDialog); });
+document.addEventListener('input', (event) => {
+  if (!event.target.matches('#topology-search')) return;
+  state.mapQuery = event.target.value.slice(0, 120);
+  refreshNetworkExplorer();
+});
 $('#command-input').addEventListener('input', (event) => renderCommandResults(event.target.value));
 $('#command-input').addEventListener('keydown', (event) => {
   const count = commandItems(event.currentTarget.value).length;
