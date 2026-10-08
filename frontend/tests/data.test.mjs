@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -27,6 +27,37 @@ test('network topology keeps the upstream gateway separate from the local Wi-Fi 
     accessPoint: null,
   });
   assert.deepEqual(networkMapInfrastructure({}), { gatewayAddress: null, accessPoint: null });
+});
+
+test('network map shows two different access points but never invents router-side associations', () => {
+  const network = {
+    uplink: { gateway: '192.0.2.1' },
+    access_point: { available: true, ssid: 'Host AP', ipv4: '198.51.100.1/24', interface: 'hotspot-if' },
+    known_access_points: [
+      { ssid: 'Main Wi-Fi', address: '192.0.2.1', label: 'Gateway device' },
+      { ssid: 'Workshop Wi-Fi', address: '192.0.2.9', label: 'Workshop' },
+      { ssid: 'Duplicate', address: '192.0.2.1' },
+      { ssid: 'Already local', address: '198.51.100.1' },
+    ],
+  };
+  assert.deepEqual(networkMapAccessPoints(network), [
+    { ssid: 'Host AP', address: '198.51.100.1/24', label: null, kind: 'local', gateway: false },
+    { ssid: 'Main Wi-Fi', address: '192.0.2.1', label: 'Gateway device', kind: 'configured', gateway: true },
+    { ssid: 'Workshop Wi-Fi', address: '192.0.2.9', label: 'Workshop', kind: 'configured', gateway: false },
+  ]);
+  const inventory = [
+    { id: 'ap', state: 'online', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'hotspot-if' }] },
+    { id: 'gateway-lan', state: 'online', connection_type: 'unknown', ip: '192.0.2.23', observations: [{ source: 'ip_neigh', interface: 'lan-uplink' }] },
+  ];
+  const partition = partitionNetworkMapDevices(network, inventory);
+  assert.deepEqual(partition.apClients.map((x) => x.id), ['ap']);
+  assert.deepEqual(partition.other.unknown.map((x) => x.id), ['gateway-lan']);
+});
+
+test('network map remains meaningful with no declared external APs', () => {
+  assert.deepEqual(networkMapAccessPoints({}), []);
+  assert.deepEqual(networkMapAccessPoints({ uplink: { gateway: '192.0.2.1' } }), []);
+  assert.equal(networkMapAccessPoints({ access_point: { available: true, ssid: 'Local' } }).length, 1);
 });
 
 test('device filtering supports friendly names, vendor, category, IP, and MAC', () => {
