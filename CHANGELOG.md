@@ -6,6 +6,9 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### Fixed
+- Network map separates the actual upstream default gateway from the local Raspberry Pi Wi-Fi access point, instead of combining the Pi SSID with the router IP in a single device card.
+
 ## [1.6.2] - 2026-10-08
 
 ### Improved
