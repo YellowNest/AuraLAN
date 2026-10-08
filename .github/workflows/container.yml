@@ -128,6 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           export AURALAN_DATA_DIR="$RUNNER_TEMP/auralan-browser-state"
+          export AURALAN_KNOWN_ACCESS_POINTS='[{"ssid":"Fixture Wi-Fi","address":"192.0.2.1","label":"Fixture router"},{"ssid":"Workshop Wi-Fi","address":"192.0.2.5"}]'
           python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8878 >"$RUNNER_TEMP/auralan-browser.log" 2>&1 &
           pid=$!
           trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
