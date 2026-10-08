@@ -190,7 +190,15 @@ try {
     await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
     const commandFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandFocus, 'command-input', `${viewport.name}/command: search input did not receive focus`);
+    // Wait for the native asynchronous close event, not only the open=false
+    // state, before asserting focus or entering another route.
+    await page.evaluate(() => {
+      window.__commandCloseFinished = new Promise((resolve) => {
+        document.querySelector('#command-dialog').addEventListener('close', resolve, { once: true });
+      });
+    });
     await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__commandCloseFinished);
     await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
     const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
