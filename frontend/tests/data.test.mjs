@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -182,6 +182,43 @@ test('network map groups current devices without reviving remembered devices', (
   assert.equal(groups.vpn.length, 1);
   assert.equal(groups.unknown.length, 1);
   assert.equal(filterDevices(items, 'connection_unknown')[0].display_name, 'Mystery');
+});
+
+test('network topology places only observed clients under the local AP, even with many devices', () => {
+  const localAp = { access_point: { available: true, interface: 'hotspot-if', ssid: 'Test-Pi', ipv4: '198.51.100.1' } };
+  const clients = Array.from({ length: 8 }, (_, index) => ({
+    id: `local-${index}`, state: 'online', connection_type: 'wifi',
+    observations: [{ source: index % 2 ? 'wifi_station' : 'ip_neigh', interface: 'hotspot-if' }],
+  }));
+  const otherDevices = [
+    { id: 'router-side', state: 'online', connection_type: 'unknown', ip: '192.0.2.25', observations: [{ source: 'ip_neigh', interface: 'uplink-if' }] },
+    { id: 'other-wifi', state: 'online', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'other-ap-if' }] },
+    { id: 'vpn-peer', state: 'online', connection_type: 'vpn', observations: [] },
+    { id: 'legacy-ap-client', state: 'online', connection_type: 'wifi', interface: 'hotspot-if', observations: [] },
+    { id: 'ambiguous-legacy', state: 'online', connection_type: 'wifi', observations: [] },
+    { id: 'remembered', state: 'known', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'hotspot-if' }] },
+  ];
+  const original = [...clients, ...otherDevices];
+  const result = partitionNetworkMapDevices(localAp, original);
+  assert.equal(result.apClients.length, 9);
+  assert.equal(result.other.unknown.length, 1);
+  assert.equal(result.other.wifi.length, 2);
+  assert.equal(result.other.vpn.length, 1);
+  assert.equal(result.other.ethernet.length, 0);
+  assert.equal(result.apClients.some((device) => device.id === 'remembered'), false);
+  assert.equal(result.apClients.some((device) => device.id === 'other-wifi'), false);
+  assert.equal(original.length, 14, 'the source array must remain unchanged');
+  assert.deepEqual(partitionNetworkMapDevices({ access_point: { available: false, interface: 'hotspot-if' } }, clients).apClients, []);
+  assert.deepEqual(partitionNetworkMapDevices({}, clients).apClients, []);
+});
+
+test('network topology never infers AP membership from matching IP ranges', () => {
+  const network = { access_point: { available: true, interface: 'hotspot-if', ipv4: '198.51.100.1' } };
+  const device = { id: 'unverified', state: 'online', ip: '198.51.100.27', connection_type: 'unknown',
+    observations: [{ source: 'ip_neigh', interface: 'uplink-if' }] };
+  const result = partitionNetworkMapDevices(network, [device]);
+  assert.equal(result.apClients.length, 0);
+  assert.equal(result.other.unknown.length, 1);
 });
 
 test('inventory export is stable, private-data explicit, and CSV-safe', () => {
