@@ -313,6 +313,26 @@ try {
     }
 
     await openRoute(page, 'network');
+    const externalApReport = await page.evaluate(async () => {
+      const response = await fetch('/api/v1/status', { cache: 'no-store' });
+      const status = await response.json();
+      const configured = status.network?.known_access_points || [];
+      const cards = [...document.querySelectorAll('[data-topology-external-ap]')];
+      return {
+        configured: configured.length,
+        rendered: cards.length,
+        names: cards.map((card) => card.querySelector('.topology-ap-card-title h3')?.textContent?.trim()),
+        visible: cards.every((card) => card.getBoundingClientRect().width > 0),
+      };
+    });
+    if (externalApReport.configured) {
+      assert.equal(externalApReport.rendered, externalApReport.configured,
+        `${viewport.name}/network: configured external access points not rendered separately`);
+      assert.ok(externalApReport.visible, `${viewport.name}/network: external access-point card collapsed`);
+      assert.ok(externalApReport.names.every(Boolean),
+        `${viewport.name}/network: external access-point SSID missing`);
+    }
+
     const topologyDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.topology-device');
       const symbol = row?.querySelector('.topology-device-symbol');
