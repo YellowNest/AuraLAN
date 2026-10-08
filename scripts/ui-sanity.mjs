@@ -191,6 +191,20 @@ try {
     const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
 
+    await openRoute(page, 'devices');
+    await page.evaluate(() => { window.__auralanSearchInput = document.querySelector('#device-search'); });
+    await page.type('#device-search', 'pi');
+    const searchReport = await page.evaluate(() => ({
+      focused: document.activeElement?.id === 'device-search',
+      sameNode: document.querySelector('#device-search') === window.__auralanSearchInput,
+      value: document.querySelector('#device-search')?.value || '',
+      count: document.querySelector('.device-toolbar-meta > p')?.textContent?.trim() || '',
+    }));
+    assert.equal(searchReport.focused, true, `${viewport.name}/devices: searching loses keyboard focus`);
+    assert.equal(searchReport.sameNode, true, `${viewport.name}/devices: searching replaces the text input`);
+    assert.equal(searchReport.value, 'pi', `${viewport.name}/devices: search value was lost`);
+    assert.ok(searchReport.count.length > 0, `${viewport.name}/devices: filtered count is missing`);
+
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
       hasToolbarIntro: Boolean(document.querySelector('.activity-toolbar-intro')),
