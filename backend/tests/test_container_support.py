@@ -27,7 +27,7 @@ class KnownAccessPointTests(unittest.TestCase):
         self.assertEqual(items, [{"ssid": "One", "address": "192.0.2.1", "label": None}])
 
     def test_bounded_or_malformed_configuration_is_not_applied(self):
-        for value in ("invalid", "{}", '[{"ssid":"x","address":"192.0.2.1"}]' * 300, '[{}]' * 9):
+        for value in ("invalid", "{}", '[{"ssid":"x","address":"192.0.2.1"}]' * 300, '[' + ','.join('{}' for _ in range(9)) + ']'):
             with self.subTest(value=value[:20]):
                 with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": value}):
                     self.assertEqual(system.known_access_points(), [])
