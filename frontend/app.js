@@ -449,7 +449,7 @@ function renderNetworkPulse() {
       const total = Number(item.total || 0);
       const height = total ? Math.max(14, Math.round((total / maxDaily) * 100)) : 4;
       const label = new Date(Number(item.start_at || 0) * 1000).toLocaleDateString(state.locale, { weekday: 'short' });
-      return `<div class="pulse-day" title="${escapeHtml(t('pulseEventsCount', { count: total }))}"><span class="pulse-bar-track"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>${total}</small></div>`;
+      return `<button class="pulse-day" type="button" data-route="activity" aria-label="${escapeHtml(label)}: ${escapeHtml(t('pulseEventsCount', { count: total }))}"><span class="pulse-bar-track" aria-hidden="true"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>${total}</small></button>`;
     }).join('')
     : `<div class="pulse-empty">${escapeHtml(t('pulseNoHistory'))}</div>`;
 
@@ -462,26 +462,29 @@ function renderNetworkPulse() {
     <header class="section-title pulse-section-title"><div><p class="eyebrow">${t('networkPulse')}</p><h2>${t('networkPulseTitle')}</h2><p class="section-hint">${t('networkPulseHint')}</p></div><button class="text-button" type="button" data-route="activity">${t('openActivity')}${icon('chevron')}</button></header>
     <div class="network-pulse surface pulse-${escapeHtml(pulseState)}">
       <div class="pulse-summary">
-        <span class="pulse-summary-icon">${icon(stateCopy[2])}</span>
-        <div><strong>${escapeHtml(stateCopy[0])}</strong><p>${escapeHtml(stateCopy[1])}</p></div>
+        <span class="pulse-summary-icon" aria-hidden="true">${icon(stateCopy[2])}</span>
+        <div class="pulse-summary-copy"><strong>${escapeHtml(stateCopy[0])}</strong><p>${escapeHtml(stateCopy[1])}</p></div>
         <span class="pulse-window">${t('pulseLast24h')}</span>
       </div>
-      <div class="pulse-metrics">
-        <button type="button" data-route="activity"><strong>${events24}</strong><span>${t('pulseEvents24h')}</span></button>
-        <button type="button" data-route="devices" data-device-filter="new"><strong>${newDevices}</strong><span>${t('pulseNewDevices24h')}</span></button>
-        <button type="button" data-route="devices" data-device-filter="identity_limited"><strong>${identityNeedsReview}</strong><span>${t('pulseIdentityReview')}</span></button>
-        <button type="button" data-route="activity"><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span></button>
+      <div class="pulse-metrics" aria-label="${escapeHtml(t('networkPulse'))}">
+        <button type="button" data-route="activity"><strong>${events24}</strong><span>${t('pulseEvents24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
+        <button type="button" data-route="devices" data-device-filter="new"><strong>${newDevices}</strong><span>${t('pulseNewDevices24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
+        <button type="button" data-route="devices" data-device-filter="identity_limited"><strong>${identityNeedsReview}</strong><span>${t('pulseIdentityReview')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
+        <button type="button" data-route="activity"><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
       </div>
-      <div class="pulse-history">
-        <div class="pulse-history-head"><div><strong>${t('pulseSevenDays')}</strong><span>${t('pulseSevenDaysHint')}</span></div><b>${Number(insights.activity_7d?.total || 0)} ${t('pulseEvents').toLowerCase()}</b></div>
-        <div class="pulse-chart" role="img" aria-label="${escapeHtml(t('pulseChartLabel'))}">${bars}</div>
-      </div>
-      <div class="pulse-detail-row">
-        <span><b>${Number(insights.baseline_new || 0)}</b> ${t('baselineNew').toLowerCase()}</span>
-        <span><b>${Number(insights.baseline_missing || 0)}</b> ${t('baselineMissing').toLowerCase()}</span>
-        <span><b>${Number(insights.favorites_not_seen_now || 0)}</b> ${t('pulseFavoritesMissing').toLowerCase()}</span>
-        <span><b>${Number(insights.services_offline || 0)}</b> ${t('pulseServicesOffline').toLowerCase()}</span>
-      </div>
+      <details class="pulse-explore">
+        <summary><span>${t('pulseSevenDays')} <small>${Number(insights.activity_7d?.total || 0)} ${t('pulseEvents').toLowerCase()}</small></span><span class="pulse-expand-icon" aria-hidden="true">${icon('chevron')}</span></summary>
+        <div class="pulse-history">
+          <div class="pulse-history-head"><div><strong>${t('pulseSevenDays')}</strong><span>${t('pulseSevenDaysHint')}</span></div></div>
+          <div class="pulse-chart" role="group" aria-label="${escapeHtml(t('pulseChartLabel'))}">${bars}</div>
+          <div class="pulse-detail-row">
+            <button type="button" data-route="network"><b>${Number(insights.baseline_new || 0)}</b> ${t('baselineNew').toLowerCase()}</button>
+            <button type="button" data-route="network"><b>${Number(insights.baseline_missing || 0)}</b> ${t('baselineMissing').toLowerCase()}</button>
+            <button type="button" data-route="devices"><b>${Number(insights.favorites_not_seen_now || 0)}</b> ${t('pulseFavoritesMissing').toLowerCase()}</button>
+            <button type="button" data-route="services"><b>${Number(insights.services_offline || 0)}</b> ${t('pulseServicesOffline').toLowerCase()}</button>
+          </div>
+        </div>
+      </details>
     </div>
   </section>`;
 }
