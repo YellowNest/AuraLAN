@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -681,52 +681,58 @@ function renderServiceCards(items, compact = false) {
   return `<div class="service-grid ${compact ? 'compact' : ''}">${items.map((service) => `<button class="service-card surface" type="button" data-service="${escapeHtml(service.id)}"><div class="service-card-top"><span class="service-symbol">${serviceMark(service.id)}</span>${statusPill(service.state)}</div><h3>${escapeHtml(service.name)}</h3><p>${escapeHtml(serviceSummary(service))}</p><span class="card-link">${t('details')} ${icon('chevron')}</span></button>`).join('')}</div>`;
 }
 
+function renderTopologyDevices(items) {
+  const showCount = 5;
+  const row = (device) => {
+    const presentation = devicePresentation(device);
+    const currentState = deviceState(device);
+    const statusLabel = deviceStateLabel(device);
+    return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState, 'topology-device-symbol')}<span class="topology-device-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></span>${icon('chevron')}</button>`;
+  };
+  return `<div class="topology-device-list">${items.slice(0, showCount).map(row).join('')}</div>${items.length > showCount
+    ? `<details class="topology-overflow"><summary>${escapeHtml(t('moreDevices', { count: items.length - showCount }))}${icon('chevron')}</summary><div class="topology-device-list">${items.slice(showCount).map(row).join('')}</div></details>`
+    : ''}`;
+}
+
 function renderNetworkMap(network) {
-  const groups = groupCurrentDevicesByConnection(devices());
+  const { apClients, other } = partitionNetworkMapDevices(network, devices());
   const definitions = [
     ['wifi', t('wifi'), 'wifi'],
     ['ethernet', t('ethernet'), 'ethernet'],
     ['vpn', t('vpn'), 'vpn'],
-    ['unknown', t('otherConnections'), 'devices'],
+    ['unknown', t('unconfirmedConnections'), 'devices'],
   ];
-  const visibleGroups = definitions.filter(([id]) => groups[id].length);
-  if (!visibleGroups.length) {
+  const visibleGroups = definitions.filter(([id]) => other[id].length);
+  const { gatewayAddress, accessPoint } = networkMapInfrastructure(network);
+  const count = apClients.length + visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
+  if (!count && !accessPoint) {
     return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
   }
 
-  const { gatewayAddress, accessPoint } = networkMapInfrastructure(network);
   const rootName = gatewayAddress ? t('defaultGateway') : t('localNetwork');
-  const rootDetail = gatewayAddress || t('notConfirmed');
   const apName = accessPoint?.name || t('accessPoint');
-  const apDetail = accessPoint?.address
-    ? `${t('accessPoint')} · ${accessPoint.address}`
-    : t('accessPoint');
+  const apDetail = accessPoint?.address || t('notConfirmed');
+  const remainingCount = visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
 
   return `<section class="content-section network-map-section">
-    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapHint')}</p></div></header>
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapEvidenceHint')}</p></div></header>
     <div class="surface network-map">
       <div class="topology-infrastructure">
-        <div class="topology-root" data-topology-gateway><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(rootDetail)}</small></div></div>
-        ${accessPoint ? `<div class="topology-ap" data-topology-access-point><span class="topology-root-icon">${icon('wifi')}</span><div><strong>${escapeHtml(apName)}</strong><small>${escapeHtml(apDetail)}</small></div></div>` : ''}
+        <div class="topology-root" data-topology-gateway><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(gatewayAddress || t('notConfirmed'))}</small></div></div>
       </div>
-      <div class="topology-trunk" aria-hidden="true"></div>
-      <div class="topology-groups">
-        ${visibleGroups.map(([id, label, glyph]) => {
-          const items = groups[id];
-          const visible = items.slice(0, 4);
-          return `<article class="topology-group">
-            <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: items.length }))}</small></div></header>
-            <div class="topology-device-list">
-              ${visible.map((device) => {
-                const presentation = devicePresentation(device);
-                const currentState = deviceState(device);
-                const statusLabel = deviceStateLabel(device);
-                return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState, 'topology-device-symbol')}<span class="topology-device-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></span>${icon('chevron')}</button>`;
-              }).join('')}
-              ${items.length > visible.length ? `<button type="button" class="topology-more" data-route="devices" data-device-filter="${id === 'unknown' ? 'connection_unknown' : id}">${escapeHtml(t('moreDevices', { count: items.length - visible.length }))}${icon('chevron')}</button>` : ''}
-            </div>
-          </article>`;
-        }).join('')}
+      <div class="topology-structure">
+        ${accessPoint ? `<section class="topology-zone topology-ap-zone" data-topology-access-point>
+          <header class="topology-zone-header"><span class="topology-zone-icon">${icon('wifi')}</span><div><p class="eyebrow">${t('localAccessPoint')}</p><h3>${escapeHtml(apName)}</h3><small>${escapeHtml(apDetail)}</small></div><span class="topology-zone-count">${apClients.length}</span></header>
+          <p class="topology-zone-caption">${escapeHtml(t('observedApClients'))}</p>
+          ${apClients.length ? renderTopologyDevices(apClients) : `<p class="topology-zone-empty">${escapeHtml(t('noConfirmedApClients'))}</p>`}
+        </section>` : ''}
+        ${remainingCount ? `<section class="topology-zone topology-other-zone" data-topology-unassigned>
+          <header class="topology-zone-header"><span class="topology-zone-icon">${icon('devices')}</span><div><p class="eyebrow">${t('network')}</p><h3>${t('otherObservedDevices')}</h3><small>${t('connectionPathUnconfirmed')}</small></div><span class="topology-zone-count">${remainingCount}</span></header>
+          <div class="topology-groups">${visibleGroups.map(([id, label, glyph]) => `<article class="topology-group">
+            <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: other[id].length }))}</small></div></header>
+            ${renderTopologyDevices(other[id])}
+          </article>`).join('')}</div>
+        </section>` : ''}
       </div>
     </div>
   </section>`;

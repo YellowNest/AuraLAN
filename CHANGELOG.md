@@ -6,6 +6,11 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### Improved
+- Network topology now groups only evidence-backed clients beneath the local Wi-Fi access point, while devices with unconfirmed routes appear in a clearly separate section instead of being visually connected to the AP or upstream gateway.
+- Client lists expand in place when more than five devices are observed, with responsive, accessible layouts for phones and larger networks.
+- Added regression coverage for multi-client APs, unknown paths, duplicate membership and expandable client lists.
+
 ### Fixed
 - Network map separates the actual upstream default gateway from the local Raspberry Pi Wi-Fi access point, instead of combining the Pi SSID with the router IP in a single device card.
 

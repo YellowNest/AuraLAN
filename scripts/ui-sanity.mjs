@@ -338,6 +338,35 @@ try {
       }
     }
 
+    const topologyMembership = await page.evaluate(() => {
+      const ap = document.querySelector('[data-topology-access-point]');
+      const other = document.querySelector('[data-topology-unassigned]');
+      const apIds = [...(ap?.querySelectorAll('.topology-device[data-device]') || [])].map((item) => item.dataset.device);
+      const otherIds = [...(other?.querySelectorAll('.topology-device[data-device]') || [])].map((item) => item.dataset.device);
+      const all = [...apIds, ...otherIds];
+      return {
+        apCount: ap ? Number(ap.querySelector('.topology-zone-count')?.textContent || 0) : 0,
+        apItems: apIds.length,
+        otherCount: other ? Number(other.querySelector('.topology-zone-count')?.textContent || 0) : 0,
+        otherItems: otherIds.length,
+        unique: new Set(all).size === all.length,
+        fabricatedConnectors: Boolean(document.querySelector('.topology-trunk')),
+        disclosureCount: document.querySelectorAll('details.topology-overflow').length,
+      };
+    });
+    assert.equal(topologyMembership.unique, true, `${viewport.name}/network: a device was assigned to multiple zones`);
+    assert.equal(topologyMembership.apCount, topologyMembership.apItems,
+      `${viewport.name}/network: AP client count does not match the evidence-backed rows`);
+    assert.equal(topologyMembership.otherCount, topologyMembership.otherItems,
+      `${viewport.name}/network: unassigned-device count does not match its rows`);
+    assert.equal(topologyMembership.fabricatedConnectors, false,
+      `${viewport.name}/network: unsupported topology connectors returned`);
+    if (topologyMembership.disclosureCount) {
+      await page.click('details.topology-overflow > summary');
+      assert.equal(await page.$eval('details.topology-overflow', (el) => el.open), true,
+        `${viewport.name}/network: overflow client list does not expand`);
+    }
+
     await openRoute(page, 'devices');
     await page.waitForSelector('.device-row, .empty-state', { timeout: 10000 });
     const deviceRows = await page.$$('.device-row');
