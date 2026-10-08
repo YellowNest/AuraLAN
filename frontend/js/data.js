@@ -308,6 +308,31 @@ export function partitionNetworkMapDevices(network, items) {
   return { apClients, other };
 }
 
+// Network Explorer never changes association evidence. Search and view filters
+// operate on the existing evidence-based partition, not on inferred IP ranges.
+export function exploreNetworkMap(network, items, query = '', view = 'all') {
+  const partition = partitionNetworkMapDevices(network, items);
+  const unassigned = Object.values(partition.other).flat();
+  const counts = {
+    total: partition.apClients.length + unassigned.length,
+    local: partition.apClients.length,
+    unassigned: unassigned.length,
+    online: [...partition.apClients, ...unassigned].filter((d) => d.online === true).length,
+  };
+  const allowedViews = ['all', 'local', 'unassigned', 'online'];
+  const selected = allowedViews.includes(view) ? view : 'all';
+  const matching = (list) => {
+    const online = selected === 'online' ? list.filter((d) => d.online === true) : list;
+    return filterDevices(online, 'all', query);
+  };
+  const apClients = selected === 'unassigned' ? [] : matching(partition.apClients);
+  const other = Object.fromEntries(Object.entries(partition.other).map(([key, list]) =>
+    [key, selected === 'local' ? [] : matching(list)]
+  ));
+  const matched = apClients.length + Object.values(other).reduce((sum, list) => sum + list.length, 0);
+  return { apClients, other, counts, matched, view: selected };
+}
+
 export function groupCurrentDevicesByConnection(items) {
   const groups = { wifi: [], ethernet: [], vpn: [], unknown: [] };
   for (const device of items) {
