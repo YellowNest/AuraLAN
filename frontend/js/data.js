@@ -145,8 +145,12 @@ export function networkHistorySummary(items) {
   };
 }
 
+function normalizeSearch(value) {
+  return String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
-  const normalizedQuery = query.trim().toLowerCase();
+  const terms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
   return items.filter((device) => {
     const unidentified = device.category === 'unknown' && !device.vendor && !device.model && !device.hostname && !device.metadata?.alias;
     const matchesFilter = filter === 'all'
@@ -161,13 +165,18 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'known' && device.state === 'known')
       || (filter === 'connection_unknown' && !['wifi', 'ethernet', 'vpn'].includes(device.connection_type))
       || device.connection_type === filter;
+    if (!matchesFilter || !terms.length) return matchesFilter;
+
+    // All words must match, but they may come from different identity fields.
+    // This lets "living samsung" find a TV without changing evidence scoring.
     const searchable = [
       device.presentation_name, device.display_name, device.hostname, device.vendor, device.model,
       device.identity?.model?.value, device.category, device.device_type, device.ip, ...(device.ip_addresses || []),
       device.mac, ...(device.mac_addresses || []), device.interface, device.connection_type,
       device.metadata?.alias, device.metadata?.note, device.metadata?.location, ...(device.metadata?.tags || []),
-    ].filter(Boolean).join(' ').toLowerCase();
-    return matchesFilter && (!normalizedQuery || searchable.includes(normalizedQuery));
+    ].filter(Boolean).join(' ');
+    const normalized = normalizeSearch(searchable);
+    return terms.every((term) => normalized.includes(term));
   });
 }
 
@@ -184,7 +193,8 @@ export function sortDevices(items, sort = 'smart') {
   const prepared = [...items];
   if (sort === 'smart') return prepared;
 
-  const compareText = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base', numeric: true });
+  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+  const compareText = (left, right) => collator.compare(String(left || ''), String(right || ''));
 
   return prepared.sort((left, right) => {
     if (sort === 'name') {
