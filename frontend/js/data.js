@@ -240,6 +240,37 @@ export function networkMapInfrastructure(network = {}) {
   };
 }
 
+// A locally hosted AP is not the same thing as the LAN's upstream router.
+// Place a client beneath this AP only when the inventory has explicit evidence
+// for the AP interface. Everything else stays unassigned, even if the device
+// happens to have an address on a nearby subnet.
+export function partitionNetworkMapDevices(network, items) {
+  const accessPoint = network?.access_point || {};
+  const apInterface = accessPoint.available && typeof accessPoint.interface === 'string'
+    ? accessPoint.interface.trim() : '';
+  const apClients = [];
+  const other = { wifi: [], ethernet: [], vpn: [], unknown: [] };
+  for (const device of (Array.isArray(items) ? items : [])) {
+    if (!device || device.state === 'known') continue;
+    const observations = Array.isArray(device.observations) ? device.observations : [];
+    const observedOnAp = apInterface && observations.some((item) => (
+      item?.interface === apInterface
+      && ['wifi_station', 'ip_neigh', 'dhcp_lease'].includes(item?.source)
+    ));
+    // Compatibility for older API responses without per-source observations.
+    const legacyApClient = apInterface && !observations.length
+      && device.interface === apInterface && device.connection_type === 'wifi';
+    if (observedOnAp || legacyApClient) {
+      apClients.push(device);
+    } else {
+      const key = ['wifi', 'ethernet', 'vpn'].includes(device.connection_type)
+        ? device.connection_type : 'unknown';
+      other[key].push(device);
+    }
+  }
+  return { apClients, other };
+}
+
 export function groupCurrentDevicesByConnection(items) {
   const groups = { wifi: [], ethernet: [], vpn: [], unknown: [] };
   for (const device of items) {
