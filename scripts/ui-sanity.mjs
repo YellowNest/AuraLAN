@@ -221,7 +221,7 @@ try {
       input.value = '__auralan_never_matching_123456__';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    assert.equal(await page.$('.device-results .device-row').then((rows) => rows.length), 0, `${viewport.name}/devices: unmatched query still shows results`);
+    assert.equal((await page.$('.device-results .device-row')).length, 0, `${viewport.name}/devices: unmatched query still shows results`);
     assert.ok(await page.$('.device-results [data-reset-device-filters]'), `${viewport.name}/devices: empty search has no reset action`);
     await page.click('.device-results [data-reset-device-filters]');
     assert.equal(await page.$eval('#device-search', (el) => el.value), '', `${viewport.name}/devices: reset did not clear query`);
