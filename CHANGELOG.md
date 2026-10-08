@@ -9,6 +9,8 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 ## [1.6.1] - 2026-10-08
 
 ### Changed
+- Added one-click recovery from empty device searches and activity filters, with plain-language Swedish/English guidance.
+- Removed fake action affordances from informational activity entries; improved keyboard focus and active-filter accessibility.
 - Redesigned Network Pulse into a compact status dashboard with clearly navigable metrics and an accessible, expandable seven-day chart.
 - Added keyboard-accessible daily activity buttons and linked baseline, favorite and service counts to relevant routes.
 - Refined mobile spacing, focus states, hover feedback and reduced-motion behavior while keeping the existing privacy-preserving insights API unchanged.
