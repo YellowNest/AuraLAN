@@ -2,7 +2,7 @@ name: Container
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/v1.6.1-network-pulse"]
     tags: ["v*"]
     paths:
       - "Dockerfile"
@@ -103,7 +103,7 @@ jobs:
   publish:
     name: Publish multi-arch image
     needs: [smoke, multiarch]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/v1.6.1-network-pulse' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -150,6 +150,7 @@ jobs:
           images: ghcr.io/yellownest/auralan
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/feature/v1.6.1-network-pulse' }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -175,11 +176,13 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Verify public multi-arch latest image
-        if: github.ref == 'refs/heads/main'
+      - name: Verify public multi-arch published image
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/v1.6.1-network-pulse'
         shell: bash
         run: |
           set -euo pipefail
           docker logout ghcr.io >/dev/null 2>&1 || true
-          docker buildx imagetools inspect --raw ghcr.io/yellownest/auralan:latest >manifest.json
+          tag=latest
+          if [[ "$GITHUB_REF" == refs/heads/feature/v1.6.1-network-pulse ]]; then tag=dev; fi
+          docker buildx imagetools inspect --raw "ghcr.io/yellownest/auralan:$tag" >manifest.json
           python -c 'import json; d=json.load(open("manifest.json", encoding="utf-8")); a={m.get("platform",{}).get("architecture") for m in d.get("manifests",[]) if m.get("platform",{}).get("os")=="linux"}; missing={"amd64","arm64"}-a; assert not missing, f"missing architectures: {sorted(missing)}"; print("Public GHCR manifest OK:", sorted(a))'
