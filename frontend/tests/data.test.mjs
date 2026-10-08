@@ -17,6 +17,21 @@ test('device filtering supports friendly names, vendor, category, IP, and MAC', 
   assert.equal(filterDevices(devices, 'unknown').length, 1);
 });
 
+test('search combines independent fields, ignores accents, and respects filters', () => {
+  const inventory = [
+    { display_name: 'Värmepump', vendor: 'Daikin', category: 'smart_home', connection_type: 'wifi', online: true, metadata: { location: 'Kök', tags: ['klimat'] } },
+    { display_name: 'TV i vardagsrum', vendor: 'Samsung', category: 'tv', connection_type: 'ethernet', online: false, metadata: { note: 'Filmkväll' } },
+  ];
+  assert.deepEqual(filterDevices(inventory, 'all', 'DAIKIN kök').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'all', 'varmepump klimat').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'all', 'samsung filmkvall').map((device) => device.vendor), ['Samsung']);
+  assert.deepEqual(filterDevices(inventory, 'wifi', 'klimat daikin').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'online', 'samsung').map((device) => device.vendor), []);
+  assert.deepEqual(filterDevices(inventory, 'all', 'kök saknas'), []);
+  assert.equal(filterDevices(inventory, 'all', '  ').length, 2);
+  assert.equal(filterDevices(inventory, 'all', 'VARMEPUMP').length, 1);
+});
+
 test('identity quality distinguishes evidence-rich and unidentified devices', () => {
   const strong = {
     display_name: 'Living Room TV',

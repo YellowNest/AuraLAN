@@ -6,6 +6,19 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-10-08
+
+### Improved
+- Device searches now match multiple words across different evidence fields, ignoring case and accents (for example, “Daikin kök” or “Samsung vardagsrum”) while preserving device-category filters.
+- Device sorting reuses a single natural-language collator per sort instead of repeatedly configuring text comparisons.
+- Mobile browsers retain pinch-to-zoom accessibility rather than preventing magnification.
+
+### Reliability
+- The automated browser suite explicitly verifies search focus before typing and checks that focus, results, and filter actions survive interaction.
+- Container publishing now requires the full responsive browser check in addition to container smoke and ARM64/AMD64 builds. A failing browser check can no longer publish a new `dev` image.
+- Superseded builds are cancelled so an older container build cannot overwrite a newer development tag.
+- Feature branches receive CI coverage before merging into the development stream.
+
 ## [1.6.1] - 2026-10-08
 
 ### Changed

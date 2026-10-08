@@ -167,8 +167,8 @@ try {
       if (route === 'overview') assert.equal(report.hasOrbit, false, `${viewport.name}: retired network orbit rendered`);
       if (report.mobile) {
         assert.equal(report.navButtons, 6, `${viewport.name}/${route}: mobile nav is incomplete`);
-        assert.match(report.viewportMeta, /maximum-scale=1/, `${viewport.name}: viewport scale is not locked`);
-        assert.match(report.viewportMeta, /user-scalable=no/, `${viewport.name}: user scaling is not disabled`);
+        assert.doesNotMatch(report.viewportMeta, /maximum-scale\s*=\s*1/, `${viewport.name}: pinch zoom must remain available`);
+        assert.doesNotMatch(report.viewportMeta, /user-scalable\s*=\s*no/, `${viewport.name}: user zoom must not be disabled`);
         assert.ok(report.liveText.length > 0, `${viewport.name}/${route}: connection status has no text`);
         assert.notEqual(report.liveTextDisplay, 'none', `${viewport.name}/${route}: connection status text is hidden`);
         assert.ok(report.liveWidth >= 50, `${viewport.name}/${route}: connection status collapsed to a dot`);
@@ -190,13 +190,24 @@ try {
     await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
     const commandFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandFocus, 'command-input', `${viewport.name}/command: search input did not receive focus`);
+    // Wait for the native asynchronous close event, not only the open=false
+    // state, before asserting focus or entering another route.
+    await page.evaluate(() => {
+      window.__commandCloseFinished = new Promise((resolve) => {
+        document.querySelector('#command-dialog').addEventListener('close', resolve, { once: true });
+      });
+    });
     await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__commandCloseFinished);
     await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
     const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
 
     await openRoute(page, 'devices');
     await page.evaluate(() => { window.__auralanSearchInput = document.querySelector('#device-search'); });
+    await page.focus('#device-search');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'device-search',
+      `${viewport.name}/devices: cannot focus the search input before typing`);
     await page.type('#device-search', 'pi');
     const searchReport = await page.evaluate(() => ({
       focused: document.activeElement?.id === 'device-search',

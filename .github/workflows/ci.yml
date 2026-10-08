@@ -2,12 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main, dev, "release/**"]
+    branches: [main, dev, "release/**", "feature/**"]
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, "feature/**"]
 
 permissions:
   contents: read
+
+# Only the newest revision of a development branch needs full validation.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   hygiene:
