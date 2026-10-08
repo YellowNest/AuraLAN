@@ -350,7 +350,7 @@ try {
         otherCount: other ? Number(other.querySelector('.topology-zone-count')?.textContent || 0) : 0,
         otherItems: otherIds.length,
         unique: new Set(all).size === all.length,
-        fabricatedConnectors: Boolean(document.querySelector('.topology-trunk, .topology-group::before')),
+        fabricatedConnectors: Boolean(document.querySelector('.topology-trunk')),
         disclosureCount: document.querySelectorAll('details.topology-overflow').length,
       };
     });
