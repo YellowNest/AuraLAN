@@ -217,6 +217,21 @@ try {
     });
     assert.equal(await page.$eval('#device-search', (input) => input.value), '', `${viewport.name}/devices: search cleanup failed`);
 
+    await page.$eval('#device-search', (input) => {
+      input.value = '__auralan_never_matching_123456__';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.equal(await page.$('.device-results .device-row').then((rows) => rows.length), 0, `${viewport.name}/devices: unmatched query still shows results`);
+    assert.ok(await page.$('.device-results [data-reset-device-filters]'), `${viewport.name}/devices: empty search has no reset action`);
+    await page.click('.device-results [data-reset-device-filters]');
+    assert.equal(await page.$eval('#device-search', (el) => el.value), '', `${viewport.name}/devices: reset did not clear query`);
+    assert.equal(await page.$eval('.device-toolbar [data-device-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: reset did not select all`);
+    assert.ok((await page.$('.device-row')).length > 0, `${viewport.name}/devices: reset did not restore results`);
+    await page.click('.device-toolbar [data-device-filter="online"]');
+    assert.equal(await page.$eval('.device-toolbar [data-device-filter="online"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: filter selection is not announced`);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.deviceFilter), 'online', `${viewport.name}/devices: filter selection lost focus`);
+    await page.click('.device-toolbar [data-device-filter="all"]');
+
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
       hasToolbarIntro: Boolean(document.querySelector('.activity-toolbar-intro')),
@@ -233,6 +248,16 @@ try {
     assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
     assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
     assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
+    assert.equal(await page.$eval('.activity-center-list button.activity-row:not([data-route]):not([data-device])', (items) => items.length), 0, `${viewport.name}/activity: an inert event looks clickable`);
+
+    const zeroFilter = await page.evaluate(() => [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')]
+      .find((el) => el.dataset.activityFilter !== 'all' && Number(el.querySelector('b')?.textContent || -1) === 0)?.dataset.activityFilter || '');
+    if (zeroFilter) {
+      await page.click(`.activity-filter-row [data-activity-filter="${zeroFilter}"]`);
+      assert.ok(await page.$('.activity-center-list [data-activity-filter="all"]'), `${viewport.name}/activity: filtered empty state has no recovery action`);
+      await page.click('.activity-center-list [data-activity-filter="all"]');
+      assert.equal(await page.$eval('.activity-filter-row [data-activity-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/activity: reset filter is not selected`);
+    }
 
     await openRoute(page, 'overview');
     await page.click('.pulse-explore > summary');
