@@ -3848,3 +3848,28 @@ h2 {
 @media (max-width: 760px) {
   .pulse-metrics{grid-template-columns:repeat(auto-fit,minmax(128px,1fr))}
 }
+
+
+/* 1.6.1: useful empty states and honest interaction affordances */
+.actionable-empty{gap:0}
+.actionable-empty .empty-reset{
+  margin-top:18px;
+  min-height:44px;
+  padding-inline:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--line-strong);
+  border-radius:11px;
+  font-size:12px;
+  font-weight:750;
+}
+.actionable-empty .empty-reset:hover{border-color:var(--accent);background:var(--surface-muted)}
+.actionable-empty .empty-reset:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.activity-row-static{cursor:default;grid-template-columns:38px minmax(0,1fr) auto 16px}
+.activity-row-static:hover{background:transparent}
+@media (max-width: 760px) {
+  .actionable-empty{padding:27px 16px;min-height:185px}
+  .actionable-empty .empty-reset{width:min(100%,280px)}
+  .activity-row-static{grid-template-columns:36px minmax(0,1fr) 14px}
+}
