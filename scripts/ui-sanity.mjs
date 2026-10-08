@@ -200,10 +200,13 @@ try {
     await page.type('#device-search', 'pi');
     const searchReport = await page.evaluate(() => ({
       focused: document.activeElement?.id === 'device-search',
+      focusedId: document.activeElement?.id || '',
+      route: location.hash,
       sameNode: document.querySelector('#device-search') === window.__auralanSearchInput,
       value: document.querySelector('#device-search')?.value || '',
       count: document.querySelector('.device-toolbar-meta > p')?.textContent?.trim() || '',
     }));
+    console.log(`${viewport.name}/devices search check: ${JSON.stringify(searchReport)}`);
     assert.equal(searchReport.focused, true, `${viewport.name}/devices: searching loses keyboard focus`);
     assert.equal(searchReport.sameNode, true, `${viewport.name}/devices: searching replaces the text input`);
     assert.equal(searchReport.value, 'pi', `${viewport.name}/devices: search value was lost`);
