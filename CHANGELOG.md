@@ -12,6 +12,9 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 - Redesigned Network Pulse into a compact status dashboard with clearly navigable metrics and an accessible, expandable seven-day chart.
 - Added keyboard-accessible daily activity buttons and linked baseline, favorite and service counts to relevant routes.
 - Refined mobile spacing, focus states, hover feedback and reduced-motion behavior while keeping the existing privacy-preserving insights API unchanged.
+- Simplified Overview to show actionable new devices and service problems instead of duplicate full inventories; hid the empty review queue and made its attention summary jump to matching evidence.
+- Reduced Activity Center to descriptive context and actionable filter chips instead of redundant counters; made identity review a one-click task on Devices.
+- Made Network History expandable and kept expanded reports open across refreshes; removed the misleading green local-label status dot from the sidebar.
 
 ## [1.6.0] - 2026-10-07
 
