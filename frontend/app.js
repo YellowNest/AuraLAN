@@ -30,6 +30,8 @@ const state = {
   deviceQuery: '',
   deviceSort: localStorage.getItem('auralan.device-sort') || 'smart',
   activityFilter: 'all',
+  pulseExpanded: false,
+  historyExpanded: false,
   lastUpdated: null,
   capabilities: {
     device_aliases: false,
@@ -427,8 +429,7 @@ function renderActivity() {
     ['baseline', t('activityBaselineChanges'), groups.baseline || 0],
   ];
 
-  return `<section class="activity-overview surface"><div class="activity-overview-copy"><span class="activity-overview-icon">${icon('uptime')}</span><div><p class="eyebrow">${t('activity')}</p><h2>${t('activityCenter')}</h2><p>${t('activityCenterHint')}</p></div></div><div class="activity-metrics"><div><strong>${events.length}</strong><span>${t('activityRecentEvents')}</span></div><div><strong>${groups.devices || 0}</strong><span>${t('activityNewDevices')}</span></div><div><strong>${groups.watch || 0}</strong><span>${t('activityWatchChanges')}</span></div><div><strong>${groups.services || 0}</strong><span>${t('activityServiceChanges')}</span></div></div></section>
-  <section class="activity-toolbar surface"><div class="filter-row activity-filter-row" role="group" aria-label="${escapeHtml(t('activity'))}">${filters.map(([id, label, count]) => `<button type="button" class="filter-chip ${state.activityFilter === id ? 'active' : ''}" data-activity-filter="${id}">${escapeHtml(label)} <b>${count}</b></button>`).join('')}</div></section>
+  return `<section class="activity-toolbar surface"><div class="activity-toolbar-intro"><strong>${t('activityCenter')}</strong><p>${t('activityCenterHint')}</p></div><div class="filter-row activity-filter-row" role="group" aria-label="${escapeHtml(t('activity'))}">${filters.map(([id, label, count]) => `<button type="button" class="filter-chip ${state.activityFilter === id ? 'active' : ''}" data-activity-filter="${id}">${escapeHtml(label)} <b>${count}</b></button>`).join('')}</div></section>
   <section class="surface discovery-list activity-center-list">${renderActivityRows(visible)}</section>`;
 }
 
@@ -454,6 +455,7 @@ function renderNetworkPulse() {
     : `<div class="pulse-empty">${escapeHtml(t('pulseNoHistory'))}</div>`;
 
   const attention = Number(insights.attention_count || 0);
+  const reviewAvailable = networkReviewQueue({ devices: devices(), baseline: state.data?.baseline || {}, activity: state.data?.activity || [], services: serviceItems() }).length > 0;
   const identityNeedsReview = Number(insights.identity_needs_review || 0);
   const newDevices = Number(insights.new_devices_24h || 0);
   const events24 = Number(activity24.total || 0);
@@ -470,9 +472,9 @@ function renderNetworkPulse() {
         <button type="button" data-route="activity"><strong>${events24}</strong><span>${t('pulseEvents24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
         <button type="button" data-route="devices" data-device-filter="new"><strong>${newDevices}</strong><span>${t('pulseNewDevices24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
         <button type="button" data-route="devices" data-device-filter="identity_limited"><strong>${identityNeedsReview}</strong><span>${t('pulseIdentityReview')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
-        <button type="button" data-route="activity"><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
+        <button type="button" data-route="${reviewAvailable ? 'overview' : 'activity'}" ${reviewAvailable ? 'data-scroll-target="network-review"' : ''}><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
       </div>
-      <details class="pulse-explore">
+      <details class="pulse-explore" ${state.pulseExpanded ? 'open' : ''}>
         <summary><span>${t('pulseSevenDays')} <small>${Number(insights.activity_7d?.total || 0)} ${t('pulseEvents').toLowerCase()}</small></span><span class="pulse-expand-icon" aria-hidden="true">${icon('chevron')}</span></summary>
         <div class="pulse-history">
           <div class="pulse-history-head"><div><strong>${t('pulseSevenDays')}</strong><span>${t('pulseSevenDaysHint')}</span></div></div>
@@ -535,7 +537,7 @@ function renderNetworkHistory() {
 
   return `<section class="content-section network-history-section">
     <header class="section-title"><div><p class="eyebrow">${t('networkHistory')}</p><h2>${t('networkHistoryTitle')}</h2><p class="section-hint">${t('networkHistoryHint')}</p></div><span class="history-window">${t('historyLast24h')}</span></header>
-    <div class="network-history surface">
+    <details class="network-history surface history-disclosure" ${state.historyExpanded ? 'open' : ''}><summary class="history-disclosure-toggle">${t('historyExpand')}<span class="history-disclosure-chevron" aria-hidden="true">${icon('chevron')}</span></summary><div class="history-disclosure-body">
       <div class="history-metrics">
         <div><strong>${summary.healthy_percent}%</strong><span>${t('historyHealthySamples')}</span></div>
         <div><strong>${escapeHtml(range)}</strong><span>${t('historyDeviceRange')}</span></div>
@@ -560,7 +562,7 @@ function renderNetworkHistory() {
         <div class="history-axis"><span>${escapeHtml(firstTime)}</span><span>${escapeHtml(lastTime)}</span></div>
       </div>
       <p class="history-privacy">${icon('info')}${escapeHtml(t('historyPrivacyHint'))}</p>
-    </div>
+    </div></details>
   </section>`;
 }
 
@@ -572,9 +574,7 @@ function renderNetworkReview() {
     services: serviceItems(),
   });
 
-  if (!items.length) {
-    return `<section class="review-overview review-clear surface"><span class="review-clear-icon">${icon('success')}</span><div><p class="eyebrow">${t('reviewQueue')}</p><h2>${t('reviewClearTitle')}</h2><p>${t('reviewClearHint')}</p></div></section>`;
-  }
+  if (!items.length) return '';
 
   const definitions = {
     favorite_missing: ['reviewFavoriteMissing', 'reviewFavoriteMissingHint'],
@@ -596,7 +596,7 @@ function renderNetworkReview() {
     return `<button class="review-card surface tone-${escapeHtml(item.tone)}" type="button" data-route="${escapeHtml(item.route)}" ${filterAttribute}><span class="review-card-icon">${icon(item.icon)}</span><span class="review-card-copy"><strong>${escapeHtml(t(titleKey, { count: item.count }))}</strong><small>${escapeHtml(t(hintKey))}</small></span>${icon('chevron')}</button>`;
   }).join('');
 
-  return `<section class="content-section review-section"><header class="section-title"><div><p class="eyebrow">${t('reviewQueue')}</p><h2>${t('reviewQueueTitle')}</h2><p class="section-hint">${t('reviewQueueHint')}</p></div><span class="review-count">${items.length}</span></header><div class="review-grid">${cards}</div></section>`;
+  return `<section class="content-section review-section" id="network-review" tabindex="-1"><header class="section-title"><div><p class="eyebrow">${t('reviewQueue')}</p><h2>${t('reviewQueueTitle')}</h2><p class="section-hint">${t('reviewQueueHint')}</p></div><span class="review-count">${items.length}</span></header><div class="review-grid">${cards}</div></section>`;
 }
 
 function renderOverview() {
@@ -607,8 +607,9 @@ function renderOverview() {
   const newDevices = devices().filter((item) => isNewDevice(item));
   const favoriteNotSeen = devices().filter((item) => isFavoriteNotSeen(item));
   const baseline = state.data.baseline || {};
-  const recentDevices = [...devices()].sort((left, right) => Number(right.last_seen_at || 0) - Number(left.last_seen_at || 0));
-  const recentActivity = (state.data.activity || []).slice(0, 5);
+  const recentDevices = [...newDevices].sort((left, right) => Number(right.first_seen_at || 0) - Number(left.first_seen_at || 0));
+  const recentActivity = (state.data.activity || []).slice(0, 3);
+  const troubledServices = detectedServices.filter((item) => ['degraded', 'critical', 'unhealthy', 'error', 'offline'].includes(item.state));
   const attentionCount = Number(system.attention_count || 0);
   const systemTitle = system.state === 'healthy'
     ? t('everythingGood')
@@ -640,8 +641,8 @@ function renderOverview() {
   ${renderNetworkHistory()}
   ${renderNetworkReview()}
   ${recentActivity.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('activity')}</p><h2>${t('recentActivity')}</h2></div><button class="text-button" type="button" data-route="activity">${t('viewAll')}${icon('chevron')}</button></header><div class="surface discovery-list">${renderActivityRows(recentActivity)}</div></section>` : ''}
-  <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('recentDevices')}</h2></div><button class="text-button" type="button" data-route="devices">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>
-  <section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('detectedServices')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(detectedServices, true)}</section>`;
+  ${recentDevices.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('devices')}</p><h2>${t('newDevices')}</h2></div><button class="text-button" type="button" data-route="devices" data-device-filter="new">${t('viewAll')}${icon('chevron')}</button></header><div class="surface list-surface">${renderDeviceRows(recentDevices, true)}</div></section>` : ''}
+  ${troubledServices.length ? `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('services')}</p><h2>${t('servicesNeedAttention')}</h2></div><button class="text-button" type="button" data-route="services">${t('viewAll')}${icon('chevron')}</button></header>${renderServiceCards(troubledServices, true)}</section>` : ''}`;
 }
 
 function serviceSummary(service) {
@@ -756,11 +757,9 @@ function renderDevices() {
     ['location', t('sortLocation')],
     ['ip', t('sortIp')],
   ];
-  const identityOverview = allDevices.length ? `<section class="identity-overview surface">
-    <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityCoverage')}</h2><small>${t('identityCoverageHint')}</small></div></div>
-    <div class="identity-overview-score"><strong>${identity.score}%</strong><span>${t('identityCompleteness')}</span></div>
-    <div class="identity-progress identity-overview-progress" role="progressbar" aria-label="${escapeHtml(t('identityCoverage'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${identity.score}"><i style="width:${identity.score}%"></i></div>
-    <div class="identity-breakdown"><span><b>${identity.strong}</b> ${t('identityStrong')}</span><span><b>${identity.useful}</b> ${t('identityUseful')}</span><span><b>${identity.limited}</b> ${t('identityNeedsReview')}</span></div>
+  const identityOverview = identity.limited ? `<section class="identity-overview surface">
+    <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityNeedsReviewCount', { count: identity.limited })}</h2><small>${t('identityCoverageHint')}</small></div></div>
+    <button type="button" class="secondary-button identity-review-action" data-device-filter="identity_limited">${t('reviewDevices')}${icon('chevron')}</button>
   </section>` : '';
   return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p>${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results">${result.length ? renderDeviceRows(result) : `<div class="empty-state">${icon('search')}<h3>${t('noMatches')}</h3><p>${t('noMatchesHint')}</p></div>`}</section>`;
 }
@@ -1198,12 +1197,18 @@ function setLocale(locale) {
   renderView();
 }
 
-function routeTo(route, focus = true) {
+function routeTo(route, focus = true, scrollTarget = '') {
   state.route = pageMeta[route] ? route : 'overview';
   history.replaceState(null, '', `#${state.route}`);
   renderView();
-  if (focus) $('#main-content').focus({ preventScroll: true });
-  window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  if (scrollTarget && document.getElementById(scrollTarget)) {
+    const destination = document.getElementById(scrollTarget);
+    destination.focus({ preventScroll: true });
+    destination.scrollIntoView({ block: 'start', behavior: 'auto' });
+  } else {
+    if (focus) $('#main-content').focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
 }
 
 let modalScrollY = 0;
@@ -1485,7 +1490,7 @@ async function retireServiceWorkers() {
 document.addEventListener('click', (event) => {
   const trigger = event.target.closest('button, a');
   if (!trigger) return;
-  if (trigger.matches('[data-route]')) { event.preventDefault(); routeTo(trigger.dataset.route); }
+  if (trigger.matches('[data-route]')) { event.preventDefault(); routeTo(trigger.dataset.route, true, trigger.dataset.scrollTarget || ''); }
   if (trigger.matches('[data-open-command]')) openCommand();
   if (trigger.matches('[data-close-command]')) closeDialog(commandDialog);
   if (trigger.matches('[data-close-inspector]')) closeDialog(inspectorDialog);
@@ -1514,6 +1519,11 @@ document.addEventListener('click', (event) => {
     else showService(commandId);
   }
 });
+
+document.addEventListener('toggle', (event) => {
+  if (event.target.matches('details.pulse-explore')) state.pulseExpanded = event.target.open;
+  if (event.target.matches('details.history-disclosure')) state.historyExpanded = event.target.open;
+}, true);
 
 $('#refresh-button').addEventListener('click', () => refresh(true));
 document.addEventListener('visibilitychange', syncRefreshVisibility);
