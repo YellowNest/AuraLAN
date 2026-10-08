@@ -68,9 +68,31 @@ For a Compose installation, add this line to the Compose project's `.env`:
 AURALAN_KNOWN_ACCESS_POINTS='[{"ssid":"Example Wi-Fi","address":"192.0.2.1","label":"Gateway router"}]'
 ```
 
-The Compose file forwards the variable to the container. Recreate only AuraLAN
-using the **same Compose files that were used to deploy it**; preserve any local
-image override. Watchtower continues to track the selected image normally.
+The current Compose file forwards the variable to the container. Recreate only
+AuraLAN using the **same Compose files that were used to deploy it**; preserve
+any local image override. Watchtower continues to track the selected image.
+
+On installations where the existing `compose.yaml` predates this setting,
+the image update alone does **not** update Compose. Prefer a small additional
+overlay so there is no need to replace the site's Compose file:
+
+```yaml
+# compose.access-points.yaml
+services:
+  auralan:
+    environment:
+      AURALAN_KNOWN_ACCESS_POINTS: '[{"ssid":"Example Wi-Fi","address":"192.0.2.1","label":"Gateway router"}]'
+```
+
+Deploy with the original Compose files **plus** this overlay in the same order,
+for example:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml -f compose.access-points.yaml up -d --no-deps auralan
+```
+
+This override only adds the display configuration and does not change mounts,
+capabilities, or the selected `:dev` image.
 
 For more than one external AP, use separate JSON objects. Each entry requires
 a Wi-Fi `ssid` (1–32 characters) and unique IPv4 `address`; an optional
