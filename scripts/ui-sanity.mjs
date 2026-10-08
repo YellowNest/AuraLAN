@@ -140,9 +140,13 @@ try {
             hasChart: Boolean(chart),
             chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
             panelOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
+            expandable: !root?.classList.contains('history-disclosure') || Boolean(root?.querySelector('summary.history-disclosure-toggle')),
+            collapsed: !root?.classList.contains('history-disclosure') || !root?.open,
           };
         });
         assert.equal(history.hasHistory, true, `${viewport.name}/overview: Network History is missing`);
+        assert.equal(history.expandable, true, `${viewport.name}/overview: Network History chart has no expandable control`);
+        assert.equal(history.collapsed, true, `${viewport.name}/overview: history must start compact`);
         assert.ok(history.metricCount === 0 || history.metricCount === 3, `${viewport.name}/overview: Network History metrics are incomplete`);
         if (history.metricCount === 3) {
           assert.equal(history.hasChart, true, `${viewport.name}/overview: Network History chart is missing when samples exist`);
@@ -189,8 +193,8 @@ try {
 
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
-      hasOverview: Boolean(document.querySelector('.activity-overview')),
-      metricCount: document.querySelectorAll('.activity-metrics > div').length,
+      hasToolbarIntro: Boolean(document.querySelector('.activity-toolbar-intro')),
+      redundantMetrics: document.querySelectorAll('.activity-metrics > div').length,
       filterCount: document.querySelectorAll('.activity-filter-row [data-activity-filter]').length,
       hasTimeline: Boolean(document.querySelector('.activity-center-list')),
       timelineOverflow: (() => {
@@ -198,13 +202,28 @@ try {
         return node ? node.scrollWidth > node.clientWidth + 1 : false;
       })(),
     }));
-    assert.equal(activityReport.hasOverview, true, `${viewport.name}/activity: overview summary is missing`);
-    assert.equal(activityReport.metricCount, 4, `${viewport.name}/activity: summary metrics are incomplete`);
+    assert.equal(activityReport.hasToolbarIntro, true, `${viewport.name}/activity: filter context missing`);
+    assert.equal(activityReport.redundantMetrics, 0, `${viewport.name}/activity: duplicate counters returned`);
     assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
     assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
     assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
 
     await openRoute(page, 'overview');
+    await page.click('.pulse-explore > summary');
+    await page.waitForFunction(() => document.querySelector('.pulse-explore')?.open);
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 60)));
+    await openRoute(page, 'activity');
+    await openRoute(page, 'overview');
+    assert.equal(await page.$eval('.pulse-explore', (el) => el.open), true, `${viewport.name}/overview: expanded pulse report collapsed after navigation`);
+    const historyDisclosure = await page.$('details.history-disclosure');
+    if (historyDisclosure) {
+      await page.click('.history-disclosure-toggle');
+      await page.waitForFunction(() => document.querySelector('.history-disclosure')?.open);
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 60)));
+      await openRoute(page, 'activity');
+      await openRoute(page, 'overview');
+      assert.equal(await page.$eval('.history-disclosure', (el) => el.open), true, `${viewport.name}/overview: expanded network history collapsed after navigation`);
+    }
     const compactDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.device-list.compact .device-row');
       const badge = row?.querySelector('.device-symbol-status');
