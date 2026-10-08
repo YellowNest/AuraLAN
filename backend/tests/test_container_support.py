@@ -10,6 +10,31 @@ from app.discovery.integrations.docker import containers, parse_docker_list
 from app.services import system
 
 
+class KnownAccessPointTests(unittest.TestCase):
+    def test_explicit_gateway_and_second_access_point_are_preserved(self):
+        configured = '[{"ssid":"Example","address":"192.0.2.1","label":"Gateway"},{"ssid":"Workshop","address":"192.0.2.5"}]'
+        with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": configured}):
+            items = system.known_access_points()
+        self.assertEqual(items, [
+            {"ssid": "Example", "address": "192.0.2.1", "label": "Gateway"},
+            {"ssid": "Workshop", "address": "192.0.2.5", "label": None},
+        ])
+
+    def test_invalid_entries_and_duplicate_address_cannot_invent_more_aps(self):
+        configured = '[{"ssid":"One","address":"192.0.2.1"},{"ssid":"Two","address":"192.0.2.1"},{"ssid":"Invalid","address":"not-ip"},{"ssid":"Loopback","address":"127.0.0.1"},{"ssid":"No-IP"}]'
+        with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": configured}):
+            items = system.known_access_points()
+        self.assertEqual(items, [{"ssid": "One", "address": "192.0.2.1", "label": None}])
+
+    def test_bounded_or_malformed_configuration_is_not_applied(self):
+        for value in ("invalid", "{}", '[{"ssid":"x","address":"192.0.2.1"}]' * 300, '[' + ','.join('{}' for _ in range(9)) + ']'):
+            with self.subTest(value=value[:20]):
+                with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": value}):
+                    self.assertEqual(system.known_access_points(), [])
+        with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": ""}):
+            self.assertEqual(system.known_access_points(), [])
+
+
 class ContainerHostViewTests(unittest.TestCase):
     def test_host_metrics_use_explicit_read_only_mounts(self):
         with TemporaryDirectory() as tmp:

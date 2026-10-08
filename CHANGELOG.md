@@ -7,6 +7,10 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 ## [Unreleased]
 
 ### Improved
+- Network Map now supports explicitly configured external Wi-Fi access points alongside the directly observed host AP, with clear upstream gateway labeling and an adaptable two-column layout.
+- Distinguishes manually known access-point identities from measured associations; devices on an external LAN remain unassigned unless their Wi-Fi association is independently observed.
+- Read-only `AURALAN_KNOWN_ACCESS_POINTS` configuration supports up to eight uniquely addressed APs, with bounded validation and Docker Compose forwarding.
+
 - Network topology now groups only evidence-backed clients beneath the local Wi-Fi access point, while devices with unconfirmed routes appear in a clearly separate section instead of being visually connected to the AP or upstream gateway.
 - Client lists expand in place when more than five devices are observed, with responsive, accessible layouts for phones and larger networks.
 - Added regression coverage for multi-client APs, unknown paths, duplicate membership and expandable client lists.

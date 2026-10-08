@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -168,6 +168,7 @@ function normalizeStatus(payload) {
     host: { name: payload.host?.name || 'Local host', uptime: payload.host?.uptime || '—', load: payload.host?.load || '—', memory_used_percent: payload.host?.memory_used_percent ?? null, storage_used_percent: payload.host?.storage_used_percent ?? null, temperature_celsius: payload.host?.temperature_celsius ?? null },
     network: {
       access_point: accessPoint,
+      known_access_points: Array.isArray(payload.network?.known_access_points) ? payload.network.known_access_points : [],
       uplink: payload.network?.uplink || { interface: null, gateway: null, ipv4: null, state: 'unknown' },
       dhcp: payload.network?.dhcp || { detected: false, state: 'unknown', unit: null, interface: accessPoint.interface || null, lease_count: 0 },
       interfaces: Array.isArray(payload.network?.interfaces) ? payload.network.interfaces : [],
@@ -696,6 +697,7 @@ function renderTopologyDevices(items) {
 
 function renderNetworkMap(network) {
   const { apClients, other } = partitionNetworkMapDevices(network, devices());
+  const accessPoints = networkMapAccessPoints(network);
   const definitions = [
     ['wifi', t('wifi'), 'wifi'],
     ['ethernet', t('ethernet'), 'ethernet'],
@@ -703,37 +705,43 @@ function renderNetworkMap(network) {
     ['unknown', t('unconfirmedConnections'), 'devices'],
   ];
   const visibleGroups = definitions.filter(([id]) => other[id].length);
-  const { gatewayAddress, accessPoint } = networkMapInfrastructure(network);
-  const count = apClients.length + visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
-  if (!count && !accessPoint) {
+  const { gatewayAddress } = networkMapInfrastructure(network);
+  const gatewayAp = accessPoints.find((item) => item.gateway);
+  const rootName = gatewayAp?.label || t('defaultGateway');
+  const remainingCount = visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
+  if (!accessPoints.length && !remainingCount) {
     return `<section class="content-section"><header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2></div></header><div class="surface"><div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div></div></section>`;
   }
 
-  const rootName = gatewayAddress ? t('defaultGateway') : t('localNetwork');
-  const apName = accessPoint?.name || t('accessPoint');
-  const apDetail = accessPoint?.address || t('notConfirmed');
-  const remainingCount = visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
+  const accessPointCards = accessPoints.map((point) => {
+    const local = point.kind === 'local';
+    const observedCount = local ? apClients.length : null;
+    const note = local ? t('observedApClients') : t('configuredApUnverified');
+    return `<article class="topology-ap-card ${local ? 'is-local' : 'is-configured'}" ${local ? 'data-topology-access-point' : 'data-topology-external-ap'}>
+      <div class="topology-ap-card-head">
+        <span class="topology-zone-icon">${icon('wifi')}</span>
+        <div class="topology-ap-card-title"><span class="topology-ap-kind">${t(local ? 'localAccessPoint' : 'knownExternalAccessPoint')}</span><h3>${escapeHtml(point.ssid || t('accessPoint'))}</h3><small>${escapeHtml([point.label, point.address].filter(Boolean).join(' · ') || t('notConfirmed'))}</small></div>
+        ${point.gateway ? `<span class="topology-ap-tag">${t('gateway')}</span>` : ''}
+      </div>
+      <div class="topology-ap-client-bar"><span>${escapeHtml(note)}</span>${local ? `<strong class="topology-zone-count">${observedCount}</strong>` : ''}</div>
+      ${local && apClients.length ? renderTopologyDevices(apClients) : `<p class="topology-zone-empty">${escapeHtml(t(local ? 'noConfirmedApClients' : 'externalApClientsUnknown'))}</p>`}
+    </article>`;
+  }).join('');
 
   return `<section class="content-section network-map-section">
-    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapEvidenceHint')}</p></div></header>
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkMap')}</h2><p class="section-hint">${t('networkMapMultiApHint')}</p></div></header>
     <div class="surface network-map">
       <div class="topology-infrastructure">
         <div class="topology-root" data-topology-gateway><span class="topology-root-icon">${icon('router')}</span><div><strong>${escapeHtml(rootName)}</strong><small>${escapeHtml(gatewayAddress || t('notConfirmed'))}</small></div></div>
       </div>
-      <div class="topology-structure">
-        ${accessPoint ? `<section class="topology-zone topology-ap-zone" data-topology-access-point>
-          <header class="topology-zone-header"><span class="topology-zone-icon">${icon('wifi')}</span><div><p class="eyebrow">${t('localAccessPoint')}</p><h3>${escapeHtml(apName)}</h3><small>${escapeHtml(apDetail)}</small></div><span class="topology-zone-count">${apClients.length}</span></header>
-          <p class="topology-zone-caption">${escapeHtml(t('observedApClients'))}</p>
-          ${apClients.length ? renderTopologyDevices(apClients) : `<p class="topology-zone-empty">${escapeHtml(t('noConfirmedApClients'))}</p>`}
-        </section>` : ''}
-        ${remainingCount ? `<section class="topology-zone topology-other-zone" data-topology-unassigned>
-          <header class="topology-zone-header"><span class="topology-zone-icon">${icon('devices')}</span><div><p class="eyebrow">${t('network')}</p><h3>${t('otherObservedDevices')}</h3><small>${t('connectionPathUnconfirmed')}</small></div><span class="topology-zone-count">${remainingCount}</span></header>
-          <div class="topology-groups">${visibleGroups.map(([id, label, glyph]) => `<article class="topology-group">
-            <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: other[id].length }))}</small></div></header>
-            ${renderTopologyDevices(other[id])}
-          </article>`).join('')}</div>
-        </section>` : ''}
-      </div>
+      ${accessPoints.length ? `<section class="topology-access-points"><div class="topology-section-heading"><div><strong>${t('wifiAccessPoints')}</strong><small>${t('accessPointObservationHint')}</small></div><span class="topology-section-count">${accessPoints.length}</span></div><div class="topology-ap-grid">${accessPointCards}</div></section>` : ''}
+      ${remainingCount ? `<section class="topology-zone topology-other-zone" data-topology-unassigned>
+        <header class="topology-zone-header"><span class="topology-zone-icon">${icon('devices')}</span><div><p class="eyebrow">${t('network')}</p><h3>${t('otherObservedDevices')}</h3><small>${t('connectionPathUnconfirmed')}</small></div><span class="topology-zone-count">${remainingCount}</span></header>
+        <div class="topology-groups">${visibleGroups.map(([id, label, glyph]) => `<article class="topology-group">
+          <header><span class="topology-group-icon">${icon(glyph)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(t('deviceCount', { count: other[id].length }))}</small></div></header>
+          ${renderTopologyDevices(other[id])}
+        </article>`).join('')}</div>
+      </section>` : ''}
     </div>
   </section>`;
 }

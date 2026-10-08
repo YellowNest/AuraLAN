@@ -320,6 +320,28 @@ p { margin: 0; }
 .section-hint { margin-top: 5px; color: var(--text-faint); font-size: 11px; line-height: 1.5; }
 .network-map { padding: 22px; overflow: hidden; border-radius: var(--radius-md); }
 .topology-infrastructure { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 10px; margin-bottom: 16px; }
+/* Multiple access points are peer infrastructure, not an inferred cable diagram. */
+.topology-access-points { margin-bottom: 16px; }
+.topology-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 2px 11px; }
+.topology-section-heading strong, .topology-section-heading small { display: block; }
+.topology-section-heading strong { font-size: 13px; letter-spacing: -.012em; }
+.topology-section-heading small { margin-top: 3px; color: var(--text-faint); font-size: 11px; line-height: 1.4; }
+.topology-section-count { flex: none; min-width: 28px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 9px; font-size: 11px; font-weight: 740; text-align: center; }
+.topology-ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; align-items: stretch; }
+.topology-ap-card { min-width: 0; padding: 17px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.topology-ap-card.is-local { border-color: color-mix(in srgb,var(--accent) 30%,var(--line)); }
+.topology-ap-card-head { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 10px; }
+.topology-ap-card-title { min-width: 0; }
+.topology-ap-kind { display: block; color: var(--text-faint); font-size: 10px; font-weight: 750; letter-spacing: .045em; text-transform: uppercase; }
+.topology-ap-card-title h3 { margin: 3px 0; font-size: 15px; letter-spacing: -.012em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-ap-card-title small { display: block; color: var(--text-soft); font-size: 11px; overflow-wrap: anywhere; }
+.topology-ap-tag { display: inline-flex; padding: 5px 7px; border-radius: 7px; color: var(--accent); background: var(--accent-soft); font-size: 10px; font-weight: 750; }
+.topology-ap-client-bar { display: flex; justify-content: space-between; align-items: center; min-height: 28px; gap: 10px; margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--line); color: var(--text-faint); font-size: 11px; }
+.topology-ap-client-bar .topology-zone-count { height: 25px; min-width: 27px; border-radius: 8px; font-size: 11px; }
+.topology-ap-card .topology-device-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); margin-top: 8px; }
+.topology-ap-card .topology-zone-empty { padding: 9px 0 0; min-height: 34px; line-height: 1.45; }
+.topology-other-zone { padding: 16px; }
+.topology-other-zone > .topology-groups { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .topology-structure { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px; align-items: start; }
 .topology-zone { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .topology-zone-header { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 11px; align-items: center; }
@@ -1812,6 +1834,10 @@ textarea{
     gap:10px;
   }
   .topology-zone{padding:12px;}
+  .topology-ap-card { padding: 12px; }
+  .topology-other-zone { padding: 12px; }
+  .topology-section-heading small { font-size: 10px; }
+  .topology-ap-grid { grid-template-columns: minmax(0,1fr); }
   .topology-group{
     padding:11px;
     border-radius:13px;
