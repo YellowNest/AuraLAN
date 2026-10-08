@@ -208,6 +208,11 @@ try {
     assert.equal(searchReport.sameNode, true, `${viewport.name}/devices: searching replaces the text input`);
     assert.equal(searchReport.value, 'pi', `${viewport.name}/devices: search value was lost`);
     assert.ok(searchReport.count.length > 0, `${viewport.name}/devices: filtered count is missing`);
+    await page.$eval('#device-search', (input) => {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.equal(await page.$eval('#device-search', (input) => input.value), '', `${viewport.name}/devices: search cleanup failed`);
 
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
