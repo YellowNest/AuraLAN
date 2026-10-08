@@ -3702,3 +3702,62 @@ h2 {
   }
 }
 
+
+
+/* AuraLAN 1.6.1 — compact, actionable Network Pulse */
+.network-pulse-section{margin-top:22px}
+.network-pulse{border-radius:18px}
+.pulse-summary{min-height:70px;padding:14px 18px;grid-template-columns:40px minmax(0,1fr) auto;gap:12px}
+.pulse-summary-icon{width:40px;height:40px;border-radius:12px}
+.pulse-summary-copy{min-width:0}
+.pulse-summary-copy strong{font-size:15px}
+.pulse-summary-copy p{font-size:12px;line-height:1.45}
+.pulse-metrics{padding:10px;gap:8px;border-bottom:0}
+.pulse-metrics button{position:relative;min-height:68px;padding:12px 32px 12px 13px;border:1px solid var(--line);border-radius:12px;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+.pulse-metrics button:hover{transform:translateY(-1px);border-color:var(--accent);background:var(--surface-strong)}
+.pulse-metrics button:focus-visible,.pulse-day:focus-visible,.pulse-detail-row button:focus-visible,.pulse-explore summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pulse-metrics strong{font-size:23px;font-variant-numeric:tabular-nums}
+.pulse-metrics span:not(.pulse-metric-arrow){font-size:11px;line-height:1.3}
+.pulse-metric-arrow{position:absolute;right:11px;top:50%;margin:0!important;transform:translateY(-50%);color:var(--text-faint)}
+.pulse-metric-arrow .icon{width:15px;height:15px}
+.pulse-explore{border-top:1px solid var(--line)}
+.pulse-explore>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;font-weight:750;font-size:12px;transition:background .16s ease}
+.pulse-explore>summary::-webkit-details-marker{display:none}
+.pulse-explore>summary:hover{background:var(--surface-muted)}
+.pulse-explore>summary>span:first-child{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.pulse-explore summary small{font-size:11px;color:var(--text-faint);font-weight:600}
+.pulse-expand-icon{display:inline-flex;color:var(--text-faint);transition:transform .2s ease;transform:rotate(90deg)}
+.pulse-expand-icon .icon{width:17px;height:17px}
+.pulse-explore[open] .pulse-expand-icon{transform:rotate(-90deg)}
+.pulse-history{padding:12px 18px 16px;border-top:1px solid var(--line)}
+.pulse-chart{height:115px;margin-top:12px}
+.pulse-day{appearance:none;border:0;background:transparent;color:inherit;cursor:pointer;padding:0;border-radius:8px}
+.pulse-day:hover .pulse-bar-track{outline:1px solid var(--accent)}
+.pulse-detail-row{margin:14px -18px -16px;padding:10px 18px;gap:7px 10px}
+.pulse-detail-row button{font:inherit;color:var(--text-soft);background:var(--surface-muted);border:1px solid var(--line);border-radius:8px;cursor:pointer;padding:7px 10px;min-height:34px}
+.pulse-detail-row button:hover{color:var(--text);border-color:var(--accent)}
+@media(max-width:760px){
+ .network-pulse-section{margin-top:18px}
+ .pulse-summary{padding:12px 14px;grid-template-columns:36px minmax(0,1fr);gap:10px}
+ .pulse-summary-icon{width:36px;height:36px}
+ .pulse-window{grid-column:2;margin-top:-3px}
+ .pulse-metrics{padding:8px;gap:7px}
+ .pulse-metrics button{min-height:66px;padding:11px 29px 11px 11px}
+ .pulse-metrics strong{font-size:21px}
+ .pulse-metrics span:not(.pulse-metric-arrow){font-size:11px}
+ .pulse-explore>summary{padding:13px 14px;min-height:44px}
+ .pulse-history{padding:12px 14px 16px}
+ .pulse-detail-row{margin:14px -14px -16px;padding:10px 14px}
+ .pulse-chart{height:105px}
+}
+@media(max-width:390px){
+ .pulse-summary-copy strong{font-size:14px}
+ .pulse-metrics button{min-height:65px}
+ .pulse-metrics span:not(.pulse-metric-arrow){font-size:10px}
+ .pulse-chart{height:96px}
+ .pulse-detail-row button{flex:1 1 45%;text-align:left}
+}
+@media(prefers-reduced-motion:reduce){
+ .pulse-metrics button,.pulse-explore>summary,.pulse-expand-icon{transition:none}
+ .pulse-metrics button:hover{transform:none}
+}
