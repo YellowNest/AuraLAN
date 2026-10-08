@@ -450,7 +450,9 @@ function renderNetworkPulse() {
       const total = Number(item.total || 0);
       const height = total ? Math.max(14, Math.round((total / maxDaily) * 100)) : 4;
       const label = new Date(Number(item.start_at || 0) * 1000).toLocaleDateString(state.locale, { weekday: 'short' });
-      return `<button class="pulse-day" type="button" data-route="activity" aria-label="${escapeHtml(label)}: ${escapeHtml(t('pulseEventsCount', { count: total }))}"><span class="pulse-bar-track" aria-hidden="true"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>${total}</small></button>`;
+      return total
+        ? `<button class="pulse-day" type="button" data-route="activity" aria-label="${escapeHtml(label)}: ${escapeHtml(t('pulseEventsCount', { count: total }))}"><span class="pulse-bar-track" aria-hidden="true"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>${total}</small></button>`
+        : `<div class="pulse-day pulse-day-empty" aria-label="${escapeHtml(label)}: ${escapeHtml(t('pulseEventsCount', { count: 0 }))}"><span class="pulse-bar-track" aria-hidden="true"><i style="height:${height}%"></i></span><b>${escapeHtml(label)}</b><small>0</small></div>`;
     }).join('')
     : `<div class="pulse-empty">${escapeHtml(t('pulseNoHistory'))}</div>`;
 
@@ -460,6 +462,26 @@ function renderNetworkPulse() {
   const newDevices = Number(insights.new_devices_24h || 0);
   const events24 = Number(activity24.total || 0);
 
+  const metrics = [
+    [events24, 'activity', '', t('pulseEvents24h')],
+    [newDevices, 'devices', 'data-device-filter="new"', t('pulseNewDevices24h')],
+    [identityNeedsReview, 'devices', 'data-device-filter="identity_limited"', t('pulseIdentityReview')],
+    [attention, reviewAvailable ? 'overview' : 'activity', reviewAvailable ? 'data-scroll-target="network-review"' : '', t('pulseAttentionItems')],
+  ].filter(([count]) => count > 0).map(([count, route, extra, label]) =>
+    `<button type="button" data-route="${route}" ${extra}><strong>${count}</strong><span>${escapeHtml(label)}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>`
+  ).join('');
+
+  const details = [
+    [insights.baseline_new, 'baseline_new', t('baselineNew')],
+    [insights.baseline_missing, 'baseline_missing', t('baselineMissing')],
+    [insights.favorites_not_seen_now, 'favorite_missing', t('pulseFavoritesMissing')],
+  ].filter(([count]) => Number(count || 0) > 0).map(([count, filter, label]) =>
+    `<button type="button" data-route="devices" data-device-filter="${filter}"><b>${Number(count)}</b> ${escapeHtml(label.toLowerCase())}</button>`
+  );
+  if (Number(insights.services_offline || 0) > 0) {
+    details.push(`<button type="button" data-route="services"><b>${Number(insights.services_offline)}</b> ${escapeHtml(t('pulseServicesOffline').toLowerCase())}</button>`);
+  }
+
   return `<section class="content-section network-pulse-section">
     <header class="section-title pulse-section-title"><div><p class="eyebrow">${t('networkPulse')}</p><h2>${t('networkPulseTitle')}</h2><p class="section-hint">${t('networkPulseHint')}</p></div><button class="text-button" type="button" data-route="activity">${t('openActivity')}${icon('chevron')}</button></header>
     <div class="network-pulse surface pulse-${escapeHtml(pulseState)}">
@@ -468,23 +490,13 @@ function renderNetworkPulse() {
         <div class="pulse-summary-copy"><strong>${escapeHtml(stateCopy[0])}</strong><p>${escapeHtml(stateCopy[1])}</p></div>
         <span class="pulse-window">${t('pulseLast24h')}</span>
       </div>
-      <div class="pulse-metrics" aria-label="${escapeHtml(t('networkPulse'))}">
-        <button type="button" data-route="activity"><strong>${events24}</strong><span>${t('pulseEvents24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
-        <button type="button" data-route="devices" data-device-filter="new"><strong>${newDevices}</strong><span>${t('pulseNewDevices24h')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
-        <button type="button" data-route="devices" data-device-filter="identity_limited"><strong>${identityNeedsReview}</strong><span>${t('pulseIdentityReview')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
-        <button type="button" data-route="${reviewAvailable ? 'overview' : 'activity'}" ${reviewAvailable ? 'data-scroll-target="network-review"' : ''}><strong>${attention}</strong><span>${t('pulseAttentionItems')}</span><span class="pulse-metric-arrow" aria-hidden="true">${icon('chevron')}</span></button>
-      </div>
+      ${metrics ? `<div class="pulse-metrics" aria-label="${escapeHtml(t('networkPulse'))}">${metrics}</div>` : ''}
       <details class="pulse-explore" ${state.pulseExpanded ? 'open' : ''}>
         <summary><span>${t('pulseSevenDays')} <small>${Number(insights.activity_7d?.total || 0)} ${t('pulseEvents').toLowerCase()}</small></span><span class="pulse-expand-icon" aria-hidden="true">${icon('chevron')}</span></summary>
         <div class="pulse-history">
           <div class="pulse-history-head"><div><strong>${t('pulseSevenDays')}</strong><span>${t('pulseSevenDaysHint')}</span></div></div>
           <div class="pulse-chart" role="group" aria-label="${escapeHtml(t('pulseChartLabel'))}">${bars}</div>
-          <div class="pulse-detail-row">
-            <button type="button" data-route="network"><b>${Number(insights.baseline_new || 0)}</b> ${t('baselineNew').toLowerCase()}</button>
-            <button type="button" data-route="network"><b>${Number(insights.baseline_missing || 0)}</b> ${t('baselineMissing').toLowerCase()}</button>
-            <button type="button" data-route="devices"><b>${Number(insights.favorites_not_seen_now || 0)}</b> ${t('pulseFavoritesMissing').toLowerCase()}</button>
-            <button type="button" data-route="services"><b>${Number(insights.services_offline || 0)}</b> ${t('pulseServicesOffline').toLowerCase()}</button>
-          </div>
+          ${details.length ? `<div class="pulse-detail-row">${details.join('')}</div>` : ''}
         </div>
       </details>
     </div>
