@@ -6,6 +6,12 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### 1.6.5 development
+- Validate operator-configured external access-point addresses more strictly, rejecting link-local, reserved and non-unicast addresses before presenting them as infrastructure.
+- Extend regression coverage for malformed AP configuration and excluded address types.
+- Align runtime version fallbacks and public development documentation at `1.6.5-dev`; this is not a stable release or published tag.
+- Preserve evidence-based topology and existing API compatibility; no automated client-to-AP guessing is introduced.
+
 ## [1.6.3] - 2026-10-08
 
 ### Added
@@ -20,7 +26,7 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 - Extended automated browser checks across six viewports and pure-data tests for searching, no matches, association evidence, live counts and filtering.
 
 
-### Improved
+### Improved — access points
 - Network Map now supports explicitly configured external Wi-Fi access points alongside the directly observed host AP, with clear upstream gateway labeling and an adaptable two-column layout.
 - Distinguishes manually known access-point identities from measured associations; devices on an external LAN remain unassigned unless their Wi-Fi association is independently observed.
 - Read-only `AURALAN_KNOWN_ACCESS_POINTS` configuration supports up to eight uniquely addressed APs, with bounded validation and Docker Compose forwarding.
