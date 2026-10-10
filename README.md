@@ -24,6 +24,12 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
+**Development 1.6.5-dev:** Network Explorer provides evidence-based access-point
+mapping, searchable devices, multi-AP descriptions and responsive filters. The
+current development work also tightens validation of configured AP addresses.
+This branch is not a stable release. Use the published release from `main` for
+production deployments; development builds require validation before promotion.
+
 ## Screenshots
 
 The screenshots below are captured from the **real AuraLAN frontend** using a synthetic demo LAN. They contain documentation-range IP addresses, locally administered demo MAC addresses and fictional device names — no household network data.

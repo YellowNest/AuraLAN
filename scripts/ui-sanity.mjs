@@ -113,13 +113,25 @@ try {
           return {
             hasPulse: Boolean(root),
             metricCount: root?.querySelectorAll('.pulse-metrics > button').length || 0,
+            zeroMetrics: [...(root?.querySelectorAll('.pulse-metrics > button strong') || [])].filter((el) => Number(el.textContent || 0) === 0).length,
+            zeroDetails: [...(root?.querySelectorAll('.pulse-detail-row button b') || [])].filter((el) => Number(el.textContent || 0) === 0).length,
             dayCount: root?.querySelectorAll('.pulse-day').length || 0,
+            expandable: Boolean(root?.querySelector('details.pulse-explore > summary')),
+            initiallyCollapsed: !root?.querySelector('details.pulse-explore')?.open,
+            navigableDays: root?.querySelectorAll('.pulse-day[data-route="activity"]').length || 0,
+            navigableDetails: root?.querySelectorAll('.pulse-detail-row button[data-route]').length || 0,
             chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
             pulseOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
           };
         });
         assert.equal(pulse.hasPulse, true, `${viewport.name}/overview: Network Pulse is missing`);
-        assert.equal(pulse.metricCount, 4, `${viewport.name}/overview: Network Pulse metrics are incomplete`);
+        assert.equal(pulse.expandable, true, `${viewport.name}/overview: seven-day details must be expandable`);
+        assert.equal(pulse.initiallyCollapsed, true, `${viewport.name}/overview: pulse details must start compact`);
+        assert.ok(pulse.navigableDetails <= 4, `${viewport.name}/overview: detail counters must only show available evidence`);
+        assert.equal(pulse.zeroDetails, 0, `${viewport.name}/overview: zero-count details should not be actionable`);
+        assert.equal(pulse.zeroMetrics, 0, `${viewport.name}/overview: zero-count metrics should not be actionable`);
+        assert.ok(pulse.navigableDays >= 0 && pulse.navigableDays <= pulse.dayCount, `${viewport.name}/overview: only days with activity should navigate`);
+        assert.ok(pulse.metricCount >= 0 && pulse.metricCount <= 4, `${viewport.name}/overview: invalid Network Pulse metric count`);
         assert.ok(pulse.dayCount === 0 || pulse.dayCount === 7, `${viewport.name}/overview: Network Pulse must show seven activity buckets when history is available`);
         assert.equal(pulse.chartOverflow, false, `${viewport.name}/overview: Network Pulse chart overflows horizontally`);
         assert.equal(pulse.pulseOverflow, false, `${viewport.name}/overview: Network Pulse panel overflows horizontally`);
@@ -132,9 +144,13 @@ try {
             hasChart: Boolean(chart),
             chartOverflow: chart ? chart.scrollWidth > chart.clientWidth + 1 : false,
             panelOverflow: root ? root.scrollWidth > root.clientWidth + 1 : false,
+            expandable: !root?.classList.contains('history-disclosure') || Boolean(root?.querySelector('summary.history-disclosure-toggle')),
+            collapsed: !root?.classList.contains('history-disclosure') || !root?.open,
           };
         });
         assert.equal(history.hasHistory, true, `${viewport.name}/overview: Network History is missing`);
+        assert.equal(history.expandable, true, `${viewport.name}/overview: Network History chart has no expandable control`);
+        assert.equal(history.collapsed, true, `${viewport.name}/overview: history must start compact`);
         assert.ok(history.metricCount === 0 || history.metricCount === 3, `${viewport.name}/overview: Network History metrics are incomplete`);
         if (history.metricCount === 3) {
           assert.equal(history.hasChart, true, `${viewport.name}/overview: Network History chart is missing when samples exist`);
@@ -151,8 +167,8 @@ try {
       if (route === 'overview') assert.equal(report.hasOrbit, false, `${viewport.name}: retired network orbit rendered`);
       if (report.mobile) {
         assert.equal(report.navButtons, 6, `${viewport.name}/${route}: mobile nav is incomplete`);
-        assert.match(report.viewportMeta, /maximum-scale=1/, `${viewport.name}: viewport scale is not locked`);
-        assert.match(report.viewportMeta, /user-scalable=no/, `${viewport.name}: user scaling is not disabled`);
+        assert.doesNotMatch(report.viewportMeta, /maximum-scale\s*=\s*1/, `${viewport.name}: pinch zoom must remain available`);
+        assert.doesNotMatch(report.viewportMeta, /user-scalable\s*=\s*no/, `${viewport.name}: user zoom must not be disabled`);
         assert.ok(report.liveText.length > 0, `${viewport.name}/${route}: connection status has no text`);
         assert.notEqual(report.liveTextDisplay, 'none', `${viewport.name}/${route}: connection status text is hidden`);
         assert.ok(report.liveWidth >= 50, `${viewport.name}/${route}: connection status collapsed to a dot`);
@@ -174,15 +190,63 @@ try {
     await page.waitForSelector('#command-dialog[open]', { timeout: 5000 });
     const commandFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandFocus, 'command-input', `${viewport.name}/command: search input did not receive focus`);
+    // Wait for the native asynchronous close event, not only the open=false
+    // state, before asserting focus or entering another route.
+    await page.evaluate(() => {
+      window.__commandCloseFinished = new Promise((resolve) => {
+        document.querySelector('#command-dialog').addEventListener('close', resolve, { once: true });
+      });
+    });
     await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__commandCloseFinished);
     await page.waitForFunction(() => !document.querySelector('#command-dialog')?.open);
     const commandReturnFocus = await page.evaluate(() => document.activeElement?.id);
     assert.equal(commandReturnFocus, 'main-content', `${viewport.name}/command: command palette did not restore focus`);
 
+    await openRoute(page, 'devices');
+    await page.evaluate(() => { window.__auralanSearchInput = document.querySelector('#device-search'); });
+    await page.focus('#device-search');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'device-search',
+      `${viewport.name}/devices: cannot focus the search input before typing`);
+    await page.type('#device-search', 'pi');
+    const searchReport = await page.evaluate(() => ({
+      focused: document.activeElement?.id === 'device-search',
+      focusedId: document.activeElement?.id || '',
+      route: location.hash,
+      sameNode: document.querySelector('#device-search') === window.__auralanSearchInput,
+      value: document.querySelector('#device-search')?.value || '',
+      count: document.querySelector('.device-toolbar-meta > p')?.textContent?.trim() || '',
+    }));
+    console.log(`${viewport.name}/devices search check: ${JSON.stringify(searchReport)}`);
+    assert.equal(searchReport.focused, true, `${viewport.name}/devices: searching loses keyboard focus`);
+    assert.equal(searchReport.sameNode, true, `${viewport.name}/devices: searching replaces the text input`);
+    assert.equal(searchReport.value, 'pi', `${viewport.name}/devices: search value was lost`);
+    assert.ok(searchReport.count.length > 0, `${viewport.name}/devices: filtered count is missing`);
+    await page.$eval('#device-search', (input) => {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.equal(await page.$eval('#device-search', (input) => input.value), '', `${viewport.name}/devices: search cleanup failed`);
+
+    await page.$eval('#device-search', (input) => {
+      input.value = '__auralan_never_matching_123456__';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 0, `${viewport.name}/devices: unmatched query still shows results`);
+    assert.ok(await page.$('.device-results [data-reset-device-filters]'), `${viewport.name}/devices: empty search has no reset action`);
+    await page.click('.device-results [data-reset-device-filters]');
+    assert.equal(await page.$eval('#device-search', (el) => el.value), '', `${viewport.name}/devices: reset did not clear query`);
+    assert.equal(await page.$eval('.device-toolbar [data-device-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: reset did not select all`);
+    assert.ok(await page.evaluate(() => document.querySelectorAll('.device-results .device-row').length) > 0, `${viewport.name}/devices: reset did not restore results`);
+    await page.click('.device-toolbar [data-device-filter="online"]');
+    assert.equal(await page.$eval('.device-toolbar [data-device-filter="online"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/devices: filter selection is not announced`);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.deviceFilter), 'online', `${viewport.name}/devices: filter selection lost focus`);
+    await page.click('.device-toolbar [data-device-filter="all"]');
+
     await openRoute(page, 'activity');
     const activityReport = await page.evaluate(() => ({
-      hasOverview: Boolean(document.querySelector('.activity-overview')),
-      metricCount: document.querySelectorAll('.activity-metrics > div').length,
+      hasToolbarIntro: Boolean(document.querySelector('.activity-toolbar-intro')),
+      redundantMetrics: document.querySelectorAll('.activity-metrics > div').length,
       filterCount: document.querySelectorAll('.activity-filter-row [data-activity-filter]').length,
       hasTimeline: Boolean(document.querySelector('.activity-center-list')),
       timelineOverflow: (() => {
@@ -190,13 +254,38 @@ try {
         return node ? node.scrollWidth > node.clientWidth + 1 : false;
       })(),
     }));
-    assert.equal(activityReport.hasOverview, true, `${viewport.name}/activity: overview summary is missing`);
-    assert.equal(activityReport.metricCount, 4, `${viewport.name}/activity: summary metrics are incomplete`);
+    assert.equal(activityReport.hasToolbarIntro, true, `${viewport.name}/activity: filter context missing`);
+    assert.equal(activityReport.redundantMetrics, 0, `${viewport.name}/activity: duplicate counters returned`);
     assert.equal(activityReport.filterCount, 5, `${viewport.name}/activity: activity filters are incomplete`);
     assert.equal(activityReport.hasTimeline, true, `${viewport.name}/activity: timeline is missing`);
     assert.equal(activityReport.timelineOverflow, false, `${viewport.name}/activity: timeline overflows horizontally`);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.activity-center-list button.activity-row:not([data-route]):not([data-device])').length), 0, `${viewport.name}/activity: an inert event looks clickable`);
+
+    const zeroFilter = await page.evaluate(() => [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')]
+      .find((el) => el.dataset.activityFilter !== 'all' && Number(el.querySelector('b')?.textContent || -1) === 0)?.dataset.activityFilter || '');
+    if (zeroFilter) {
+      await page.click(`.activity-filter-row [data-activity-filter="${zeroFilter}"]`);
+      assert.ok(await page.$('.activity-center-list [data-activity-filter="all"]'), `${viewport.name}/activity: filtered empty state has no recovery action`);
+      await page.click('.activity-center-list [data-activity-filter="all"]');
+      assert.equal(await page.$eval('.activity-filter-row [data-activity-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true', `${viewport.name}/activity: reset filter is not selected`);
+    }
 
     await openRoute(page, 'overview');
+    await page.click('.pulse-explore > summary');
+    await page.waitForFunction(() => document.querySelector('.pulse-explore')?.open);
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 60)));
+    await openRoute(page, 'activity');
+    await openRoute(page, 'overview');
+    assert.equal(await page.$eval('.pulse-explore', (el) => el.open), true, `${viewport.name}/overview: expanded pulse report collapsed after navigation`);
+    const historyDisclosure = await page.$('details.history-disclosure');
+    if (historyDisclosure) {
+      await page.click('.history-disclosure-toggle');
+      await page.waitForFunction(() => document.querySelector('.history-disclosure')?.open);
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 60)));
+      await openRoute(page, 'activity');
+      await openRoute(page, 'overview');
+      assert.equal(await page.$eval('.history-disclosure', (el) => el.open), true, `${viewport.name}/overview: expanded network history collapsed after navigation`);
+    }
     const compactDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.device-list.compact .device-row');
       const badge = row?.querySelector('.device-symbol-status');
@@ -224,6 +313,58 @@ try {
     }
 
     await openRoute(page, 'network');
+    const externalApReport = await page.evaluate(async () => {
+      const response = await fetch('/api/v1/status', { cache: 'no-store' });
+      const status = await response.json();
+      const configured = status.network?.known_access_points || [];
+      const cards = [...document.querySelectorAll('[data-topology-external-ap]')];
+      return {
+        configured: configured.length,
+        rendered: cards.length,
+        names: cards.map((card) => card.querySelector('.topology-ap-card-title h3')?.textContent?.trim()),
+        visible: cards.every((card) => card.getBoundingClientRect().width > 0),
+      };
+    });
+    if (process.env.AURALAN_KNOWN_ACCESS_POINTS) {
+      const expected = JSON.parse(process.env.AURALAN_KNOWN_ACCESS_POINTS).length;
+      assert.equal(externalApReport.configured, expected,
+        `${viewport.name}/network: configured access points missing from status API`);
+    }
+    if (externalApReport.configured) {
+      assert.equal(externalApReport.rendered, externalApReport.configured,
+        `${viewport.name}/network: configured external access points not rendered separately`);
+      assert.ok(externalApReport.visible, `${viewport.name}/network: external access-point card collapsed`);
+      assert.ok(externalApReport.names.every(Boolean),
+        `${viewport.name}/network: external access-point SSID missing`);
+    }
+
+    // Search and filter without navigating away or losing the input on mobile.
+    await page.waitForSelector('#topology-search');
+    await page.focus('#topology-search');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'topology-search',
+      `${viewport.name}/network: Network Explorer search cannot receive keyboard focus`);
+    await page.type('#topology-search', 'nonexistent-map-result-xyz');
+    assert.equal(await page.$eval('#topology-search', (el) => el.value), 'nonexistent-map-result-xyz',
+      `${viewport.name}/network: typed network search was lost`);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'topology-search',
+      `${viewport.name}/network: network search lost focus while filtering`);
+    const emptyMap = await page.evaluate(() => ({
+      devices: document.querySelectorAll('#topology-explorer-results .topology-device').length,
+      empty: Boolean(document.querySelector('.topology-no-matches')),
+      count: document.querySelector('#topology-search-count')?.textContent?.trim(),
+    }));
+    assert.equal(emptyMap.devices, 0, `${viewport.name}/network: impossible search retained devices`);
+    assert.equal(emptyMap.empty, true, `${viewport.name}/network: no-results feedback missing`);
+    assert.ok(emptyMap.count?.length > 0, `${viewport.name}/network: match counter missing`);
+    await page.click('[data-map-filter="unassigned"]');
+    assert.equal(await page.$eval('[data-map-filter="unassigned"]', (el) => el.getAttribute('aria-pressed')), 'true',
+      `${viewport.name}/network: filter state not conveyed`);
+    await page.click('[data-map-reset]');
+    assert.equal(await page.$eval('#topology-search', (el) => el.value), '',
+      `${viewport.name}/network: reset did not clear search`);
+    assert.equal(await page.$eval('[data-map-filter="all"]', (el) => el.getAttribute('aria-pressed')), 'true',
+      `${viewport.name}/network: reset did not restore all devices`);
+
     const topologyDeviceReport = await page.evaluate(() => {
       const row = document.querySelector('.topology-device');
       const symbol = row?.querySelector('.topology-device-symbol');
@@ -247,6 +388,35 @@ try {
       if (topologyDeviceReport.symbolRect) {
         assert.ok(topologyDeviceReport.symbolRect.width >= 32 && topologyDeviceReport.symbolRect.height >= 32, `${viewport.name}/network: topology device icon collapsed`);
       }
+    }
+
+    const topologyMembership = await page.evaluate(() => {
+      const ap = document.querySelector('[data-topology-access-point]');
+      const other = document.querySelector('[data-topology-unassigned]');
+      const apIds = [...(ap?.querySelectorAll('.topology-device[data-device]') || [])].map((item) => item.dataset.device);
+      const otherIds = [...(other?.querySelectorAll('.topology-device[data-device]') || [])].map((item) => item.dataset.device);
+      const all = [...apIds, ...otherIds];
+      return {
+        apCount: ap ? Number(ap.querySelector('.topology-zone-count')?.textContent || 0) : 0,
+        apItems: apIds.length,
+        otherCount: other ? Number(other.querySelector('.topology-zone-count')?.textContent || 0) : 0,
+        otherItems: otherIds.length,
+        unique: new Set(all).size === all.length,
+        fabricatedConnectors: Boolean(document.querySelector('.topology-trunk')),
+        disclosureCount: document.querySelectorAll('details.topology-overflow').length,
+      };
+    });
+    assert.equal(topologyMembership.unique, true, `${viewport.name}/network: a device was assigned to multiple zones`);
+    assert.equal(topologyMembership.apCount, topologyMembership.apItems,
+      `${viewport.name}/network: AP client count does not match the evidence-backed rows`);
+    assert.equal(topologyMembership.otherCount, topologyMembership.otherItems,
+      `${viewport.name}/network: unassigned-device count does not match its rows`);
+    assert.equal(topologyMembership.fabricatedConnectors, false,
+      `${viewport.name}/network: unsupported topology connectors returned`);
+    if (topologyMembership.disclosureCount) {
+      await page.click('details.topology-overflow > summary');
+      assert.equal(await page.$eval('details.topology-overflow', (el) => el.open), true,
+        `${viewport.name}/network: overflow client list does not expand`);
     }
 
     await openRoute(page, 'devices');

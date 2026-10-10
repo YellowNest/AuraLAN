@@ -6,6 +6,65 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### 1.6.5 development
+- Validate operator-configured external access-point addresses more strictly, rejecting link-local, reserved and non-unicast addresses before presenting them as infrastructure.
+- Extend regression coverage for malformed AP configuration and excluded address types.
+- Align runtime version fallbacks and public development documentation at `1.6.5-dev`; this is not a stable release or published tag.
+- Preserve evidence-based topology and existing API compatibility; no automated client-to-AP guessing is introduced.
+
+## [1.6.3] - 2026-10-08
+
+### Added
+- **Network Explorer** adds an interactive, responsive search rail to the network map. Search device names, IP addresses, vendors, location notes and other known identity evidence, including multiple terms and Swedish characters.
+- Quick filters show all devices, clients directly observed on the local access point, devices with an unconfirmed connection path, or those currently observed online.
+- Live counts distinguish the total observed inventory from current filtered results without presenting a configured router's Wi-Fi clients as confirmed.
+
+### Improved
+- Background status refresh updates network-map results and counters **in place** rather than rebuilding the active search field or dismissing the mobile keyboard.
+- Accessible buttons, pressed states and an explicit reset action help users explore large installations on phones, tablets and desktop.
+- Corrected the stale frontend fallback metadata to match the real `1.6.3` version.
+- Extended automated browser checks across six viewports and pure-data tests for searching, no matches, association evidence, live counts and filtering.
+
+
+### Improved — access points
+- Network Map now supports explicitly configured external Wi-Fi access points alongside the directly observed host AP, with clear upstream gateway labeling and an adaptable two-column layout.
+- Distinguishes manually known access-point identities from measured associations; devices on an external LAN remain unassigned unless their Wi-Fi association is independently observed.
+- Read-only `AURALAN_KNOWN_ACCESS_POINTS` configuration supports up to eight uniquely addressed APs, with bounded validation and Docker Compose forwarding.
+
+- Network topology now groups only evidence-backed clients beneath the local Wi-Fi access point, while devices with unconfirmed routes appear in a clearly separate section instead of being visually connected to the AP or upstream gateway.
+- Client lists expand in place when more than five devices are observed, with responsive, accessible layouts for phones and larger networks.
+- Added regression coverage for multi-client APs, unknown paths, duplicate membership and expandable client lists.
+
+### Fixed
+- Network map separates the actual upstream default gateway from the local Raspberry Pi Wi-Fi access point, instead of combining the Pi SSID with the router IP in a single device card.
+
+## [1.6.2] - 2026-10-08
+
+### Improved
+- Device searches now match multiple words across different evidence fields, ignoring case and accents (for example, “Daikin kök” or “Samsung vardagsrum”) while preserving device-category filters.
+- Device sorting reuses a single natural-language collator per sort instead of repeatedly configuring text comparisons.
+- Mobile browsers retain pinch-to-zoom accessibility rather than preventing magnification.
+
+### Reliability
+- The automated browser suite explicitly verifies search focus before typing and checks that focus, results, and filter actions survive interaction.
+- Container publishing now requires the full responsive browser check in addition to container smoke and ARM64/AMD64 builds. A failing browser check can no longer publish a new `dev` image.
+- Superseded builds are cancelled so an older container build cannot overwrite a newer development tag.
+- Feature branches receive CI coverage before merging into the development stream.
+
+## [1.6.1] - 2026-10-08
+
+### Changed
+- Added one-click recovery from empty device searches and activity filters, with plain-language Swedish/English guidance.
+- Removed fake action affordances from informational activity entries; improved keyboard focus and active-filter accessibility.
+- Redesigned Network Pulse into a compact status dashboard with clearly navigable metrics and an accessible, expandable seven-day chart.
+- Added keyboard-accessible daily activity buttons and linked baseline, favorite and service counts to relevant routes.
+- Refined mobile spacing, focus states, hover feedback and reduced-motion behavior while keeping the existing privacy-preserving insights API unchanged.
+- Simplified Overview to show actionable new devices and service problems instead of duplicate full inventories; hid the empty review queue and made its attention summary jump to matching evidence.
+- Reduced Activity Center to descriptive context and actionable filter chips instead of redundant counters; made identity review a one-click task on Devices.
+- Made Network History expandable and kept expanded reports open across refreshes; removed the misleading green local-label status dot from the sidebar.
+- Kept the Devices search input and mobile keyboard stable while filtering and refreshing, with a live count of matching devices.
+- Suppressed zero-count dashboard actions, linked baseline and missing-favorite counts to their actual device filters, and focused the filtered results when starting an identity review.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added

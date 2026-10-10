@@ -13,7 +13,7 @@ DEFAULT_BRAND: dict[str, Any] = {
     "productName": "AuraLAN",
     "shortName": "AuraLAN",
     "tagline": "Your network, clearly.",
-    "version": "1.6.0",
+    "version": "1.6.5-dev",
     "apiVersion": "v1",
     "repository": {"url": "", "issues": ""},
     "accent": {"primary": "#3B82F6", "soft": "#EAF2FF"},

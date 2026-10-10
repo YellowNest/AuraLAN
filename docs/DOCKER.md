@@ -27,6 +27,39 @@ docker compose pull
 docker compose up -d
 ```
 
+## Development channel and automatic updates
+
+`ghcr.io/yellownest/auralan:latest` tracks tested changes published from `main`.
+The separate `ghcr.io/yellownest/auralan:dev` tag follows the active
+development branch and can change before a stable release.
+
+For a development installation, keep the normal `compose.yaml` intact and
+add a small local overlay named `compose.dev.yaml`:
+
+```yaml
+services:
+  auralan:
+    image: ghcr.io/yellownest/auralan:dev
+```
+
+Use **both** files consistently for manual updates and recovery:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml pull auralan
+docker compose -f compose.yaml -f compose.dev.yaml up -d --no-deps auralan
+```
+
+The overlay changes only the image; it inherits the existing volume and host
+integration mounts. Do not also run a local source-build updater against the
+same Compose overlay: that replaces the published tag with a local-only image
+and causes Watchtower registry errors.
+
+If Watchtower is already installed, it can track `:dev` when the container is
+not excluded by `com.centurylinklabs.watchtower.enable=false`. Publication
+from the development branch requires container and browser checks to pass.
+Do not rely on Watchtower's scan summary alone to verify application health;
+check `docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' auralan`.
+
 ## Why host networking is used
 
 AuraLAN is a network-observation application. A normal Docker bridge gives the process a container-specific routing table, neighbour table and interfaces, which would make LAN inventory misleading.

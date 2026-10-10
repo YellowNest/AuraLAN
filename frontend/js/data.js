@@ -145,8 +145,12 @@ export function networkHistorySummary(items) {
   };
 }
 
+function normalizeSearch(value) {
+  return String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
 export function filterDevices(items, filter = 'all', query = '') {
-  const normalizedQuery = query.trim().toLowerCase();
+  const terms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
   return items.filter((device) => {
     const unidentified = device.category === 'unknown' && !device.vendor && !device.model && !device.hostname && !device.metadata?.alias;
     const matchesFilter = filter === 'all'
@@ -161,13 +165,18 @@ export function filterDevices(items, filter = 'all', query = '') {
       || (filter === 'known' && device.state === 'known')
       || (filter === 'connection_unknown' && !['wifi', 'ethernet', 'vpn'].includes(device.connection_type))
       || device.connection_type === filter;
+    if (!matchesFilter || !terms.length) return matchesFilter;
+
+    // All words must match, but they may come from different identity fields.
+    // This lets "living samsung" find a TV without changing evidence scoring.
     const searchable = [
       device.presentation_name, device.display_name, device.hostname, device.vendor, device.model,
       device.identity?.model?.value, device.category, device.device_type, device.ip, ...(device.ip_addresses || []),
       device.mac, ...(device.mac_addresses || []), device.interface, device.connection_type,
       device.metadata?.alias, device.metadata?.note, device.metadata?.location, ...(device.metadata?.tags || []),
-    ].filter(Boolean).join(' ').toLowerCase();
-    return matchesFilter && (!normalizedQuery || searchable.includes(normalizedQuery));
+    ].filter(Boolean).join(' ');
+    const normalized = normalizeSearch(searchable);
+    return terms.every((term) => normalized.includes(term));
   });
 }
 
@@ -184,7 +193,8 @@ export function sortDevices(items, sort = 'smart') {
   const prepared = [...items];
   if (sort === 'smart') return prepared;
 
-  const compareText = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base', numeric: true });
+  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+  const compareText = (left, right) => collator.compare(String(left || ''), String(right || ''));
 
   return prepared.sort((left, right) => {
     if (sort === 'name') {
@@ -211,6 +221,116 @@ export function sortDevices(items, sort = 'smart') {
     }
     return 0;
   });
+}
+
+// Gateway and locally hosted Wi-Fi are independent observations: never pair
+// an AP SSID with the upstream gateway address in a single topology node.
+export function networkMapInfrastructure(network = {}) {
+  const uplink = network?.uplink || {};
+  const ap = network?.access_point || {};
+  const address = String(uplink.gateway || '').trim();
+  return {
+    gatewayAddress: address || null,
+    accessPoint: ap.available
+      ? {
+          name: String(ap.ssid || ap.connection || '').trim() || null,
+          address: String(ap.ipv4 || '').trim() || null,
+        }
+      : null,
+  };
+}
+
+// A locally hosted AP is not the same thing as the LAN's upstream router.
+// Place a client beneath this AP only when the inventory has explicit evidence
+// for the AP interface. Everything else stays unassigned, even if the device
+// happens to have an address on a nearby subnet.
+// Only explicitly declared external APs and the host's directly observed AP
+// belong in this list. Identical IP addresses describe the same access point,
+// and no clients are assigned to external APs without station evidence.
+export function networkMapAccessPoints(network = {}) {
+  const local = network?.access_point || {};
+  const gateway = String(network?.uplink?.gateway || '').trim();
+  const seen = new Set();
+  const accessPoints = [];
+  if (local.available) {
+    const address = String(local.ipv4 || '').trim();
+    if (address) seen.add(address.split('/')[0]);
+    accessPoints.push({
+      ssid: String(local.ssid || local.connection || '').trim() || null,
+      address: address || null,
+      label: null,
+      kind: 'local',
+      gateway: address.split('/')[0] === gateway,
+    });
+  }
+  const external = Array.isArray(network?.known_access_points)
+    ? network.known_access_points.slice(0, 8) : [];
+  for (const point of external) {
+    if (!point || typeof point.ssid !== 'string' || typeof point.address !== 'string') continue;
+    const address = point.address.trim();
+    const ssid = point.ssid.trim();
+    if (!address || !ssid || seen.has(address)) continue;
+    seen.add(address);
+    accessPoints.push({
+      ssid, address,
+      label: String(point.label || '').trim() || null,
+      kind: 'configured',
+      gateway: address === gateway,
+    });
+  }
+  return accessPoints;
+}
+
+export function partitionNetworkMapDevices(network, items) {
+  const accessPoint = network?.access_point || {};
+  const apInterface = accessPoint.available && typeof accessPoint.interface === 'string'
+    ? accessPoint.interface.trim() : '';
+  const apClients = [];
+  const other = { wifi: [], ethernet: [], vpn: [], unknown: [] };
+  for (const device of (Array.isArray(items) ? items : [])) {
+    if (!device || device.state === 'known') continue;
+    const observations = Array.isArray(device.observations) ? device.observations : [];
+    const observedOnAp = apInterface && observations.some((item) => (
+      item?.interface === apInterface
+      && ['wifi_station', 'ip_neigh', 'dhcp_lease'].includes(item?.source)
+    ));
+    // Compatibility for older API responses without per-source observations.
+    const legacyApClient = apInterface && !observations.length
+      && device.interface === apInterface && device.connection_type === 'wifi';
+    if (observedOnAp || legacyApClient) {
+      apClients.push(device);
+    } else {
+      const key = ['wifi', 'ethernet', 'vpn'].includes(device.connection_type)
+        ? device.connection_type : 'unknown';
+      other[key].push(device);
+    }
+  }
+  return { apClients, other };
+}
+
+// Network Explorer never changes association evidence. Search and view filters
+// operate on the existing evidence-based partition, not on inferred IP ranges.
+export function exploreNetworkMap(network, items, query = '', view = 'all') {
+  const partition = partitionNetworkMapDevices(network, items);
+  const unassigned = Object.values(partition.other).flat();
+  const counts = {
+    total: partition.apClients.length + unassigned.length,
+    local: partition.apClients.length,
+    unassigned: unassigned.length,
+    online: [...partition.apClients, ...unassigned].filter((d) => d.online === true).length,
+  };
+  const allowedViews = ['all', 'local', 'unassigned', 'online'];
+  const selected = allowedViews.includes(view) ? view : 'all';
+  const matching = (list) => {
+    const online = selected === 'online' ? list.filter((d) => d.online === true) : list;
+    return filterDevices(online, 'all', query);
+  };
+  const apClients = selected === 'unassigned' ? [] : matching(partition.apClients);
+  const other = Object.fromEntries(Object.entries(partition.other).map(([key, list]) =>
+    [key, selected === 'local' ? [] : matching(list)]
+  ));
+  const matched = apClients.length + Object.values(other).reduce((sum, list) => sum + list.length, 0);
+  return { apClients, other, counts, matched, view: selected };
 }
 
 export function groupCurrentDevicesByConnection(items) {

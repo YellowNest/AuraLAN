@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -9,12 +9,102 @@ const devices = [
   { display_name: 'Network device', vendor: null, model: null, category: 'unknown', ip: '192.0.2.30', mac: '02:00:00:00:00:03', interface: 'lan0', connection_type: 'ethernet', online: false, metadata: { alias: null } }
 ];
 
+
+test('network topology keeps the upstream gateway separate from the local Wi-Fi AP', () => {
+  const network = {
+    uplink: { gateway: '192.0.2.1', ipv4: '192.0.2.44' },
+    access_point: { available: true, ssid: 'Lab-Pi', ipv4: '198.51.100.1' },
+  };
+  assert.deepEqual(networkMapInfrastructure(network), {
+    gatewayAddress: '192.0.2.1',
+    accessPoint: { name: 'Lab-Pi', address: '198.51.100.1' },
+  });
+  assert.deepEqual(networkMapInfrastructure({
+    uplink: { gateway: '192.0.2.1' },
+    access_point: { available: false, ssid: 'Inactive AP', ipv4: '198.51.100.1' },
+  }), {
+    gatewayAddress: '192.0.2.1',
+    accessPoint: null,
+  });
+  assert.deepEqual(networkMapInfrastructure({}), { gatewayAddress: null, accessPoint: null });
+});
+
+test('network map shows two different access points but never invents router-side associations', () => {
+  const network = {
+    uplink: { gateway: '192.0.2.1' },
+    access_point: { available: true, ssid: 'Host AP', ipv4: '198.51.100.1/24', interface: 'hotspot-if' },
+    known_access_points: [
+      { ssid: 'Main Wi-Fi', address: '192.0.2.1', label: 'Gateway device' },
+      { ssid: 'Workshop Wi-Fi', address: '192.0.2.9', label: 'Workshop' },
+      { ssid: 'Duplicate', address: '192.0.2.1' },
+      { ssid: 'Already local', address: '198.51.100.1' },
+    ],
+  };
+  assert.deepEqual(networkMapAccessPoints(network), [
+    { ssid: 'Host AP', address: '198.51.100.1/24', label: null, kind: 'local', gateway: false },
+    { ssid: 'Main Wi-Fi', address: '192.0.2.1', label: 'Gateway device', kind: 'configured', gateway: true },
+    { ssid: 'Workshop Wi-Fi', address: '192.0.2.9', label: 'Workshop', kind: 'configured', gateway: false },
+  ]);
+  const inventory = [
+    { id: 'ap', state: 'online', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'hotspot-if' }] },
+    { id: 'gateway-lan', state: 'online', connection_type: 'unknown', ip: '192.0.2.23', observations: [{ source: 'ip_neigh', interface: 'lan-uplink' }] },
+  ];
+  const partition = partitionNetworkMapDevices(network, inventory);
+  assert.deepEqual(partition.apClients.map((x) => x.id), ['ap']);
+  assert.deepEqual(partition.other.unknown.map((x) => x.id), ['gateway-lan']);
+});
+
+test('Network Explorer searches across network evidence without inventing associations', () => {
+  const network = {
+    access_point: { available: true, interface: 'local-ap', ssid: 'Local Lab', ipv4: '198.51.100.1/24' },
+    known_access_points: [{ ssid: 'External Router', address: '192.0.2.1', label: 'Gateway' }],
+  };
+  const inventory = [
+    { id: 'heat', state: 'online', online: true, display_name: 'Värmepump', vendor: 'Daikin', ip: '198.51.100.2', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'local-ap' }] },
+    { id: 'tv', state: 'online', online: true, display_name: 'Apple TV', ip: '192.0.2.102', connection_type: 'unknown', observations: [{ source: 'ip_neigh', interface: 'uplink' }] },
+    { id: 'camera', state: 'recently_seen', online: false, display_name: 'Kamera', ip: '192.0.2.105', connection_type: 'unknown', observations: [] },
+    { id: 'remembered', state: 'known', online: false, display_name: 'Old', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'local-ap' }] },
+  ];
+  const all = exploreNetworkMap(network, inventory);
+  assert.deepEqual(all.counts, { total: 3, local: 1, unassigned: 2, online: 2 });
+  assert.equal(all.matched, 3);
+  assert.deepEqual(exploreNetworkMap(network, inventory, 'DAIKIN', 'all').apClients.map((d) => d.id), ['heat']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, 'varmepump', 'all').apClients.map((d) => d.id), ['heat']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '192.0.2.102', 'unassigned').other.unknown.map((d) => d.id), ['tv']);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '', 'local').other.unknown, []);
+  assert.deepEqual(exploreNetworkMap(network, inventory, '', 'online').other.unknown.map((d) => d.id), ['tv']);
+  assert.equal(exploreNetworkMap(network, inventory, 'missing', 'all').matched, 0);
+  assert.equal(exploreNetworkMap(network, inventory, '', 'malformed').view, 'all');
+  assert.equal(all.counts.total, 3, 'search and filters must not alter the source inventory');
+});
+
+test('network map remains meaningful with no declared external APs', () => {
+  assert.deepEqual(networkMapAccessPoints({}), []);
+  assert.deepEqual(networkMapAccessPoints({ uplink: { gateway: '192.0.2.1' } }), []);
+  assert.equal(networkMapAccessPoints({ access_point: { available: true, ssid: 'Local' } }).length, 1);
+});
+
 test('device filtering supports friendly names, vendor, category, IP, and MAC', () => {
   assert.equal(filterDevices(devices, 'online').length, 1);
   assert.equal(filterDevices(devices, 'wifi', '02:00:00:00:00:01')[0].display_name, 'Sample iPhone');
   assert.equal(filterDevices(devices, 'all', 'samsung')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'all', 'qe65q70t')[0].display_name, 'Living room TV');
   assert.equal(filterDevices(devices, 'unknown').length, 1);
+});
+
+test('search combines independent fields, ignores accents, and respects filters', () => {
+  const inventory = [
+    { display_name: 'Värmepump', vendor: 'Daikin', category: 'smart_home', connection_type: 'wifi', online: true, metadata: { location: 'Kök', tags: ['klimat'] } },
+    { display_name: 'TV i vardagsrum', vendor: 'Samsung', category: 'tv', connection_type: 'ethernet', online: false, metadata: { note: 'Filmkväll' } },
+  ];
+  assert.deepEqual(filterDevices(inventory, 'all', 'DAIKIN kök').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'all', 'varmepump klimat').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'all', 'samsung filmkvall').map((device) => device.vendor), ['Samsung']);
+  assert.deepEqual(filterDevices(inventory, 'wifi', 'klimat daikin').map((device) => device.vendor), ['Daikin']);
+  assert.deepEqual(filterDevices(inventory, 'online', 'samsung').map((device) => device.vendor), []);
+  assert.deepEqual(filterDevices(inventory, 'all', 'kök saknas'), []);
+  assert.equal(filterDevices(inventory, 'all', '  ').length, 2);
+  assert.equal(filterDevices(inventory, 'all', 'VARMEPUMP').length, 1);
 });
 
 test('identity quality distinguishes evidence-rich and unidentified devices', () => {
@@ -147,6 +237,43 @@ test('network map groups current devices without reviving remembered devices', (
   assert.equal(groups.vpn.length, 1);
   assert.equal(groups.unknown.length, 1);
   assert.equal(filterDevices(items, 'connection_unknown')[0].display_name, 'Mystery');
+});
+
+test('network topology places only observed clients under the local AP, even with many devices', () => {
+  const localAp = { access_point: { available: true, interface: 'hotspot-if', ssid: 'Test-Pi', ipv4: '198.51.100.1' } };
+  const clients = Array.from({ length: 8 }, (_, index) => ({
+    id: `local-${index}`, state: 'online', connection_type: 'wifi',
+    observations: [{ source: index % 2 ? 'wifi_station' : 'ip_neigh', interface: 'hotspot-if' }],
+  }));
+  const otherDevices = [
+    { id: 'router-side', state: 'online', connection_type: 'unknown', ip: '192.0.2.25', observations: [{ source: 'ip_neigh', interface: 'uplink-if' }] },
+    { id: 'other-wifi', state: 'online', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'other-ap-if' }] },
+    { id: 'vpn-peer', state: 'online', connection_type: 'vpn', observations: [] },
+    { id: 'legacy-ap-client', state: 'online', connection_type: 'wifi', interface: 'hotspot-if', observations: [] },
+    { id: 'ambiguous-legacy', state: 'online', connection_type: 'wifi', observations: [] },
+    { id: 'remembered', state: 'known', connection_type: 'wifi', observations: [{ source: 'wifi_station', interface: 'hotspot-if' }] },
+  ];
+  const original = [...clients, ...otherDevices];
+  const result = partitionNetworkMapDevices(localAp, original);
+  assert.equal(result.apClients.length, 9);
+  assert.equal(result.other.unknown.length, 1);
+  assert.equal(result.other.wifi.length, 2);
+  assert.equal(result.other.vpn.length, 1);
+  assert.equal(result.other.ethernet.length, 0);
+  assert.equal(result.apClients.some((device) => device.id === 'remembered'), false);
+  assert.equal(result.apClients.some((device) => device.id === 'other-wifi'), false);
+  assert.equal(original.length, 14, 'the source array must remain unchanged');
+  assert.deepEqual(partitionNetworkMapDevices({ access_point: { available: false, interface: 'hotspot-if' } }, clients).apClients, []);
+  assert.deepEqual(partitionNetworkMapDevices({}, clients).apClients, []);
+});
+
+test('network topology never infers AP membership from matching IP ranges', () => {
+  const network = { access_point: { available: true, interface: 'hotspot-if', ipv4: '198.51.100.1' } };
+  const device = { id: 'unverified', state: 'online', ip: '198.51.100.27', connection_type: 'unknown',
+    observations: [{ source: 'ip_neigh', interface: 'uplink-if' }] };
+  const result = partitionNetworkMapDevices(network, [device]);
+  assert.equal(result.apClients.length, 0);
+  assert.equal(result.other.unknown.length, 1);
 });
 
 test('inventory export is stable, private-data explicit, and CSV-safe', () => {
