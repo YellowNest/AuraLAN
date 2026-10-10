@@ -21,7 +21,7 @@ class KnownAccessPointTests(unittest.TestCase):
         ])
 
     def test_invalid_entries_and_duplicate_address_cannot_invent_more_aps(self):
-        configured = '[{"ssid":"One","address":"192.0.2.1"},{"ssid":"Two","address":"192.0.2.1"},{"ssid":"Invalid","address":"not-ip"},{"ssid":"Loopback","address":"127.0.0.1"},{"ssid":"No-IP"}]'
+        configured = '[{"ssid":"One","address":"192.0.2.1"},{"ssid":"Two","address":"192.0.2.1"},{"ssid":"Invalid","address":"not-ip"},{"ssid":"Loopback","address":"127.0.0.1"},{"ssid":"No-IP"},{"ssid":"LinkLocal","address":"169.254.1.1"},{"ssid":"Broadcast","address":"255.255.255.255"},{"ssid":"Multicast","address":"224.0.0.1"}]'
         with patch.dict(os.environ, {"AURALAN_KNOWN_ACCESS_POINTS": configured}):
             items = system.known_access_points()
         self.assertEqual(items, [{"ssid": "One", "address": "192.0.2.1", "label": None}])
