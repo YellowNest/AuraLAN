@@ -202,7 +202,7 @@ def known_access_points() -> list[dict[str, str | None]]:
             ipv4 = ipaddress.IPv4Address(address.strip())
         except (ipaddress.AddressValueError, ValueError):
             continue
-        if ipv4.is_unspecified or ipv4.is_multicast or ipv4.is_loopback:
+        if ipv4.is_unspecified or ipv4.is_multicast or ipv4.is_loopback or ipv4.is_link_local or ipv4.is_reserved or ipv4 == ipaddress.IPv4Address('255.255.255.255'):
             continue
         if label is not None and (not isinstance(label, str) or len(label.strip()) > 64):
             continue
