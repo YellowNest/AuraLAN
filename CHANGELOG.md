@@ -6,13 +6,21 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
-### 1.6.6 development
+## [1.6.6] - 2026-10-13
+
+### Stable release since 1.6.0
+- Consolidates the updated overview, Network Pulse and History, identity review, device search, accessibility improvements and mobile layouts.
+- Ships Network Explorer search and filters with explicit local and configured Wi-Fi access-point identities, without inventing remote AP client associations.
+- Adds evidence-source labels for local AP observations, safer configured IPv4 validation and regression checks for device placement.
+- Keeps existing network discovery permissions, persisted data and public API compatible, with no database migration.
+
+### Access-point evidence labels
 - Show the exact observation category on each local access-point device: Wi-Fi station, AP-scoped DHCP lease, IP neighbour or legacy interface hint. Only station records are described as radio association evidence.
 - Reuse one evidence classifier in topology grouping and display, preventing label/group divergence and preserving conservative placement of unknown devices.
 - Fix the Network Explorer's local-only empty state so it no longer incorrectly reports that the whole inventory is empty.
 - Add unit and responsive-browser regression checks for interface evidence and map badges. No new probes, runtime permissions or database migrations.
 
-### 1.6.5 development
+### Access-point address validation
 - Validate operator-configured external access-point addresses more strictly, rejecting link-local, reserved and non-unicast addresses before presenting them as infrastructure.
 - Extend regression coverage for malformed AP configuration and excluded address types.
 - Align runtime version fallbacks and public development documentation at `1.6.5-dev`; this is not a stable release or published tag.
