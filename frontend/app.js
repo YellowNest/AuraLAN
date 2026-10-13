@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 
@@ -684,13 +684,15 @@ function renderServiceCards(items, compact = false) {
   return `<div class="service-grid ${compact ? 'compact' : ''}">${items.map((service) => `<button class="service-card surface" type="button" data-service="${escapeHtml(service.id)}"><div class="service-card-top"><span class="service-symbol">${serviceMark(service.id)}</span>${statusPill(service.state)}</div><h3>${escapeHtml(service.name)}</h3><p>${escapeHtml(serviceSummary(service))}</p><span class="card-link">${t('details')} ${icon('chevron')}</span></button>`).join('')}</div>`;
 }
 
-function renderTopologyDevices(items) {
+function renderTopologyDevices(items, network = null) {
   const showCount = 5;
   const row = (device) => {
     const presentation = devicePresentation(device);
     const currentState = deviceState(device);
     const statusLabel = deviceStateLabel(device);
-    return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}">${deviceSymbolMarkup(device, presentation, currentState, 'topology-device-symbol')}<span class="topology-device-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small></span>${icon('chevron')}</button>`;
+    const evidence = network ? localApEvidence(network, device) : null;
+    const evidenceLabel = evidence ? t(`apEvidence${evidence[0].toUpperCase()}${evidence.slice(1)}`) : '';
+    return `<button type="button" class="topology-device" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(t('device'))}: ${escapeHtml(presentation.name)} · ${escapeHtml(t('status'))}: ${escapeHtml(statusLabel)}${evidence ? ` · ${escapeHtml(evidenceLabel)}` : ''}">${deviceSymbolMarkup(device, presentation, currentState, 'topology-device-symbol')}<span class="topology-device-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(safe(device.ip, '—'))}</small>${evidence ? `<span class="topology-evidence" title="${escapeHtml(evidenceLabel)}">${escapeHtml(evidenceLabel)}</span>` : ''}</span>${icon('chevron')}</button>`;
   };
   return `<div class="topology-device-list">${items.slice(0, showCount).map(row).join('')}</div>${items.length > showCount
     ? `<details class="topology-overflow"><summary>${escapeHtml(t('moreDevices', { count: items.length - showCount }))}${icon('chevron')}</summary><div class="topology-device-list">${items.slice(showCount).map(row).join('')}</div></details>`
@@ -712,7 +714,7 @@ function renderNetworkMapResults(network) {
   const gatewayAp = accessPoints.find((item) => item.gateway);
   const rootName = gatewayAp?.label || t('defaultGateway');
   const remainingCount = visibleGroups.reduce((sum, [id]) => sum + other[id].length, 0);
-  if (!accessPoints.length && !remainingCount && !state.mapQuery) {
+  if (!accessPoints.length && !remainingCount && !state.mapQuery && state.mapView === 'all') {
     return `<div class="empty-state">${icon('network')}<h3>${t('noCurrentDevices')}</h3><p>${t('networkMapHint')}</p></div>`;
   }
 
@@ -727,7 +729,7 @@ function renderNetworkMapResults(network) {
         ${point.gateway ? `<span class="topology-ap-tag">${t('gateway')}</span>` : ''}
       </div>
       <div class="topology-ap-client-bar"><span>${escapeHtml(note)}</span>${local ? `<strong class="topology-zone-count">${observedCount}</strong>` : ''}</div>
-      ${local && apClients.length ? renderTopologyDevices(apClients) : `<p class="topology-zone-empty">${escapeHtml(t(local ? 'noConfirmedApClients' : 'externalApClientsUnknown'))}</p>`}
+      ${local && apClients.length ? renderTopologyDevices(apClients, network) : `<p class="topology-zone-empty">${escapeHtml(t(local ? 'noConfirmedApClients' : 'externalApClientsUnknown'))}</p>`}
     </article>`;
   }).join('');
 

@@ -399,6 +399,7 @@ try {
       return {
         apCount: ap ? Number(ap.querySelector('.topology-zone-count')?.textContent || 0) : 0,
         apItems: apIds.length,
+        apEvidenceBadges: ap?.querySelectorAll('.topology-device .topology-evidence').length || 0,
         otherCount: other ? Number(other.querySelector('.topology-zone-count')?.textContent || 0) : 0,
         otherItems: otherIds.length,
         unique: new Set(all).size === all.length,
@@ -409,6 +410,8 @@ try {
     assert.equal(topologyMembership.unique, true, `${viewport.name}/network: a device was assigned to multiple zones`);
     assert.equal(topologyMembership.apCount, topologyMembership.apItems,
       `${viewport.name}/network: AP client count does not match the evidence-backed rows`);
+    assert.equal(topologyMembership.apEvidenceBadges, topologyMembership.apItems,
+      `${viewport.name}/network: a local AP row lacks its observation source`);
     assert.equal(topologyMembership.otherCount, topologyMembership.otherItems,
       `${viewport.name}/network: unassigned-device count does not match its rows`);
     assert.equal(topologyMembership.fabricatedConnectors, false,

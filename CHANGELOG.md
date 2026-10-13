@@ -6,6 +6,12 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+### 1.6.6 development
+- Show the exact observation category on each local access-point device: Wi-Fi station, AP-scoped DHCP lease, IP neighbour or legacy interface hint. Only station records are described as radio association evidence.
+- Reuse one evidence classifier in topology grouping and display, preventing label/group divergence and preserving conservative placement of unknown devices.
+- Fix the Network Explorer's local-only empty state so it no longer incorrectly reports that the whole inventory is empty.
+- Add unit and responsive-browser regression checks for interface evidence and map badges. No new probes, runtime permissions or database migrations.
+
 ### 1.6.5 development
 - Validate operator-configured external access-point addresses more strictly, rejecting link-local, reserved and non-unicast addresses before presenting them as infrastructure.
 - Extend regression coverage for malformed AP configuration and excluded address types.

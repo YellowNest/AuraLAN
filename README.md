@@ -24,9 +24,11 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
-**Development 1.6.5-dev:** Network Explorer provides evidence-based access-point
-mapping, searchable devices, multi-AP descriptions and responsive filters. The
-current development work also tightens validation of configured AP addresses.
+**Development 1.6.6-dev:** Network Explorer provides evidence-based access-point
+mapping, searchable devices, multi-AP descriptions and responsive filters. Device
+badges distinguish Wi-Fi station records from DHCP, IP-neighbour and legacy AP
+interface hints; interface evidence alone does not prove radio association.
+Configured AP address validation also rejects unsupported or reserved values.
 This branch is not a stable release. Use the published release from `main` for
 production deployments; development builds require validation before promotion.
 

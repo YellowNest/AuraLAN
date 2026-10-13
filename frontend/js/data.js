@@ -281,23 +281,30 @@ export function networkMapAccessPoints(network = {}) {
   return accessPoints;
 }
 
+// The source matters. Only wifi_station reports an observed radio association;
+// DHCP leases and IP neighbours merely confirm the AP-facing host interface.
+// Legacy interface data is kept as an explicitly weaker compatibility hint.
+export function localApEvidence(network, device) {
+  const ap = network?.access_point || {};
+  const iface = ap.available && typeof ap.interface === 'string' ? ap.interface.trim() : '';
+  if (!iface || !device || device.state === 'known') return null;
+  const observations = Array.isArray(device.observations) ? device.observations : [];
+  const sources = new Set(observations
+    .filter((item) => item?.interface === iface)
+    .map((item) => item.source));
+  if (sources.has('wifi_station')) return 'station';
+  if (sources.has('dhcp_lease')) return 'dhcp';
+  if (sources.has('ip_neigh')) return 'neighbor';
+  if (observations.length === 0 && device.interface === iface && device.connection_type === 'wifi') return 'legacy';
+  return null;
+}
+
 export function partitionNetworkMapDevices(network, items) {
-  const accessPoint = network?.access_point || {};
-  const apInterface = accessPoint.available && typeof accessPoint.interface === 'string'
-    ? accessPoint.interface.trim() : '';
   const apClients = [];
   const other = { wifi: [], ethernet: [], vpn: [], unknown: [] };
   for (const device of (Array.isArray(items) ? items : [])) {
     if (!device || device.state === 'known') continue;
-    const observations = Array.isArray(device.observations) ? device.observations : [];
-    const observedOnAp = apInterface && observations.some((item) => (
-      item?.interface === apInterface
-      && ['wifi_station', 'ip_neigh', 'dhcp_lease'].includes(item?.source)
-    ));
-    // Compatibility for older API responses without per-source observations.
-    const legacyApClient = apInterface && !observations.length
-      && device.interface === apInterface && device.connection_type === 'wifi';
-    if (observedOnAp || legacyApClient) {
+    if (localApEvidence(network, device)) {
       apClients.push(device);
     } else {
       const key = ['wifi', 'ethernet', 'vpn'].includes(device.connection_type)

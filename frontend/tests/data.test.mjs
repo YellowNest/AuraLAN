@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -27,6 +27,30 @@ test('network topology keeps the upstream gateway separate from the local Wi-Fi 
     accessPoint: null,
   });
   assert.deepEqual(networkMapInfrastructure({}), { gatewayAddress: null, accessPoint: null });
+});
+
+test('AP evidence is typed, prioritized and never inferred from addresses', () => {
+  const network = { access_point: { available: true, interface: 'hotspot-if' } };
+  const sample = (source, iface = 'hotspot-if') => ({
+    state: 'online', connection_type: 'wifi',
+    observations: [{ source, interface: iface }],
+  });
+  assert.equal(localApEvidence(network, sample('wifi_station')), 'station');
+  assert.equal(localApEvidence(network, sample('dhcp_lease')), 'dhcp');
+  assert.equal(localApEvidence(network, sample('ip_neigh')), 'neighbor');
+  assert.equal(localApEvidence(network, sample('wifi_station', 'uplink-if')), null);
+  assert.equal(localApEvidence(network, sample('mdns')), null);
+  assert.equal(localApEvidence(network, { ...sample('wifi_station'), state: 'known' }), null);
+  assert.equal(localApEvidence(network, { connection_type: 'wifi', interface: 'hotspot-if', observations: [] }), 'legacy');
+  assert.equal(localApEvidence(network, { connection_type: 'ethernet', interface: 'hotspot-if', observations: [] }), null);
+  assert.equal(localApEvidence({ access_point: { available: false, interface: 'hotspot-if' } }, sample('wifi_station')), null);
+  assert.equal(localApEvidence(network, {
+    ...sample('ip_neigh'), observations: [sample('ip_neigh').observations[0], sample('wifi_station').observations[0]],
+  }), 'station', 'a direct station record supersedes neighbour evidence');
+  assert.equal(partitionNetworkMapDevices(network, [
+    { id: 'one', ...sample('wifi_station') },
+    { id: 'two', ...sample('wifi_station', 'uplink-if'), ip: '198.51.100.2' },
+  ]).apClients.length, 1);
 });
 
 test('network map shows two different access points but never invents router-side associations', () => {
