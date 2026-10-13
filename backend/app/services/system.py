@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ipaddress
+import json
 import os
 import shutil
 import sqlite3
@@ -169,6 +171,53 @@ def _access_point() -> tuple[dict[str, Any], bool]:
     }, ap_expected)
 
 
+def known_access_points() -> list[dict[str, str | None]]:
+    """Operator-declared external APs: informational, never client-association evidence.
+
+    Keep invalid, duplicate or implausibly large configurations out of the
+    snapshot. We deliberately do not scan neighbouring SSIDs or scrape routers.
+    """
+    raw = os.environ.get("AURALAN_KNOWN_ACCESS_POINTS", "").strip()
+    if not raw or len(raw) > 4096:
+        return []
+    try:
+        items = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(items, list) or len(items) > 8:
+        return []
+    result: list[dict[str, str | None]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        ssid = item.get("ssid")
+        address = item.get("address")
+        label = item.get("label")
+        if not isinstance(ssid, str) or not 1 <= len(ssid.strip()) <= 32:
+            continue
+        if not isinstance(address, str):
+            continue
+        try:
+            ipv4 = ipaddress.IPv4Address(address.strip())
+        except (ipaddress.AddressValueError, ValueError):
+            continue
+        if ipv4.is_unspecified or ipv4.is_multicast or ipv4.is_loopback or ipv4.is_link_local or ipv4.is_reserved or ipv4 == ipaddress.IPv4Address('255.255.255.255'):
+            continue
+        if label is not None and (not isinstance(label, str) or len(label.strip()) > 64):
+            continue
+        identifier = str(ipv4)
+        if identifier in seen:
+            continue
+        seen.add(identifier)
+        result.append({
+            "ssid": ssid.strip(),
+            "address": identifier,
+            "label": label.strip() if label and label.strip() else None,
+        })
+    return result
+
+
 def discover_network() -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
     errors: list[str] = []
     access_point, ap_expected = _access_point()
@@ -204,7 +253,7 @@ def discover_network() -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]
         {key: str(row[key]) for key in ("dst", "gateway", "dev", "protocol") if row.get(key) is not None}
         for row in route_rows
     ]
-    return ({"access_point": access_point, "uplink": uplink, "dhcp": dhcp, "interfaces": interface_rows, "routes": routes}, device_rows, errors)
+    return ({"access_point": access_point, "known_access_points": known_access_points(), "uplink": uplink, "dhcp": dhcp, "interfaces": interface_rows, "routes": routes}, device_rows, errors)
 
 
 def system_state(network: dict[str, Any], service_items: list[dict[str, Any]], errors: list[str]) -> dict[str, Any]:

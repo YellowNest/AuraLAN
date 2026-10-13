@@ -10,6 +10,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_PORT` | `8787` | HTTP port |
 | `AURALAN_DATA_DIR` | user state directory; `/var/lib/auralan` in supplied systemd unit | AuraLAN-owned SQLite/runtime state |
 | `AURALAN_WIFI_INTERFACE` | automatic | Prefer one wireless interface when several exist |
+| `AURALAN_KNOWN_ACCESS_POINTS` | unset | Optional JSON list of up to eight external Wi-Fi AP identities; display-only, never used to infer client association |
 | `AURALAN_PIHOLE_FTL_DB` | standard Pi-hole paths | Explicit path to a readable Pi-hole FTL database |
 | `AURALAN_PIHOLE_DIR` | `/etc/pihole` | Alternate Pi-hole directory for local custom-name files and host-service detection in container deployments |
 | `AURALAN_OUI_FILE` | standard Linux OUI paths | Explicit local/offline OUI registry |
@@ -53,6 +54,61 @@ AURALAN_WIFI_INTERFACE=hotspot0
 ```
 
 The name is an override, not a built-in assumption.
+
+## External Wi-Fi access points in Network Map
+
+AuraLAN can directly observe Wi-Fi stations on its own access point. It cannot
+infer the SSID or Wi-Fi clients of a separate gateway/router merely from the
+router's IP address. Configure known external access points *explicitly* to
+make multi-AP layouts understandable without attributing clients incorrectly.
+
+For a Compose installation, add this line to the Compose project's `.env`:
+
+```dotenv
+AURALAN_KNOWN_ACCESS_POINTS='[{"ssid":"Example Wi-Fi","address":"192.0.2.1","label":"Gateway router"}]'
+```
+
+The current Compose file forwards the variable to the container. Recreate only
+AuraLAN using the **same Compose files that were used to deploy it**; preserve
+any local image override. Watchtower continues to track the selected image.
+
+On installations where the existing `compose.yaml` predates this setting,
+the image update alone does **not** update Compose. Prefer a small additional
+overlay so there is no need to replace the site's Compose file:
+
+```yaml
+# compose.access-points.yaml
+services:
+  auralan:
+    environment:
+      AURALAN_KNOWN_ACCESS_POINTS: '[{"ssid":"Example Wi-Fi","address":"192.0.2.1","label":"Gateway router"}]'
+```
+
+Deploy with the original Compose files **plus** this overlay in the same order,
+for example:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml -f compose.access-points.yaml up -d --no-deps auralan
+```
+
+This override only adds the display configuration and does not change mounts,
+capabilities, or the selected `:dev` image.
+
+For more than one external AP, use separate JSON objects. Each entry requires
+a Wi-Fi `ssid` (1–32 characters) and unique IPv4 `address`; an optional
+`label` (up to 64 characters) can name the manufacturer or location.
+
+```dotenv
+AURALAN_KNOWN_ACCESS_POINTS='[{"ssid":"Office","address":"192.0.2.1","label":"Gateway"},{"ssid":"Workshop","address":"192.0.2.5","label":"Workshop AP"}]'
+```
+
+A maximum of eight entries (up to 4096 bytes of JSON) is accepted. Invalid
+entries are ignored. There is no router login, network scan, password handling,
+or remote API call. The operator-supplied data appears in the read-only local
+status API and must **not** be mistaken for discovered Wi-Fi association data.
+Clients are shown beneath an external AP only if future separately verified
+association evidence is available; the current Network Map intentionally keeps
+other LAN devices outside those AP cards.
 
 ## Continuous monitoring
 

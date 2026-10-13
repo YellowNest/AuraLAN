@@ -2,7 +2,7 @@ name: Container
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
     tags: ["v*"]
     paths:
       - "Dockerfile"
@@ -14,7 +14,7 @@ on:
       - "project.json"
       - ".github/workflows/container.yml"
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, "feature/**"]
     paths:
       - "Dockerfile"
       - ".dockerignore"
@@ -28,6 +28,11 @@ on:
 
 permissions:
   contents: read
+
+# Cancel superseded builds so an older push cannot overwrite a newer dev tag.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
@@ -100,10 +105,49 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  browser:
+    name: Browser release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend runtime
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Boot isolated API and verify responsive UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AURALAN_DATA_DIR="$RUNNER_TEMP/auralan-browser-state"
+          export AURALAN_KNOWN_ACCESS_POINTS='[{"ssid":"Fixture Wi-Fi","address":"192.0.2.1","label":"Fixture router"},{"ssid":"Workshop Wi-Fi","address":"192.0.2.5"}]'
+          python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8878 >"$RUNNER_TEMP/auralan-browser.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8878/api/v1/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat "$RUNNER_TEMP/auralan-browser.log"
+              exit 1
+            fi
+            sleep 0.5
+          done
+          AURALAN_URL=http://127.0.0.1:8878 bash scripts/test-ui.sh
+
   publish:
     name: Publish multi-arch image
-    needs: [smoke, multiarch]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [smoke, multiarch, browser]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/v1.6.1-network-pulse' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -150,6 +194,7 @@ jobs:
           images: ghcr.io/yellownest/auralan
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/feature/v1.6.1-network-pulse' }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -175,11 +220,13 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Verify public multi-arch latest image
-        if: github.ref == 'refs/heads/main'
+      - name: Verify public multi-arch published image
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/v1.6.1-network-pulse'
         shell: bash
         run: |
           set -euo pipefail
           docker logout ghcr.io >/dev/null 2>&1 || true
-          docker buildx imagetools inspect --raw ghcr.io/yellownest/auralan:latest >manifest.json
+          tag=latest
+          if [[ "$GITHUB_REF" == refs/heads/feature/v1.6.1-network-pulse ]]; then tag=dev; fi
+          docker buildx imagetools inspect --raw "ghcr.io/yellownest/auralan:$tag" >manifest.json
           python -c 'import json; d=json.load(open("manifest.json", encoding="utf-8")); a={m.get("platform",{}).get("architecture") for m in d.get("manifests",[]) if m.get("platform",{}).get("os")=="linux"}; missing={"amd64","arm64"}-a; assert not missing, f"missing architectures: {sorted(missing)}"; print("Public GHCR manifest OK:", sorted(a))'

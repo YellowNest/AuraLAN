@@ -14,7 +14,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 1.6.0" src="https://img.shields.io/badge/release-1.6.0-2563EB">
+  <img alt="Release 1.6.6" src="https://img.shields.io/badge/release-1.6.6-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
   <a href="https://ossdrop.com/tool/auralan"><img alt="AuraLAN on OSSDrop" src="https://ossdrop.com/badge/auralan"></a>
@@ -23,6 +23,14 @@
 AuraLAN turns the network state already available on a Linux host into a focused dashboard for people who want to understand their LAN without living in terminals.
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
+
+**Stable release 1.6.6:** Network Explorer provides evidence-based access-point
+mapping, searchable devices, multi-AP descriptions and responsive filters. Device
+badges distinguish Wi-Fi station records from DHCP, IP-neighbour and legacy AP
+interface hints; interface evidence alone does not prove radio association.
+Configured AP address validation also rejects unsupported or reserved values.
+The `main` branch carries the stable release; the `:dev` image tracks ongoing
+development and should not be treated as a stable deployment.
 
 ## Screenshots
 
