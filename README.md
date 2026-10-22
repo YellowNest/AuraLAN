@@ -14,7 +14,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 1.6.6" src="https://img.shields.io/badge/release-1.6.6-2563EB">
+  <img alt="Release 1.6.7" src="https://img.shields.io/badge/release-1.6.7-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
   <a href="https://ossdrop.com/tool/auralan"><img alt="AuraLAN on OSSDrop" src="https://ossdrop.com/badge/auralan"></a>
@@ -24,7 +24,7 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
-**Stable release 1.6.6:** Network Explorer provides evidence-based access-point
+**Stable release 1.6.7:** Network Explorer provides evidence-based access-point
 mapping, searchable devices, multi-AP descriptions and responsive filters. Device
 badges distinguish Wi-Fi station records from DHCP, IP-neighbour and legacy AP
 interface hints; interface evidence alone does not prove radio association.
@@ -281,7 +281,7 @@ The local check uses temporary AuraLAN state for the isolated instance, so it do
 
 ## Project status
 
-AuraLAN 1.6.0 is the current stable release. It adds **Network History**, a bounded privacy-preserving 15-minute aggregate timeline with a fresh Overview visualization and a dedicated history API, plus the official hardened AMD64/ARM64 Docker distribution. The release also tightens long-running DNS-SD cache bounds and fixes host Pi-hole visibility in container deployments. Network Pulse, Network Review, Activity Center, Network Baseline, Identity Intelligence, persistent inventory/presence history, Home Assistant integration, Wake-on-LAN, reachability checks and local Service Exposure snapshots remain part of the stable v1 product.
+AuraLAN 1.6.7 is the current stable release. It adds the **Device Focus** overview for pinned favorites, with one-tap details, observed-online and not-seen distinctions, and a responsive mobile layout. Version 1.6.0 introduced **Network History**, a bounded privacy-preserving 15-minute aggregate timeline with a fresh Overview visualization and a dedicated history API, plus the official hardened AMD64/ARM64 Docker distribution. The release also tightens long-running DNS-SD cache bounds and fixes host Pi-hole visibility in container deployments. Network Pulse, Network Review, Activity Center, Network Baseline, Identity Intelligence, persistent inventory/presence history, Home Assistant integration, Wake-on-LAN, reachability checks and local Service Exposure snapshots remain part of the stable v1 product.
 
 User-facing changes are tracked in **[CHANGELOG.md](CHANGELOG.md)**.
 
