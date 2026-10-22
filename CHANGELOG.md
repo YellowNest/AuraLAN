@@ -6,6 +6,19 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [1.6.7] - 2026-10-22
+
+### Added — Device Focus
+- A responsive Overview watchboard for locally pinned favorites, with one-tap device inspection and direct links to the full favorites filter.
+- Separate counts for observed-online, last-seen-only and unconfirmed favorite devices. A missing observation is explicitly **not** reported as confirmed offline.
+- An onboarding state for installations without favorites, and a bounded list that stays practical on mobile as the network grows.
+
+### Reliability and accessibility
+- Deterministic priority for favorites needing review, natural sorting and a bounded card layout with no new API calls, permissions, telemetry or database migration.
+- Swedish and English interface copy, visible keyboard focus, reduced-motion support and model-level regression tests.
+- Existing polling, read-only runtime protections and local-first persistence are unchanged.
+
+
 ## [1.6.6] - 2026-10-13
 
 ### Stable release since 1.6.0
