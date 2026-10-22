@@ -1,5 +1,6 @@
 const strings = {
   en: {
+    focusEyebrow: 'DEVICE FOCUS', focusTitle: 'Your essential devices', focusHint: 'Live observations for the devices you pinned. Not seen is not the same as offline.', focusPinned: 'Pinned devices', focusObserved: 'Observed online', focusNotSeen: 'Not seen now', focusUnconfirmed: 'Status unconfirmed', focusAllFavorites: 'All favorites', focusMore: 'See {count} more favorites', focusEmptyTitle: 'Make this network yours', focusEmptyHint: 'Open a device and mark it as a favorite. Your important devices will appear here automatically.', focusBrowseDevices: 'Browse devices',
     overview: 'Overview', network: 'Network', devices: 'Devices', services: 'Services', settings: 'Settings', diagnostics: 'Diagnostics', advanced: 'Advanced', error: 'Issue',
     search: 'Search', refresh: 'Refresh', live: 'Live', offline: 'Offline', readOnly: 'Read-only', localMetadata: 'Local labels', system: 'System',
     everythingGood: 'Everything looks good', serviceAttention: '{count} service needs attention', networkNeedsReview: 'Network status needs a look', accessPoint: 'Access point', uplink: 'Internet',
@@ -31,6 +32,7 @@ const strings = {
     apName: 'SSID', networkProfile: 'Network profile', copy: 'Copy', primaryNavigation: 'Primary navigation', searchEverything: 'Search everything'
   },
   sv: {
+    focusEyebrow: 'ENHETSFOKUS', focusTitle: 'Dina viktigaste enheter', focusHint: 'Aktuella observationer för favoriter. Att en enhet inte syns betyder inte att den är offline.', focusPinned: 'Favoriter', focusObserved: 'Observerad online', focusNotSeen: 'Syns inte nu', focusUnconfirmed: 'Status obekräftad', focusAllFavorites: 'Alla favoriter', focusMore: 'Visa ytterligare {count} favoriter', focusEmptyTitle: 'Gör nätverket till ditt', focusEmptyHint: 'Öppna en enhet och markera den som favorit. Dina viktigaste enheter visas då automatiskt här.', focusBrowseDevices: 'Visa enheter',
     overview: 'Översikt', network: 'Nätverk', devices: 'Enheter', services: 'Tjänster', settings: 'Inställningar', diagnostics: 'Diagnostik', advanced: 'Avancerat', error: 'Fel',
     search: 'Sök', refresh: 'Uppdatera', live: 'Live', offline: 'Offline', readOnly: 'Endast läsning', localMetadata: 'Lokala etiketter', system: 'System',
     everythingGood: 'Allt ser bra ut', serviceAttention: '{count} tjänst behöver uppmärksamhet', networkNeedsReview: 'Nätverket behöver granskas', accessPoint: 'Accesspunkt', uplink: 'Internet',
