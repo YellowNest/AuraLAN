@@ -4,6 +4,7 @@ import { icon, serviceIcons, serviceMark } from './js/icons.js';
 import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
+import { focusBoardModel } from './js/focus.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const appView = $('#app-view');
@@ -627,6 +628,41 @@ function renderNetworkReview() {
   return `<section class="content-section review-section" id="network-review" tabindex="-1"><header class="section-title"><div><p class="eyebrow">${t('reviewQueue')}</p><h2>${t('reviewQueueTitle')}</h2><p class="section-hint">${t('reviewQueueHint')}</p></div><span class="review-count">${items.length}</span></header><div class="review-grid">${cards}</div></section>`;
 }
 
+function renderFocusBoard() {
+  const model = focusBoardModel(devices());
+  if (!model.total) {
+    return `<section class="focus-board focus-board-empty surface" aria-labelledby="focus-title">
+      <span class="focus-emblem">${icon('devices')}</span>
+      <div class="focus-intro"><p class="eyebrow">${t('focusEyebrow')}</p><h2 id="focus-title">${t('focusEmptyTitle')}</h2><p>${t('focusEmptyHint')}</p></div>
+      <button class="secondary-button" type="button" data-route="devices">${t('focusBrowseDevices')}${icon('chevron')}</button>
+    </section>`;
+  }
+  const statusLabel = { online: t('focusObserved'), not_seen: t('focusNotSeen'), unconfirmed: t('focusUnconfirmed') };
+  const cards = model.items.map(({ device, status }) => {
+    const presentation = devicePresentation(device);
+    const details = [presentation.context, device.metadata?.location].filter(Boolean).join(' · ');
+    return `<button type="button" class="focus-device surface" data-device="${escapeHtml(device.id)}" aria-label="${escapeHtml(presentation.name)} · ${escapeHtml(statusLabel[status])}">
+      <span class="focus-device-icon">${icon(deviceIconKey(device))}</span>
+      <span class="focus-device-body"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(details || t('device'))}</small></span>
+      <span class="focus-device-state focus-${status}"><i aria-hidden="true"></i>${escapeHtml(statusLabel[status])}</span>
+      <span class="focus-device-chevron" aria-hidden="true">${icon('chevron')}</span>
+    </button>`;
+  }).join('');
+  return `<section class="content-section focus-board" aria-labelledby="focus-title">
+    <header class="section-title focus-board-heading">
+      <div><p class="eyebrow">${t('focusEyebrow')}</p><h2 id="focus-title">${t('focusTitle')}</h2><p class="section-hint">${t('focusHint')}</p></div>
+      <button class="text-button" type="button" data-route="devices" data-device-filter="favorites">${t('focusAllFavorites')}${icon('chevron')}</button>
+    </header>
+    <div class="focus-board-summary surface" aria-label="${escapeHtml(t('focusTitle'))}">
+      <div><strong>${model.total}</strong><span>${t('focusPinned')}</span></div>
+      <div><strong>${model.online}</strong><span>${t('focusObserved')}</span></div>
+      <div class="${model.notSeen ? 'focus-needs-review' : ''}"><strong>${model.notSeen}</strong><span>${t('focusNotSeen')}</span></div>
+    </div>
+    <div class="focus-grid">${cards}</div>
+    ${model.remaining ? `<button type="button" class="focus-more" data-route="devices" data-device-filter="favorites">${t('focusMore', { count: model.remaining })}${icon('chevron')}</button>` : ''}
+  </section>`;
+}
+
 function renderOverview() {
   const { system = {}, network = {} } = state.data;
   const ap = network.access_point || {};
@@ -664,6 +700,7 @@ function renderOverview() {
       : `<section class="baseline-card surface ${baseline.new_count || baseline.missing_count ? 'has-changes' : 'is-matched'}"><div class="baseline-card-copy"><span class="baseline-card-icon">${icon(baseline.new_count || baseline.missing_count ? 'warning' : 'success')}</span><div><p class="eyebrow">${t('networkBaseline')}</p><h2>${baseline.new_count || baseline.missing_count ? t('baselineChangesTitle') : t('baselineMatchedTitle')}</h2><p>${t('baselineCaptured', { time: formatTimestamp(baseline.captured_at) })}</p></div></div><div class="baseline-metrics"><button type="button" ${baseline.new_count ? 'data-route="devices" data-device-filter="baseline_new"' : 'disabled'}><strong>${baseline.new_count}</strong><span>${t('baselineNew')}</span></button><button type="button" ${baseline.missing_count ? 'data-route="devices" data-device-filter="baseline_missing"' : 'disabled'}><strong>${baseline.missing_count}</strong><span>${t('baselineMissing')}</span></button><span><strong>${baseline.device_count}</strong><small>${t('baselineDevices')}</small></span></div></section>`)
     : '';
   return `${systemNotice}<button class="network-hero surface overview-network" type="button" data-route="network"><div class="network-hero-head"><span class="network-hero-icon">${icon('network')}</span><div class="network-hero-title"><p class="eyebrow">${t('yourNetwork')}</p><h2>${escapeHtml(networkName)}</h2></div>${statusPill(ap.state, networkStateLabel)}</div><dl class="network-facts"><div><dt>${t('connection')}</dt><dd>${escapeHtml(ap.available ? t('wifi') : t('unknown'))}</dd></div><div><dt>${t('uplink')}</dt><dd>${escapeHtml(uplinkState)}</dd></div><div><dt>${t('devices')}</dt><dd>${onlineDevices} ${t('online').toLowerCase()}</dd></div></dl><span class="card-link">${t('openNetwork')} ${icon('chevron')}</span></button>
+  ${renderFocusBoard()}
   ${baselineCard}
   ${renderNetworkPulse()}
   ${renderNetworkHistory()}
