@@ -361,7 +361,7 @@ function deviceEmptyState() {
 }
 
 function activityEmptyState(filtered = false) {
-  return `<div class="empty-state actionable-empty">${icon('uptime')}<h3>${filtered ? t('activityFilterEmpty') : t('noActivity')}</h3><p>${filtered ? t('activityFilterEmptyHint') : t('noActivityHint')}</p>${filtered ? `<button class="secondary-button empty-reset" type="button" data-activity-filter="all">${t('showAllActivity')}</button>` : ''}</div>`;
+  return `<div class="empty-state actionable-empty" role="status">${icon('uptime')}<h3>${filtered ? t('activityFilterEmpty') : t('noActivity')}</h3><p>${filtered ? t('activityFilterEmptyHint') : t('noActivityHint')}</p>${filtered ? `<button class="secondary-button empty-reset" type="button" data-activity-filter="all">${t('showAllActivity')}</button>` : ''}</div>`;
 }
 
 function renderDeviceRows(items, compact = false) {
@@ -418,14 +418,18 @@ function renderActivityRows(items) {
   return items.map((event) => {
     const presentation = activityPresentation(event);
     const when = formatTimestamp(event.created_at);
-    const datetime = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : '';
+    const timestamp = Number(event.created_at);
+    const eventDate = Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp * 1000) : null;
+    const datetime = eventDate && !Number.isNaN(eventDate.valueOf()) ? eventDate.toISOString() : '';
+    const fullDate = datetime ? eventDate.toLocaleString(state.locale, { dateStyle: 'medium', timeStyle: 'short' }) : when;
     const action = presentation.target === 'device' && event.entity_id
       ? `data-device="${escapeHtml(event.entity_id)}"`
       : presentation.target === 'overview'
         ? 'data-route="overview"'
         : '';
     const tag = action ? 'button' : 'div';
-    return `<${tag} class="discovery-row activity-row event-${escapeHtml(event.event_type)} ${action ? '' : 'activity-row-static'}" ${action ? `type="button" ${action}` : ''}><span class="discovery-symbol">${icon(presentation.iconName)}</span><span class="discovery-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(presentation.detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${action ? icon('chevron') : ''}</${tag}>`;
+    const actionLabel = action ? ` aria-label="${escapeHtml([presentation.name, presentation.detail, fullDate].filter(Boolean).join(' · '))}"` : '';
+    return `<${tag} class="discovery-row activity-row event-${escapeHtml(event.event_type)} ${action ? '' : 'activity-row-static'}" ${action ? `type="button" ${action}${actionLabel}` : ''}><span class="discovery-symbol">${icon(presentation.iconName)}</span><span class="discovery-copy"><strong>${escapeHtml(presentation.name)}</strong><small>${escapeHtml(presentation.detail)}</small></span><time datetime="${escapeHtml(datetime)}">${escapeHtml(when)}</time>${action ? icon('chevron') : ''}</${tag}>`;
   }).join('');
 }
 

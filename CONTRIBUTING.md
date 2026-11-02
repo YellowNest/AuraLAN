@@ -81,3 +81,10 @@ Browser sanity check against a running local instance:
 ```
 
 A device-identity or icon PR should include at least one regression test that proves both the positive match and a safe fallback where practical.
+
+## Inventory and Activity Center UI invariants
+
+- The Devices route paginates **after** filtering and sorting. Page changes must not change the complete inventory, export contents or API response. Reset to page one on a new filter, search or sort choice; clamp after a shrinking refresh.
+- Keep the device search input mounted across background polls, especially on phones with the software keyboard open. Refresh the list in place.
+- Activity filters expose the selected state via `aria-pressed`. Actionable rows have accessible names with event context and full date/time. Static rows are not faux buttons, and the filtered-empty state has `role="status"`.
+- Keep keyboard focus visible and mobile controls usable at 320–430px. Validate with `node --test frontend/tests/*.test.mjs` and `scripts/ui-sanity.mjs`.

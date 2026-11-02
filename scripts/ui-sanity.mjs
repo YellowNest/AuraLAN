@@ -50,6 +50,16 @@ try {
 
     for (const route of routes) {
       await openRoute(page, route);
+      if (route === 'activity') {
+        const accessibility = await page.evaluate(() => ({
+          filters: [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')].map((item) => item.getAttribute('aria-pressed')),
+          actions: [...document.querySelectorAll('.activity-center-list button.activity-row')].map((item) => item.getAttribute('aria-label')),
+          times: [...document.querySelectorAll('.activity-center-list time')].map((item) => item.getAttribute('datetime')),
+        }));
+        assert.ok(accessibility.filters.length >= 2 && accessibility.filters.filter((value) => value === 'true').length === 1, 'Activity filters must expose one selected state');
+        assert.ok(accessibility.actions.every((name) => typeof name === 'string' && name.trim().length > 0), 'Actionable Activity rows must have accessible names');
+        assert.ok(accessibility.times.every((value) => typeof value === 'string'), 'Activity timestamps require datetime attributes');
+      }
       const report = await page.evaluate((isMobile) => {
         const viewportMeta = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || '';
         const input = document.querySelector('input, select, textarea');
