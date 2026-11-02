@@ -34,6 +34,7 @@ from .models import (
     PresenceHistoryResponse,
     ServicesResponse,
     ServiceResponse,
+    TcpChecksResponse,
     StatusResponse,
     WakeResponse,
 )
@@ -47,12 +48,14 @@ from .discovery.integrations.base import APP_CAPABILITIES
 from .services.system import host, system_snapshot
 from .probe import ProbeUnavailable, probe_available, probe_device as run_device_probe
 from .service_scan import scan_device_services as run_service_scan, service_label
+from .service_checks import LocalServiceChecks
 from .wake import select_wake_mac, send_magic_packet, wake_config
 
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
 
 webhook_notifier = WebhookNotifier(store())
+local_service_checks = LocalServiceChecks()
 
 
 def _after_background_snapshot(snapshot: dict) -> None:
@@ -65,6 +68,7 @@ def _after_background_snapshot(snapshot: dict) -> None:
         pass
     store().record_presence_transitions(devices)
     store().record_watch_transitions(devices)
+    local_service_checks.update(snapshot)
     webhook_notifier.dispatch_pending()
 
 
@@ -236,6 +240,7 @@ def status() -> dict:
         "activity": _activity_status(snapshot),
         "monitor": background_monitor.status(),
         "notifications": _notification_status(),
+        "service_checks": local_service_checks.status(),
         "baseline": baseline,
         "insights": _network_insights(snapshot, baseline),
         "history": _network_history(24),
@@ -284,6 +289,11 @@ def clear_network_baseline() -> dict:
 @app.get("/api/v1/monitor", response_model=MonitorResponse)
 def monitor_status() -> dict:
     return background_monitor.status()
+
+
+@app.get("/api/v1/service-checks", response_model=TcpChecksResponse)
+def service_checks_status() -> dict:
+    return local_service_checks.status()
 
 
 @app.get("/api/v1/notifications", response_model=NotificationStatusResponse)

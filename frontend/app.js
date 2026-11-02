@@ -181,6 +181,7 @@ function normalizeStatus(payload) {
     },
     devices: legacyDevices,
     services: { items: legacyServices },
+    service_checks: payload.service_checks && typeof payload.service_checks === 'object' ? payload.service_checks : { configured: false, items: [] },
     activity: Array.isArray(payload.activity) ? payload.activity : [],
     monitor: payload.monitor && typeof payload.monitor === 'object'
       ? payload.monitor
@@ -950,7 +951,16 @@ function renderDevices() {
 
 function renderServices() {
   const items = visibleServiceItems(serviceItems());
-  return `<section class="page-intro"><p>${t('detectedServices')}</p></section>${renderServiceCards(items, false)}`;
+  const checks = Array.isArray(state.data?.service_checks?.items) ? state.data.service_checks.items : [];
+  const checkSection = checks.length
+    ? `<section class="content-section service-checks-section">
+        <header class="section-title"><div><p class="eyebrow">${t('monitoring')}</p><h2>${t('tcpServiceChecks')}</h2><p class="section-hint">${t('tcpServiceChecksHint')}</p></div></header>
+        <div class="surface tcp-checks-list">${checks.map((check) => `<div class="tcp-check-row">
+          <div><strong>${escapeHtml(check.name)}</strong><small>${escapeHtml(check.ip)}:${escapeHtml(check.port)} · ${escapeHtml(check.checked_at ? formatTimestamp(check.checked_at) : t('notYet'))}</small></div>
+          ${statusPill(check.state, t(check.state === 'unknown' ? 'notConfirmed' : check.state))}
+        </div>`).join('')}</div></section>`
+    : '';
+  return `<section class="page-intro"><p>${t('detectedServices')}</p></section>${checkSection}${renderServiceCards(items, false)}`;
 }
 
 function settingSelect(id, label, helper, options, selected) {

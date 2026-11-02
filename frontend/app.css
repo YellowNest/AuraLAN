@@ -4037,3 +4037,12 @@ h2 {
 .service-management-links a { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: var(--radius-xs); border: 1px solid var(--line-strong); background: var(--surface-muted); color: var(--text); font-size: .84rem; text-decoration: none; }
 .service-management-links a:hover { border-color: var(--accent); }
 .service-management > small { color: var(--text-soft); display: block; margin-top: 8px; }
+
+/* Optional local TCP service checks (no extra browser polling). */
+.tcp-checks-list { display: grid; overflow: hidden; }
+.tcp-check-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.tcp-check-row:last-child { border-bottom: none; }
+.tcp-check-row > div { min-width: 0; }
+.tcp-check-row strong, .tcp-check-row small { display: block; overflow-wrap: anywhere; }
+.tcp-check-row small { color: var(--text-soft); font-size: .8rem; margin-top: 3px; }
+@media(max-width:390px){ .tcp-check-row { padding: 12px; } }

@@ -20,6 +20,7 @@ Production overrides can be placed in `/etc/default/auralan`. Development comman
 | `AURALAN_HOSTNAME_FILE` | unset | Alternate read-only hostname file used by container deployments |
 | `AURALAN_HOSTS_FILE` | `/etc/hosts` | Alternate read-only hosts file used for local-name enrichment |
 | `AURALAN_HOST_ROOT` | `/` natively; unset in container mode | Filesystem path used only for host storage usage |
+| `AURALAN_TCP_CHECKS` | unset | Optional JSON list (up to 12) of `{name,ip,port}` TCP checks on currently observed private IPv4 devices; maximum 0.4-second connect time per target, concurrency four, no hostname resolution |
 | `AURALAN_MONITOR_INTERVAL` | `60` | Background discovery interval in seconds; `0` disables it, enabled values are bounded to 15–3600 seconds |
 | `AURALAN_WATCH_MISSING_GRACE` | `120` | Seconds a favorite must remain unobserved before AuraLAN emits `favorite_not_seen`; bounded to 0–86400 |
 | `AURALAN_PRESENCE_MISSING_GRACE` | `180` | Seconds a device must remain unobserved before AuraLAN records a general presence-history absence; bounded to 0–86400 |
@@ -257,3 +258,16 @@ AURALAN_OUI_FILE=/path/to/oui.txt
 ```
 
 Unknown prefixes remain unknown rather than triggering a cloud lookup.
+
+## Optional local TCP availability checks (2.0)
+
+Set `AURALAN_TCP_CHECKS` only if needed, e.g. in a Compose override:
+
+```yaml
+services:
+  auralan:
+    environment:
+      AURALAN_TCP_CHECKS: '[{"name":"Home Assistant","ip":"192.168.1.50","port":8123},{"name":"NAS web","ip":"192.168.1.10","port":443}]'
+```
+
+These are read-only socket-connect checks, **not HTTP content checks**. They run during the ordinary background monitor cycle (60 seconds by default, adjustable with `AURALAN_MONITOR_INTERVAL`). No checks occur when monitoring is disabled. The device must be observed in the current AuraLAN inventory; no blind subnet probing, DNS resolution, external addresses or open-ended port scanning occurs. Unknown means no current observation. An offline TCP *service* does not prove an offline host. Results are memory-only, available at `/api/v1/service-checks` and in the existing `/api/v1/status` response. They are not currently sent as webhook alerts.
