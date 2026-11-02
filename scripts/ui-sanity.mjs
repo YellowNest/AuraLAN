@@ -620,14 +620,14 @@ try {
     }
   });
   await openRoute(scalePage, 'devices');
-  const firstRows = await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length);
+  const firstRows = await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length);
   assert.equal(firstRows, 50, 'Large inventory should initially render only 50 device rows');
   await scalePage.click('[data-device-page="2"]');
-  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 50, 'Second page should have 50 rows');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 50, 'Second page should have 50 rows');
   await scalePage.click('[data-device-page="3"]');
-  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 26, 'Last page should contain the remaining rows');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 26, 'Last page should contain the remaining rows');
   await scalePage.type('#device-search', 'Fixture 012');
-  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 1, 'Search should reset page and cover the full inventory');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 1, 'Search should reset page and cover the full inventory');
   assert.equal(await scalePage.$('.device-pagination'), null, 'One result should not show pagination');
   await scalePage.close();
   console.log('UI OK large-inventory: 126 devices, three pages, live search');
