@@ -38,3 +38,7 @@ AuraLAN releases are cut deliberately. A green application test suite is not eno
 - [ ] Release tag is created from the exact reviewed commit.
 - [ ] GitHub repository description/topics/social preview match the release.
 - [ ] GHCR manifest contains the expected semantic-version tags, SBOM and provenance attestations.
+
+## 2.0 publishing automation
+
+For a reviewed versioned main-branch commit, the Container workflow publishes `latest` and the version from `project.json` only after container smoke, browser and multi-architecture build gates pass. Its release job verifies the CI workflow result at the same commit before creating an immutable annotated `v<version>` tag and GitHub release. It never moves an existing release tag. Host-specific ARM64 verification remains a separate release checklist requirement.

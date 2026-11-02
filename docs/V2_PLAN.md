@@ -1,6 +1,6 @@
-# AuraLAN 2.0 — engineering plan
+# AuraLAN 2.0 — scope and continuing roadmap
 
-This is a working release plan, **not** a 2.0.0 release. Stable 1.6.x remains unchanged until the release gates pass.
+AuraLAN 2.0.0 ships an evidence-preserving LAN console upgrade with scalable inventory, subnet/VLAN display, explicit local TCP checks, management shortcuts, and Activity accessibility. The remaining items are a roadmap for later 2.x releases, not claims about shipped 2.0.0 capabilities.
 
 ## Research-informed demand
 
@@ -30,7 +30,7 @@ Evidence includes r/selfhosted requests for a network diagram plus status checks
 - Accessible pagination and Activity Center event controls, full timestamp names, selected-state and empty-state semantics.
 - Focused tests and contributor guidance.
 
-## Backlog (not yet implemented)
+## 2.x backlog (not part of the 2.0.0 release)
 
 - Optional authenticated collectors for evidence-based VLAN/switch/AP topology; never assume physical links from IP addresses.
 - User-defined bounded service health checks and local alert routing, with allowlists and rate limits.
@@ -38,7 +38,7 @@ Evidence includes r/selfhosted requests for a network diagram plus status checks
 - Explicit privacy-preserving configuration backup/migration workflow.
 - Reliable resource budget and performance profiling under hundreds of devices.
 
-## Release blockers
+## Release validation checklist
 
 1. All backend, frontend, browser, packaging and security CI tests must pass.
 2. Physical Raspberry Pi ARM64 and clean Linux host testing (including Ethernet-only).

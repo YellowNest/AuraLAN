@@ -6,6 +6,24 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-02
+
+### Network Explorer and local service visibility
+- Added kernel-evidenced VLAN IDs and a local IPv4 subnet overview. Counts reflect address membership, not unverified physical switch/AP links.
+- Added optional, bounded TCP checks for explicitly selected RFC1918 devices already observed in AuraLAN. Results are memory-only; no new credentials, cloud service or database migrations.
+- Added safe web-management shortcuts for previously verified open HTTP(S) ports on private LAN targets.
+
+### Frontend scale and accessibility
+- Paginate inventory results at 50 rendered devices per page while preserving complete search, sorting, filters, exports and live-refresh focus.
+- Improve Activity Center accessible action names and complete timestamps, improve filtered-empty status semantics and localized pagination.
+- Avoid duplicate network-explorer computations during view refresh.
+
+### Reliability and compatibility
+- Extend Python, Node and real Chromium regression tests, including a 126-device mobile fixture, malformed IPv4/CIDR and VLAN evidence, safe links and bounded service checks.
+- Keep Python/FastAPI, SQLite, native JavaScript, API v1, Docker/systemd deployment and existing device metadata compatible.
+- Keep new network probes opt-in and narrowly scoped; no default port-range scanning or guessed physical topology.
+
+
 ## [1.6.7] - 2026-10-22
 
 ### Added — Device Focus
