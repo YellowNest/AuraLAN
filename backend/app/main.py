@@ -68,7 +68,11 @@ def _after_background_snapshot(snapshot: dict) -> None:
         pass
     store().record_presence_transitions(devices)
     store().record_watch_transitions(devices)
-    local_service_checks.update(snapshot)
+    try:
+        local_service_checks.update(snapshot)
+    except Exception:
+        # Optional active checks cannot suppress durable webhook delivery.
+        pass
     webhook_notifier.dispatch_pending()
 
 
