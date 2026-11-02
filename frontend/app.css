@@ -4014,3 +4014,10 @@ h2 {
   .focus-board-empty .secondary-button { margin-left: 60px; }
 }
 @media (prefers-reduced-motion: reduce) { .focus-device { transition: none; } }
+
+/* Inventory pagination: bounded DOM work without sacrificing touch targets. */
+.device-pagination { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; padding: 16px; border-top: 1px solid var(--line); }
+.device-pagination .secondary-button { min-height: 40px; }
+.device-pagination .secondary-button:disabled { opacity: .45; cursor: default; }
+.device-pagination > span { color: var(--text-muted); font-size: .9rem; font-variant-numeric: tabular-nums; text-align: center; }
+@media (max-width: 420px) { .device-pagination { gap: 8px; padding: 12px 8px; } .device-pagination .secondary-button { padding-inline: 10px; } }

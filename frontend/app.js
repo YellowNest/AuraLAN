@@ -1,7 +1,7 @@
 import { fallbackBrand, normalizeBrand } from './js/brand.js';
 import { preferredLocale, translate } from './js/i18n.js';
 import { icon, serviceIcons, serviceMark } from './js/icons.js';
-import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from './js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, paginateDevices, visibleServiceItems } from './js/data.js';
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 import { focusBoardModel } from './js/focus.js';
@@ -29,6 +29,7 @@ const state = {
   locale: preferredLocale(localStorage.getItem('auralan.locale')),
   deviceFilter: 'all',
   deviceQuery: '',
+  devicePage: 1,
   mapQuery: '',
   mapView: 'all',
   deviceSort: localStorage.getItem('auralan.device-sort') || 'smart',
@@ -879,6 +880,19 @@ function filteredDevices() {
   return sortDevices(filterDevices(prepared, state.deviceFilter, state.deviceQuery), state.deviceSort);
 }
 
+function renderDeviceResultList(result) {
+  const page = paginateDevices(result, state.devicePage);
+  state.devicePage = page.page;
+  const pager = page.pages > 1
+    ? `<nav class="device-pagination" aria-label="${escapeHtml(t('devicePages'))}">
+        <button type="button" class="secondary-button" data-device-page="${page.page - 1}" ${page.page === 1 ? 'disabled' : ''}>${t('devicePagePrevious')}</button>
+        <span role="status">${escapeHtml(t('devicePageRange', { start: page.start, end: page.end, count: page.total }))}</span>
+        <button type="button" class="secondary-button" data-device-page="${page.page + 1}" ${page.page === page.pages ? 'disabled' : ''}>${t('devicePageNext')}</button>
+      </nav>`
+    : '';
+  return `${result.length ? renderDeviceRows(page.items) : deviceEmptyState()}${pager}`;
+}
+
 function renderDevices() {
   const allDevices = devices();
   const result = filteredDevices();
@@ -910,7 +924,7 @@ function renderDevices() {
     <div class="identity-overview-copy"><span class="identity-overview-icon">${icon('devices')}</span><div><p class="eyebrow">${t('identityIntelligence')}</p><h2>${t('identityNeedsReviewCount', { count: identity.limited })}</h2><small>${t('identityCoverageHint')}</small></div></div>
     <button type="button" class="secondary-button identity-review-action" data-device-filter="identity_limited" data-focus-results>${t('reviewDevices')}${icon('chevron')}</button>
   </section>` : '';
-  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}" aria-pressed="${state.deviceFilter === id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" data-focus-results aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results" tabindex="-1">${result.length ? renderDeviceRows(result) : deviceEmptyState()}</section>`;
+  return `${identityOverview}<section class="device-toolbar surface"><label class="input-shell">${icon('search')}<span class="sr-only">${t('findDevice')}</span><input id="device-search" type="search" autocomplete="off" value="${escapeHtml(state.deviceQuery)}" placeholder="${escapeHtml(t('findDevice'))}"></label><div class="filter-row" role="group" aria-label="${t('devices')}">${filters.map(([id, label]) => `<button type="button" class="filter-chip ${state.deviceFilter === id ? 'active' : ''}" data-device-filter="${id}" aria-pressed="${state.deviceFilter === id}">${escapeHtml(label)}${id === 'unknown' && unidentified ? ` <b>${unidentified}</b>` : ''}</button>`).join('')}</div><div class="device-toolbar-meta"><label class="device-sort-label"><span class="sr-only">${t('sortBy')}</span><select id="device-sort">${sortOptions.map(([value, label]) => `<option value="${value}" ${state.deviceSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label><p role="status" aria-live="polite">${t('deviceCount', { count: result.length })}</p><button type="button" class="secondary-button export-button" data-open-inventory-export>${icon('download')}${t('export')}</button></div></section>${unidentified ? `<button class="unidentified-callout surface ${state.deviceFilter === 'unknown' ? 'active' : ''}" type="button" data-device-filter="unknown" data-focus-results aria-pressed="${state.deviceFilter === 'unknown'}">${icon('unknown_device')}<span><strong>${unidentified} ${t('unidentified').toLowerCase()} ${unidentified === 1 ? t('device').toLowerCase() : t('devices').toLowerCase()}</strong><small>${t('reviewUnidentified')}</small></span>${icon('chevron')}</button>` : ''}<section class="surface list-surface device-results" tabindex="-1">${renderDeviceResultList(result)}</section>`;
 }
 
 function renderServices() {
@@ -960,9 +974,7 @@ function refreshDeviceSearchResults() {
   const panel = $('.device-results');
   if (!panel) return;
   const result = filteredDevices();
-  panel.innerHTML = result.length
-    ? renderDeviceRows(result)
-    : deviceEmptyState();
+  panel.innerHTML = renderDeviceResultList(result);
   const count = $('.device-toolbar-meta > p');
   if (count) count.textContent = t('deviceCount', { count: result.length });
 }
@@ -978,6 +990,7 @@ function renderView() {
     const search = $('#device-search');
     if (search) search.addEventListener('input', (event) => {
       state.deviceQuery = event.target.value;
+      state.devicePage = 1;
       refreshDeviceSearchResults();
     });
   } catch (error) {
@@ -1680,12 +1693,14 @@ document.addEventListener('click', (event) => {
   if (trigger.matches('[data-reset-device-filters]')) {
     state.deviceFilter = 'all';
     state.deviceQuery = '';
+    state.devicePage = 1;
     renderView();
     const search = $('#device-search');
     if (search) search.focus({ preventScroll: true });
   }
   if (trigger.matches('[data-device-filter]')) {
     state.deviceFilter = trigger.dataset.deviceFilter;
+    state.devicePage = 1;
     renderView();
     if (trigger.hasAttribute('data-focus-results')) {
       const results = $('.device-results');
@@ -1695,6 +1710,16 @@ document.addEventListener('click', (event) => {
       [...document.querySelectorAll('[data-device-filter]')]
         .find((item) => item.dataset.deviceFilter === state.deviceFilter)
         ?.focus({ preventScroll: true });
+    }
+  }
+  if (trigger.matches('[data-device-page]')) {
+    const requested = Number(trigger.dataset.devicePage);
+    if (Number.isInteger(requested)) {
+      state.devicePage = requested;
+      refreshDeviceSearchResults();
+      const results = $('.device-results');
+      results?.focus({ preventScroll: true });
+      results?.scrollIntoView({ block: 'start', behavior: 'auto' });
     }
   }
   if (trigger.matches('[data-map-filter]')) {
@@ -1756,6 +1781,7 @@ document.addEventListener('change', (event) => {
       ? event.target.value
       : 'smart';
     localStorage.setItem('auralan.device-sort', state.deviceSort);
+    state.devicePage = 1;
     renderView();
   }
 });
