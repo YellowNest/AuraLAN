@@ -73,6 +73,13 @@ def interfaces(access_point: str | None, uplink: str | None) -> list[dict[str, A
                 "addresses": ipv4,
                 "state": str(link.get("operstate") or "unknown").lower(),
                 "mtu": link.get("mtu"),
+                "vlan_id": (
+                    int(link_info.get("info_data", {}).get("id"))
+                    if kind == "vlan"
+                    and str(link_info.get("info_data", {}).get("id", "")).isdigit()
+                    and 1 <= int(link_info["info_data"]["id"]) <= 4094
+                    else None
+                ),
                 "role": classify_interface(name, kind, access_point, uplink),
             }
         )

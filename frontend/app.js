@@ -5,6 +5,7 @@ import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, iden
 import { friendlyDeviceContext, friendlyDeviceName } from './js/device-names.js';
 import { deviceIconKey } from './js/device-icons.js';
 import { focusBoardModel } from './js/focus.js';
+import { networkSegments, serviceManagementLinks } from './js/network-tools.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const appView = $('#app-view');
@@ -856,6 +857,20 @@ function refreshNetworkExplorer() {
   }
 }
 
+function renderNetworkSegments(network) {
+  const segments = networkSegments(network, devices());
+  if (!segments.length) return '';
+  const panels = segments.map((segment) => `<article class="segment-card">
+    <div class="segment-card-heading"><strong>${escapeHtml(segment.cidr)}</strong><span>${escapeHtml(segment.vlanId ? `VLAN ${segment.vlanId}` : segment.interface)}</span></div>
+    <small>${escapeHtml(segment.vlanId ? segment.interface : t('subnetAddressEvidence'))}</small>
+    <div class="segment-stats"><span>${escapeHtml(t('segmentObserved', { count: segment.total }))}</span><strong>${escapeHtml(t('segmentOnline', { count: segment.online }))}</strong></div>
+  </article>`).join('');
+  return `<section class="content-section network-segments-section">
+    <header class="section-title"><div><p class="eyebrow">${t('network')}</p><h2>${t('networkSegments')}</h2><p class="section-hint">${t('networkSegmentsHint')}</p></div></header>
+    <div class="surface segment-grid">${panels}</div>
+  </section>`;
+}
+
 function renderNetwork() {
   const network = state.data.network || {};
   const ap = network.access_point || {};
@@ -877,7 +892,8 @@ function renderNetwork() {
         <div class="detail-list">${detailRow(t('activeAddresses'), dhcp.lease_count, 'devices')}</div>
       </article>
     </section>
-    ${renderNetworkMap(network)}`;
+    ${renderNetworkMap(network)}
+    ${renderNetworkSegments(network)}`;
 }
 
 function filteredDevices() {
@@ -1186,6 +1202,10 @@ function renderServiceExposureSnapshot(current, previous = null) {
   const when = formatTimestamp(current?.checked_at);
   const datetime = current?.checked_at ? new Date(Number(current.checked_at) * 1000).toISOString() : '';
 
+  const links = serviceManagementLinks(current?.ip, openPorts);
+  const management = links.length
+    ? `<div class="service-management"><strong>${escapeHtml(t('managementShortcuts'))}</strong><div class="service-management-links">${links.map((link) => `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer">${icon('chevron')}${escapeHtml(t('openWebService', { port: link.port }))}</a>`).join('')}</div><small>${escapeHtml(t('managementShortcutsHint'))}</small></div>`
+    : '';
   const openMarkup = openPorts.length
     ? `<div class="service-scan-group"><span>${escapeHtml(t('serviceScanOpen'))}</span>${servicePortChips(openPorts)}</div>`
     : `<p class="service-scan-note">${escapeHtml(t('serviceScanNoOpen'))}</p>`;
@@ -1204,6 +1224,7 @@ function renderServiceExposureSnapshot(current, previous = null) {
   return `<div class="service-scan-panel">
     <div class="service-scan-head"><strong>${escapeHtml(current?.ip || '—')}</strong><time datetime="${escapeHtml(datetime)}">${escapeHtml(t('serviceScanLast', { time: when }))}</time></div>
     ${openMarkup}
+    ${management}
     ${diffMarkup}
   </div>`;
 }

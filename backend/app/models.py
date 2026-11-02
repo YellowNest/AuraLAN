@@ -92,6 +92,7 @@ class InterfaceResponse(BaseModel):
     addresses: list[str] = Field(default_factory=list)
     state: str = "unknown"
     mtu: int | None = None
+    vlan_id: int | None = Field(default=None, ge=1, le=4094)
     role: InterfaceRole = "unknown"
 
 

@@ -4021,3 +4021,19 @@ h2 {
 .device-pagination .secondary-button:disabled { opacity: .45; cursor: default; }
 .device-pagination > span { color: var(--text-soft); font-size: .9rem; font-variant-numeric: tabular-nums; text-align: center; }
 @media (max-width: 420px) { .device-pagination { gap: 8px; padding: 12px 8px; } .device-pagination .secondary-button { padding-inline: 10px; } }
+
+/* Evidence-backed subnet summary and opt-in management shortcuts. */
+.segment-grid { padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; }
+.segment-card { border: 1px solid var(--line); background: var(--surface-muted); border-radius: var(--radius-sm); padding: 14px; min-width: 0; }
+.segment-card-heading { display: flex; gap: 8px; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.segment-card-heading strong { font-size: 1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.segment-card-heading span { font-size: .78rem; color: var(--text-soft); }
+.segment-card > small { display: block; margin-top: 4px; color: var(--text-faint); overflow-wrap: anywhere; }
+.segment-stats { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-top: 12px; font-size: .82rem; color: var(--text-soft); }
+.segment-stats strong { color: var(--text); }
+.service-management { margin: 12px 0; }
+.service-management > strong { display: block; font-size: .85rem; margin-bottom: 8px; }
+.service-management-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.service-management-links a { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: var(--radius-xs); border: 1px solid var(--line-strong); background: var(--surface-muted); color: var(--text); font-size: .84rem; text-decoration: none; }
+.service-management-links a:hover { border-color: var(--accent); }
+.service-management > small { color: var(--text-soft); display: block; margin-top: 8px; }
