@@ -594,6 +594,43 @@ try {
     await page.close();
     console.log(`UI OK ${viewport.name}: all primary routes fit the viewport`);
   }
+
+  // Isolated 126-device fixture: exercise real browser pagination without changing demo data.
+  const rawStatus = await (await fetch(`${baseUrl}/api/v1/status`)).json();
+  assert.ok(Array.isArray(rawStatus.devices) && rawStatus.devices.length > 0, 'Large-inventory fixture needs a demo device');
+  const fixtureDevices = Array.from({ length: 126 }, (_, index) => ({
+    ...rawStatus.devices[0],
+    id: `pagination-fixture-${index}`,
+    display_name: `Fixture ${String(index).padStart(3, '0')}`,
+    hostname: `fixture-${index}`,
+    ip: `192.0.2.${(index % 250) + 1}`,
+    ip_addresses: [`192.0.2.${(index % 250) + 1}`],
+    mac: `02:00:00:10:${Math.floor(index / 256).toString(16).padStart(2, '0')}:${(index % 256).toString(16).padStart(2, '0')}`,
+    metadata: { favorite: false, alias: null, tags: [], location: null, note: null },
+  }));
+  const fixtureStatus = JSON.stringify({ ...rawStatus, devices: fixtureDevices });
+  const scalePage = await browser.newPage();
+  await scalePage.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  await scalePage.setRequestInterception(true);
+  scalePage.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/status') {
+      request.respond({ status: 200, contentType: 'application/json', body: fixtureStatus });
+    } else {
+      request.continue();
+    }
+  });
+  await openRoute(scalePage, 'devices');
+  const firstRows = await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length);
+  assert.equal(firstRows, 50, 'Large inventory should initially render only 50 device rows');
+  await scalePage.click('[data-device-page="2"]');
+  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 50, 'Second page should have 50 rows');
+  await scalePage.click('[data-device-page="3"]');
+  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 26, 'Last page should contain the remaining rows');
+  await scalePage.type('#device-search', 'Fixture 012');
+  assert.equal(await scalePage.$eval('.device-results .device-row', (nodes) => nodes.length), 1, 'Search should reset page and cover the full inventory');
+  assert.equal(await scalePage.$('.device-pagination'), null, 'One result should not show pagination');
+  await scalePage.close();
+  console.log('UI OK large-inventory: 126 devices, three pages, live search');
 } finally {
   await browser.close();
 }
