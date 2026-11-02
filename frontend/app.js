@@ -826,7 +826,8 @@ function refreshNetworkExplorer() {
   if (state.route !== 'network' || !state.data || !$('#topology-explorer-results')) return;
   const network = state.data.network || {};
   const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
-  const { counts, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  const exploration = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  const { counts, matched } = exploration;
   $('#topology-explorer-results').innerHTML = renderNetworkMapResults(network, exploration);
   const count = $('#topology-search-count');
   if (count) count.textContent = t('mapShowing', { matched, count: counts.total });
