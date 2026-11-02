@@ -267,7 +267,9 @@ Set `AURALAN_TCP_CHECKS` only if needed, e.g. in a Compose override:
 services:
   auralan:
     environment:
-      AURALAN_TCP_CHECKS: '[{"name":"Home Assistant","ip":"192.168.1.50","port":8123},{"name":"NAS web","ip":"192.168.1.10","port":443}]'
+      AURALAN_TCP_CHECKS: '[{"name":"Home Assistant","ip":"YOUR_PRIVATE_IP","port":8123},{"name":"NAS web","ip":"YOUR_NAS_IP","port":443}]'
 ```
+
+Replace the placeholder IP values with private LAN addresses observed by AuraLAN. The example intentionally contains no host-specific addresses.
 
 These are read-only socket-connect checks, **not HTTP content checks**. They run during the ordinary background monitor cycle (60 seconds by default, adjustable with `AURALAN_MONITOR_INTERVAL`). No checks occur when monitoring is disabled. The device must be observed in the current AuraLAN inventory; no blind subnet probing, DNS resolution, external addresses or open-ended port scanning occurs. Unknown means no current observation. An offline TCP *service* does not prove an offline host. Results are memory-only, available at `/api/v1/service-checks` and in the existing `/api/v1/status` response. They are not currently sent as webhook alerts.

@@ -61,6 +61,9 @@ def interfaces(access_point: str | None, uplink: str | None) -> list[dict[str, A
         # spelling as well so macvlan/veth classification never leaks into clients.
         link_info = link.get("linkinfo") or link.get("link_info") or {}
         kind = link_info.get("info_kind") or link.get("link_type") or "unknown"
+        info_data = link_info.get("info_data")
+        vlan = info_data.get("id") if isinstance(info_data, dict) and kind == "vlan" else None
+        vlan_id = int(vlan) if isinstance(vlan, (str, int)) and str(vlan).isdigit() and 1 <= int(vlan) <= 4094 else None
         ipv4 = [
             f"{item.get('local')}/{item.get('prefixlen')}"
             for item in address_row.get("addr_info", [])
@@ -73,13 +76,7 @@ def interfaces(access_point: str | None, uplink: str | None) -> list[dict[str, A
                 "addresses": ipv4,
                 "state": str(link.get("operstate") or "unknown").lower(),
                 "mtu": link.get("mtu"),
-                "vlan_id": (
-                    int(link_info.get("info_data", {}).get("id"))
-                    if kind == "vlan"
-                    and str(link_info.get("info_data", {}).get("id", "")).isdigit()
-                    and 1 <= int(link_info["info_data"]["id"]) <= 4094
-                    else None
-                ),
+                "vlan_id": vlan_id,
                 "role": classify_interface(name, kind, access_point, uplink),
             }
         )

@@ -11,6 +11,7 @@ class VlanEvidenceTests(unittest.TestCase):
             {"ifname": "uplink0.20", "linkinfo": {"info_kind": "vlan", "info_data": {"id": 20}}, "operstate": "UP"},
             {"ifname": "uplink0", "linkinfo": {"info_kind": "ether"}},
             {"ifname": "vlan-invalid", "linkinfo": {"info_kind": "vlan", "info_data": {"id": 4095}}},
+            {"ifname": "vlan-empty", "linkinfo": {"info_kind": "vlan", "info_data": None}},
         ]
         addresses = [{"ifname": "uplink0.20", "addr_info": [{"family": "inet", "local": "192.0.2.3", "prefixlen": 24}]}]
         with patch.object(iproute, "_json_command", side_effect=[links, addresses]):
@@ -20,6 +21,7 @@ class VlanEvidenceTests(unittest.TestCase):
         self.assertEqual(by_name["uplink0.20"]["addresses"], ["192.0.2.3/24"])
         self.assertIsNone(by_name["uplink0"]["vlan_id"])
         self.assertIsNone(by_name["vlan-invalid"]["vlan_id"])
+        self.assertIsNone(by_name["vlan-empty"]["vlan_id"])
         self.assertEqual(InterfaceResponse(**by_name["uplink0.20"]).vlan_id, 20)
 
 

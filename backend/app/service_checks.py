@@ -19,9 +19,9 @@ from typing import Any
 
 MAX_CHECKS = 12
 CONNECT_TIMEOUT = 0.4
-PRIVATE_RANGES = tuple(ipaddress.ip_network(net) for net in (
-    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
-))
+def _private_lan(ip: ipaddress.IPv4Address) -> bool:
+    a, b = ip.packed[:2]
+    return a == 10 or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168)
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ def configured_targets(raw: str | None = None) -> tuple[ServiceTarget, ...]:
             parsed_ip = ipaddress.IPv4Address(ip)
         except ipaddress.AddressValueError:
             continue
-        if not any(parsed_ip in net for net in PRIVATE_RANGES):
+        if not _private_lan(parsed_ip):
             continue
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             continue
@@ -106,13 +106,14 @@ class LocalServiceChecks:
                     observed.add(value)
         candidates = [(i, item) for i, item in enumerate(self.targets) if item.ip in observed]
         checked: dict[int, bool] = {}
-        with ThreadPoolExecutor(max_workers=min(4, len(candidates)) or 1, thread_name_prefix="auralan-tcp-watch") as executor:
-            submitted = {executor.submit(tcp_open, item.ip, item.port): i for i, item in candidates}
-            for future, index in submitted.items():
-                try:
-                    checked[index] = bool(future.result())
-                except Exception:
-                    checked[index] = False
+        if candidates:
+            with ThreadPoolExecutor(max_workers=min(4, len(candidates)), thread_name_prefix="auralan-tcp-watch") as executor:
+                submitted = {executor.submit(tcp_open, item.ip, item.port): i for i, item in candidates}
+                for future, index in submitted.items():
+                    try:
+                        checked[index] = bool(future.result())
+                    except Exception:
+                        checked[index] = False
 
         now = int(time.time())
         items = [
