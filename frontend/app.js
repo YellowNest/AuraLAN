@@ -741,9 +741,8 @@ function renderTopologyDevices(items, network = null) {
     : ''}`;
 }
 
-function renderNetworkMapResults(network) {
-  const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
-  const { apClients, other, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+function renderNetworkMapResults(network, exploration) {
+  const { apClients, other, matched } = exploration;
   const accessPoints = networkMapAccessPoints(network);
   const definitions = [
     ['wifi', t('wifi'), 'wifi'],
@@ -792,7 +791,8 @@ function renderNetworkMapResults(network) {
 
 function renderNetworkMap(network) {
   const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
-  const { counts, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  const exploration = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
+  const { counts, matched } = exploration;
   const views = [
     ['all', t('all'), counts.total],
     ['local', t('mapObservedOnAp'), counts.local],
@@ -817,7 +817,7 @@ function renderNetworkMap(network) {
           ${state.mapQuery || state.mapView !== 'all' ? `<button type="button" class="topology-filter-reset" data-map-reset>${t('mapReset')}</button>` : ''}
         </div>
       </div>
-      <div id="topology-explorer-results">${renderNetworkMapResults(network)}</div>
+      <div id="topology-explorer-results">${renderNetworkMapResults(network, exploration)}</div>
     </div>
   </section>`;
 }
@@ -827,7 +827,7 @@ function refreshNetworkExplorer() {
   const network = state.data.network || {};
   const prepared = devices().map((device) => ({ ...device, presentation_name: devicePresentation(device).name }));
   const { counts, matched } = exploreNetworkMap(network, prepared, state.mapQuery, state.mapView);
-  $('#topology-explorer-results').innerHTML = renderNetworkMapResults(network);
+  $('#topology-explorer-results').innerHTML = renderNetworkMapResults(network, exploration);
   const count = $('#topology-search-count');
   if (count) count.textContent = t('mapShowing', { matched, count: counts.total });
   for (const button of document.querySelectorAll('[data-map-filter]')) {
