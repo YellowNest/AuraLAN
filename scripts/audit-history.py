@@ -76,6 +76,51 @@ known_benign_history_findings = {
         "e63c1b6225abd580f46fb7eb956af5c936fd8756",
         "backend/tests/test_persistence.py",
     ),
+    # AuraLAN 2.0 implementation used only documentation/example LAN literals
+    # and RFC1918 *network ranges*, never a real operator's host data.
+    # Follow-up d2247 removes these from the source; its deletion hunks remain
+    # visible to the history audit. Each reviewed exception is pinned to an
+    # exact commit/path and does not suppress future unsafe changes.
+    (
+        "RFC1918/private IPv4 address",
+        "a1af364f75c373a98a4ba43b65492a358366ce3f",
+        "frontend/tests/network-tools.test.mjs",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "4bbcce4963af745147b56d295e180b87822161e8",
+        "backend/app/service_checks.py",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "4bbcce4963af745147b56d295e180b87822161e8",
+        "backend/tests/test_service_checks.py",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "4bbcce4963af745147b56d295e180b87822161e8",
+        "docs/CONFIGURATION.md",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "d2247bc30e03de12afe3175d039f47f2d2eb7b76",
+        "backend/app/service_checks.py",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "d2247bc30e03de12afe3175d039f47f2d2eb7b76",
+        "backend/tests/test_service_checks.py",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "d2247bc30e03de12afe3175d039f47f2d2eb7b76",
+        "docs/CONFIGURATION.md",
+    ),
+    (
+        "RFC1918/private IPv4 address",
+        "d2247bc30e03de12afe3175d039f47f2d2eb7b76",
+        "frontend/tests/network-tools.test.mjs",
+    ),
 }
 
 

@@ -92,6 +92,7 @@ class InterfaceResponse(BaseModel):
     addresses: list[str] = Field(default_factory=list)
     state: str = "unknown"
     mtu: int | None = None
+    vlan_id: int | None = Field(default=None, ge=1, le=4094)
     role: InterfaceRole = "unknown"
 
 
@@ -268,6 +269,19 @@ class ServiceResponse(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+class TcpCheckResponse(BaseModel):
+    name: str
+    ip: str
+    port: int = Field(ge=1, le=65535)
+    state: Literal["online", "offline", "unknown"] = "unknown"
+    checked_at: int | None = None
+
+
+class TcpChecksResponse(BaseModel):
+    configured: bool = False
+    items: list[TcpCheckResponse] = Field(default_factory=list)
+
+
 class ServicesResponse(BaseModel):
     items: list[ServiceResponse] = Field(default_factory=list)
 
@@ -404,6 +418,7 @@ class StatusResponse(BaseModel):
     network: NetworkResponse
     devices: list[DeviceResponse] = Field(default_factory=list)
     services: ServicesResponse
+    service_checks: TcpChecksResponse = Field(default_factory=TcpChecksResponse)
     activity: list[ActivityEventResponse] = Field(default_factory=list)
     monitor: MonitorResponse = Field(default_factory=MonitorResponse)
     notifications: NotificationStatusResponse = Field(default_factory=NotificationStatusResponse)

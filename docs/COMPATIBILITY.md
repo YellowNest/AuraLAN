@@ -48,3 +48,9 @@ A missing optional binary or unreadable optional integration should result in un
 ## Architectures
 
 The codebase is pure Python plus browser JavaScript and has no architecture-specific application binaries. It is intended to work on common Linux architectures supported by the Python dependencies, including Raspberry Pi ARM systems and x86-64 Linux.
+
+## Version 2.0 notes
+
+The new subnet/VLAN overview derives local prefixes from the Linux `ip -j addr` and VLAN IDs from `ip -d -j link`. Missing VLAN metadata is displayed as unavailable; address membership never establishes switch-port or external Wi-Fi association.
+
+The optional TCP check engine requires no new packages or process. It checks only operator-configured RFC1918 targets in the currently observed device inventory. Missing observations remain unknown. The architecture-neutral code is covered by Python and JavaScript tests, with container CI builds for AMD64/ARM64. An emulated ARM64 build is **not** a substitute for testing actual Raspberry Pi hardware.

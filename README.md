@@ -14,7 +14,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 1.6.7" src="https://img.shields.io/badge/release-1.6.7-2563EB">
+  <img alt="Release 2.0.0" src="https://img.shields.io/badge/release-2.0.0-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
   <a href="https://ossdrop.com/tool/auralan"><img alt="AuraLAN on OSSDrop" src="https://ossdrop.com/badge/auralan"></a>
@@ -24,13 +24,18 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
-**Stable release 1.6.7:** Network Explorer provides evidence-based access-point
-mapping, searchable devices, multi-AP descriptions and responsive filters. Device
-badges distinguish Wi-Fi station records from DHCP, IP-neighbour and legacy AP
-interface hints; interface evidence alone does not prove radio association.
-Configured AP address validation also rejects unsupported or reserved values.
-The `main` branch carries the stable release; the `:dev` image tracks ongoing
-development and should not be treated as a stable deployment.
+**Release 2.0.0:** AuraLAN expands its evidence-based network explorer with
+kernel-reported VLAN IDs and a local IPv4 subnet overview, adds bounded
+local TCP service checks (optional), clickable shortcuts for previously
+observed local web interfaces, and improves scalability and accessibility.
+The inventory renders at most 50 devices per page while preserving all-device
+search and exports. The existing 1.x REST API contract and stored device data
+remain compatible: no mandatory migration, new database or cloud service.
+
+Container tags: `ghcr.io/yellownest/auralan:2.0.0` identifies this release;
+`:latest` follows the current stable main branch. Validate the published
+image before updating an installation. The optional `:dev` tag remains for
+development and is not a stable deployment.
 
 ## Screenshots
 
@@ -68,6 +73,10 @@ More views are available on the **[AuraLAN website](https://yellownest.github.io
 | **Local by design** | No account, telemetry, cloud lookup, remote fonts, CDN scripts or third-party MAC/vendor API. |
 | **Useful technical depth** | Friendly names first; IP, MAC, interfaces, leases and identity evidence remain available when needed. |
 | **Evidence-based network map** | Current devices are grouped by confirmed Wi-Fi, Ethernet, VPN or other connection evidence without inventing switch-level topology. |
+| **IPv4 & VLAN network overview (2.0)** | Linux-reported interface prefixes, kernel-evidenced VLAN IDs and IP address membership counts; unknown physical paths are never guessed. |
+| **Opt-in TCP availability checks (2.0)** | Bounded checks for known local private LAN services, visible in Services; no DNS resolution, subnet sweep, extra database or mandatory agent. |
+| **Management links (2.0)** | Open previously detected HTTP(S) ports for private-LAN devices from their detail panel, with safe address and port restrictions. |
+| **Large inventory support (2.0)** | Paginated rendering, continuous search, live refresh preserving mobile keyboard and complete CSV/JSON export. |
 | **One place for local infrastructure** | Network state plus optional Docker, Pi-hole, WireGuard/wg-easy and Caddy visibility. |
 | **Prometheus-ready** | A dependency-free `/metrics` endpoint exposes aggregate device, service and host health without device names, IP addresses, MAC addresses or notes. |
 | **Works with imperfect systems** | Optional providers fail independently instead of taking down the dashboard. |

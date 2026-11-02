@@ -106,6 +106,20 @@ class BackgroundPostProcessingReliabilityTests(unittest.TestCase):
         notifier.dispatch_pending.assert_called_once_with()
 
 
+class OptionalTcpReliabilityTests(unittest.TestCase):
+
+    def test_optional_tcp_failure_does_not_suppress_webhook_dispatch(self):
+        with (
+            patch("app.main.store") as store_factory,
+            patch("app.main.webhook_notifier") as notifier,
+            patch("app.main.local_service_checks") as checks,
+        ):
+            checks.update.side_effect = RuntimeError("probe failed")
+            _after_background_snapshot({"devices": []})
+        store_factory.return_value.record_watch_transitions.assert_called_once()
+        notifier.dispatch_pending.assert_called_once()
+
+
 class NetworkHistoryReliabilityTests(unittest.TestCase):
     def test_history_endpoint_uses_bounded_store_query(self):
         history = {

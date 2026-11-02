@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, visibleServiceItems } from '../js/data.js';
+import { exploreNetworkMap, filterDevices, groupCurrentDevicesByConnection, identityCoverage, identityQuality, inventoryCsv, inventoryExportRows, isFavoriteNotSeen, isNewDevice, networkHistorySummary, networkMapInfrastructure, networkMapAccessPoints, localApEvidence, partitionNetworkMapDevices, networkReviewQueue, sortDevices, paginateDevices, visibleServiceItems } from '../js/data.js';
 import { preferredLocale, translate } from '../js/i18n.js';
 
 const devices = [
@@ -492,4 +492,20 @@ test('network history summary has safe empty defaults', () => {
     first_at: null,
     last_at: null,
   });
+});
+
+test('pagination bounds device DOM work and preserves filtered order', () => {
+  const inventory = Array.from({ length: 127 }, (_, id) => ({ id }));
+  const first = paginateDevices(inventory, 1);
+  assert.equal(first.total, 127);
+  assert.equal(first.pages, 3);
+  assert.deepEqual([first.start, first.end, first.items.length], [1, 50, 50]);
+  const last = paginateDevices(inventory, 3);
+  assert.deepEqual([last.start, last.end, last.items.length], [101, 127, 27]);
+  assert.deepEqual(last.items.map((row) => row.id), inventory.slice(100).map((row) => row.id));
+  assert.equal(paginateDevices(inventory, 999).page, 3);
+  assert.equal(paginateDevices(inventory, -10).page, 1);
+  assert.equal(paginateDevices(inventory, NaN).page, 1);
+  assert.deepEqual(paginateDevices([]), { items: [], page: 1, pages: 1, total: 0, start: 0, end: 0 });
+  assert.equal(paginateDevices(inventory, 2, 0).items.length, 50);
 });

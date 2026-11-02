@@ -395,3 +395,18 @@ export function inventoryCsv(items) {
 export function visibleServiceItems(items) {
   return items.filter((item) => item.detected);
 }
+
+/** Keep list DOM work bounded after existing filter and sort operations. */
+export function paginateDevices(items, requestedPage = 1, pageSize = 50) {
+  const size = Number.isInteger(pageSize) && pageSize > 0 ? pageSize : 50;
+  const total = items.length;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const page = Math.min(pages, Math.max(1, Number.isInteger(requestedPage) ? requestedPage : 1));
+  const startIndex = (page - 1) * size;
+  return {
+    items: items.slice(startIndex, startIndex + size),
+    page, pages, total,
+    start: total ? startIndex + 1 : 0,
+    end: Math.min(total, startIndex + size),
+  };
+}

@@ -50,6 +50,16 @@ try {
 
     for (const route of routes) {
       await openRoute(page, route);
+      if (route === 'activity') {
+        const accessibility = await page.evaluate(() => ({
+          filters: [...document.querySelectorAll('.activity-filter-row [data-activity-filter]')].map((item) => item.getAttribute('aria-pressed')),
+          actions: [...document.querySelectorAll('.activity-center-list button.activity-row')].map((item) => item.getAttribute('aria-label')),
+          times: [...document.querySelectorAll('.activity-center-list time')].map((item) => item.getAttribute('datetime')),
+        }));
+        assert.ok(accessibility.filters.length >= 2 && accessibility.filters.filter((value) => value === 'true').length === 1, 'Activity filters must expose one selected state');
+        assert.ok(accessibility.actions.every((name) => typeof name === 'string' && name.trim().length > 0), 'Actionable Activity rows must have accessible names');
+        assert.ok(accessibility.times.every((value) => typeof value === 'string'), 'Activity timestamps require datetime attributes');
+      }
       const report = await page.evaluate((isMobile) => {
         const viewportMeta = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || '';
         const input = document.querySelector('input, select, textarea');
@@ -584,6 +594,60 @@ try {
     await page.close();
     console.log(`UI OK ${viewport.name}: all primary routes fit the viewport`);
   }
+
+  // Isolated 126-device fixture: exercise real browser pagination without changing demo data.
+  const rawStatus = await (await fetch(`${baseUrl}/api/v1/status`)).json();
+  assert.ok(Array.isArray(rawStatus.devices) && rawStatus.devices.length > 0, 'Large-inventory fixture needs a demo device');
+  const fixtureDevices = Array.from({ length: 126 }, (_, index) => ({
+    ...rawStatus.devices[0],
+    id: `pagination-fixture-${index}`,
+    display_name: `Fixture ${String(index).padStart(3, '0')}`,
+    hostname: `fixture-${index}`,
+    ip: `192.0.2.${(index % 250) + 1}`,
+    ip_addresses: [`192.0.2.${(index % 250) + 1}`],
+    mac: `02:00:00:10:${Math.floor(index / 256).toString(16).padStart(2, '0')}:${(index % 256).toString(16).padStart(2, '0')}`,
+    metadata: { favorite: false, alias: null, tags: [], location: null, note: null },
+  }));
+  const fixtureStatus = JSON.stringify({
+    ...rawStatus,
+    devices: fixtureDevices,
+    network: { ...rawStatus.network, interfaces: [
+      { name: 'lan-fixture', type: 'ether', role: 'uplink', addresses: ['192.0.2.1/24'], state: 'up' },
+      { name: 'vlan-fixture', type: 'vlan', role: 'virtual', vlan_id: 30, addresses: ['198.51.100.1/24'], state: 'up' },
+    ] },
+    service_checks: { configured: true, items: [
+      { name: 'Demo TCP online', ip: '192.0.2.42', port: 8123, state: 'online', checked_at: 1800000000 },
+      { name: 'Demo TCP unknown', ip: '198.51.100.42', port: 443, state: 'unknown', checked_at: null },
+    ] },
+  });
+  const scalePage = await browser.newPage();
+  await scalePage.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  await scalePage.setRequestInterception(true);
+  scalePage.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/status') {
+      request.respond({ status: 200, contentType: 'application/json', body: fixtureStatus });
+    } else {
+      request.continue();
+    }
+  });
+  await openRoute(scalePage, 'devices');
+  const firstRows = await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length);
+  assert.equal(firstRows, 50, 'Large inventory should initially render only 50 device rows');
+  await scalePage.click('[data-device-page="2"]');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 50, 'Second page should have 50 rows');
+  await scalePage.click('[data-device-page="3"]');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 26, 'Last page should contain the remaining rows');
+  await scalePage.type('#device-search', 'Fixture 012');
+  assert.equal(await scalePage.evaluate(() => document.querySelectorAll('.device-results .device-row').length), 1, 'Search should reset page and cover the full inventory');
+  assert.equal(await scalePage.$('.device-pagination'), null, 'One result should not show pagination');
+  await openRoute(scalePage, 'network');
+  const segments = await scalePage.evaluate(() => [...document.querySelectorAll('.segment-card-heading strong')].map((node) => node.textContent.trim()));
+  assert.ok(segments.includes('192.0.2.0/24') && segments.includes('198.51.100.0/24'), 'Network view must display evidenced subnets');
+  await openRoute(scalePage, 'services');
+  const checks = await scalePage.evaluate(() => [...document.querySelectorAll('.tcp-check-row strong')].map((node) => node.textContent.trim()));
+  assert.deepEqual(checks, ['Demo TCP online', 'Demo TCP unknown'], 'Services view must render opt-in service checks');
+  await scalePage.close();
+  console.log('UI OK large-inventory: 126 devices, three pages, live search, VLAN/subnets and TCP checks');
 } finally {
   await browser.close();
 }

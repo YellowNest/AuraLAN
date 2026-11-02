@@ -194,6 +194,7 @@ jobs:
           images: ghcr.io/yellownest/auralan
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.project.outputs.version }},enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/feature/v1.6.1-network-pulse' }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
@@ -229,4 +230,67 @@ jobs:
           tag=latest
           if [[ "$GITHUB_REF" == refs/heads/feature/v1.6.1-network-pulse ]]; then tag=dev; fi
           docker buildx imagetools inspect --raw "ghcr.io/yellownest/auralan:$tag" >manifest.json
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            docker buildx imagetools inspect --raw "ghcr.io/yellownest/auralan:${{ steps.project.outputs.version }}" >version-manifest.json
+          fi
           python -c 'import json; d=json.load(open("manifest.json", encoding="utf-8")); a={m.get("platform",{}).get("architecture") for m in d.get("manifests",[]) if m.get("platform",{}).get("os")=="linux"}; missing={"amd64","arm64"}-a; assert not missing, f"missing architectures: {sorted(missing)}"; print("Public GHCR manifest OK:", sorted(a))'
+
+  release:
+    name: Tag verified stable release
+    needs: [publish]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout exact published commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify matching CI run and create immutable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python -c 'import json; print(json.load(open("project.json", encoding="utf-8"))["version"])')"
+          tag="v${version}"
+
+          # A second commit without a version change must never move a release.
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists; preserving immutable release."
+            exit 0
+          fi
+
+          ci_result=""
+          for attempt in $(seq 1 90); do
+            ci_result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=30" --jq '[.workflow_runs[] | select(.name == "CI" and .event == "push") | [.status, (.conclusion // "")] | join(":")] | first // ""')"
+            if [[ "$ci_result" == "completed:success" ]]; then
+              break
+            fi
+            if [[ "$ci_result" == completed:* && "$ci_result" != "completed:success" ]]; then
+              echo "Refusing release: CI result is $ci_result" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          [[ "$ci_result" == "completed:success" ]] || { echo "CI result unavailable; not tagging" >&2; exit 1; }
+
+          python scripts/validate-release.py
+          python scripts/audit-history.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "AuraLAN $tag"
+          git push origin "$tag"
+
+          awk -v v="$version" '
+            index($0, "## [" v "] -") == 1 { copying=1; next }
+            copying && substr($0,1,4) == "## [" { exit }
+            copying { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "AuraLAN $tag" --notes-file release-notes.md
+          fi
