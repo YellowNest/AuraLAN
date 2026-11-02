@@ -287,8 +287,8 @@ jobs:
           git push origin "$tag"
 
           awk -v v="$version" '
-            $0 ~ "^## \\[" v "\\] -" { copying=1; next }
-            copying && /^## \\[/ { exit }
+            index($0, "## [" v "] -") == 1 { copying=1; next }
+            copying && substr($0,1,4) == "## [" { exit }
             copying { print }
           ' CHANGELOG.md > release-notes.md
           if ! gh release view "$tag" >/dev/null 2>&1; then
