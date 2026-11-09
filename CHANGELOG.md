@@ -6,6 +6,14 @@ AuraLAN follows Semantic Versioning. Before 1.0, minor versions could still cont
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-09
+
+### Mobile layout and accessibility
+- Fix the Device Focus onboarding card at phone widths: readable copy and a full-width 44px action instead of a cramped, excessively tall column.
+- Shorten only the visible Swedish Settings tab label on phones, retaining its full accessible name and the unchanged desktop label.
+- Add Chromium regression coverage at 360, 390 and 430 CSS pixels for the no-favorites state, button position, clipping and overflow.
+- Preserve discovery, API v1, stored device metadata, container permissions and existing network checks.
+
 ## [2.0.0] - 2026-11-02
 
 ### Network Explorer and local service visibility

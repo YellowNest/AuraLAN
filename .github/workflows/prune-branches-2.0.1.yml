@@ -1,0 +1,36 @@
+# One-time cleanup of stale branches after the verified 2.0.1 release.
+# Deliberately restricted to one exact release commit title.
+name: Prune stale AuraLAN branches (2.0.1)
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    if: "startsWith(github.event.head_commit.message, 'release: AuraLAN 2.0.1 mobile layout polish')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Remove obsolete remote branches except main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches="$(gh api "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --paginate --jq '.[].name')"
+          deleted=0
+          failed=0
+          while IFS= read -r branch; do
+            [[ -n "$branch" && "$branch" != "main" ]] || continue
+            if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}" >/dev/null; then
+              echo "Deleted: $branch"
+              deleted=$((deleted + 1))
+            else
+              echo "::error::Could not delete $branch"
+              failed=$((failed + 1))
+            fi
+          done <<< "$branches"
+          echo "Deleted branches: $deleted, failed: $failed"
+          [[ "$failed" -eq 0 ]]
