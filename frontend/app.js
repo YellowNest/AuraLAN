@@ -322,9 +322,16 @@ function detailRow(label, value, iconName = '') {
 }
 
 function renderNav() {
-  const navHtml = navItems.map(([route, iconName]) => `<button class="nav-item ${state.route === route ? 'active' : ''}" type="button" data-route="${route}" ${state.route === route ? 'aria-current="page"' : ''}>${icon(iconName)}<span>${t(route)}</span>${route === 'devices' && state.data ? `<b>${devices().filter((item) => item.online === true).length}</b>` : ''}</button>`).join('');
-  $('[data-nav-desktop]').innerHTML = navHtml;
-  $('[data-nav-mobile]').innerHTML = navHtml;
+  const itemHtml = ([route, iconName], mobile = false) => {
+    const label = t(route);
+    const visibleLabel = mobile && route === 'settings' ? t('navSettingsShort') : label;
+    const accessibleName = mobile ? `aria-label="${escapeHtml(label)}"` : '';
+    const onlineCount = route === 'devices' && state.data
+      ? `<b>${devices().filter((item) => item.online === true).length}</b>` : '';
+    return `<button class="nav-item ${state.route === route ? 'active' : ''}" type="button" data-route="${route}" ${state.route === route ? 'aria-current="page"' : ''} ${accessibleName}>${icon(iconName)}<span>${escapeHtml(visibleLabel)}</span>${onlineCount}</button>`;
+  };
+  $('[data-nav-desktop]').innerHTML = navItems.map((item) => itemHtml(item)).join('');
+  $('[data-nav-mobile]').innerHTML = navItems.map((item) => itemHtml(item, true)).join('');
   $('.quiet-control').innerHTML = `${icon('search')}<span>${t('searchEverything')}</span><kbd>⌘ K</kbd>`;
   $('.search-button').innerHTML = `${icon('search')}<span>${t('search')}</span><kbd>⌘ K</kbd>`;
   $('#refresh-button').innerHTML = icon('refresh');

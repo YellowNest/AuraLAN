@@ -595,6 +595,69 @@ try {
     console.log(`UI OK ${viewport.name}: all primary routes fit the viewport`);
   }
 
+  // No-favorites onboarding: the CTA must not squeeze copy into a narrow column.
+  // Swedish phone navigation must remain readable and screen-reader accessible.
+  const focusStatus = await (await fetch(`${baseUrl}/api/v1/status`)).json();
+  assert.ok(Array.isArray(focusStatus.devices), 'Focus test requires inventory data');
+  const focusFixtureStatus = JSON.stringify({
+    ...focusStatus,
+    devices: focusStatus.devices.map((device) => ({
+      ...device,
+      metadata: { ...(device.metadata || {}), favorite: false },
+    })),
+  });
+  const focusPage = await browser.newPage();
+  await focusPage.setViewport({ width: 360, height: 800, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  await focusPage.evaluateOnNewDocument(() => localStorage.setItem('auralan.locale', 'sv'));
+  await focusPage.setRequestInterception(true);
+  focusPage.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/status') {
+      request.respond({ status: 200, contentType: 'application/json', body: focusFixtureStatus });
+    } else {
+      request.continue();
+    }
+  });
+  await openRoute(focusPage, 'overview');
+  for (const width of [360, 390, 430]) {
+    await focusPage.setViewport({ width, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+    const layout = await focusPage.evaluate(() => {
+      const board = document.querySelector('.focus-board-empty');
+      const intro = board?.querySelector('.focus-intro');
+      const action = board?.querySelector('.secondary-button');
+      const nav = [...document.querySelectorAll('.mobile-nav .nav-item')];
+      const settings = document.querySelector('.mobile-nav [data-route="settings"]');
+      return {
+        locale: document.documentElement.lang,
+        exists: Boolean(board && intro && action),
+        introWidth: intro?.getBoundingClientRect().width || 0,
+        boardHeight: board?.getBoundingClientRect().height || 0,
+        introBottom: intro?.getBoundingClientRect().bottom || 0,
+        actionTop: action?.getBoundingClientRect().top || 0,
+        actionWidth: action?.getBoundingClientRect().width || 0,
+        boardWidth: board?.getBoundingClientRect().width || 0,
+        navClipped: nav.filter((item) => {
+          const label = item.querySelector('span');
+          return label && label.scrollWidth > label.clientWidth + 1;
+        }).map((item) => item.dataset.route),
+        settingsVisible: settings?.querySelector('span')?.textContent,
+        settingsAccessible: settings?.getAttribute('aria-label'),
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+    assert.equal(layout.locale, 'sv', 'Swedish mobile test must use Swedish UI');
+    assert.equal(layout.exists, true, `focus onboarding missing at ${width}px`);
+    assert.ok(layout.introWidth >= 175, `focus text squeezed at ${width}px (${layout.introWidth}px)`);
+    assert.ok(layout.boardHeight < 260, `focus card too tall at ${width}px (${layout.boardHeight}px)`);
+    assert.ok(layout.actionTop >= layout.introBottom - 1, `focus action beside copy at ${width}px`);
+    assert.ok(layout.actionWidth >= layout.boardWidth - 34, `focus action not full width at ${width}px`);
+    assert.deepEqual(layout.navClipped, [], `mobile navigation truncated at ${width}px`);
+    assert.equal(layout.settingsVisible, 'Inställn.', 'Swedish mobile settings label should be compact');
+    assert.equal(layout.settingsAccessible, 'Inställningar', 'mobile settings needs full accessible name');
+    assert.equal(layout.horizontalOverflow, false, `focus mobile overflow at ${width}px`);
+  }
+  await focusPage.close();
+  console.log('UI OK focus onboarding: Swedish 360/390/430px, no-favorites state and nav labels');
+
   // Isolated 126-device fixture: exercise real browser pagination without changing demo data.
   const rawStatus = await (await fetch(`${baseUrl}/api/v1/status`)).json();
   assert.ok(Array.isArray(rawStatus.devices) && rawStatus.devices.length > 0, 'Large-inventory fixture needs a demo device');

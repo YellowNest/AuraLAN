@@ -14,7 +14,7 @@
   <a href="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml"><img alt="Container" src="https://github.com/YellowNest/AuraLAN/actions/workflows/container.yml/badge.svg"></a>
   <a href="https://yellownest.github.io/AuraLAN/"><img alt="Website" src="https://img.shields.io/badge/website-AuraLAN-6258D7"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB">
-  <img alt="Release 2.0.0" src="https://img.shields.io/badge/release-2.0.0-2563EB">
+  <img alt="Release 2.0.1" src="https://img.shields.io/badge/release-2.0.1-2563EB">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-22C55E">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-64748B">
   <a href="https://ossdrop.com/tool/auralan"><img alt="AuraLAN on OSSDrop" src="https://ossdrop.com/badge/auralan"></a>
@@ -24,6 +24,10 @@ AuraLAN turns the network state already available on a Linux host into a focused
 
 It answers the useful questions first: **what is connected, what each device probably is, whether it is online, how it was discovered, and which local services need attention.**
 
+**Release 2.0.1:** Fixes the narrow iPhone overview when no favorite devices
+are pinned, and keeps Swedish bottom-navigation labels fully legible while
+preserving the complete accessible names. No network or data changes.
+
 **Release 2.0.0:** AuraLAN expands its evidence-based network explorer with
 kernel-reported VLAN IDs and a local IPv4 subnet overview, adds bounded
 local TCP service checks (optional), clickable shortcuts for previously
@@ -32,7 +36,7 @@ The inventory renders at most 50 devices per page while preserving all-device
 search and exports. The existing 1.x REST API contract and stored device data
 remain compatible: no mandatory migration, new database or cloud service.
 
-Container tags: `ghcr.io/yellownest/auralan:2.0.0` identifies this release;
+Container tags: `ghcr.io/yellownest/auralan:2.0.1` identifies this release;
 `:latest` follows the current stable main branch. Validate the published
 image before updating an installation. The optional `:dev` tag remains for
 development and is not a stable deployment.

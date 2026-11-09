@@ -4010,8 +4010,26 @@ h2 {
   .focus-grid { grid-template-columns: 1fr; gap: 8px; }
   .focus-device { padding: 12px; grid-template-columns: 40px minmax(0,1fr) auto; }
   .focus-device-icon { width: 40px; height: 40px; }
-  .focus-board-empty { align-items: flex-start; flex-wrap: wrap; padding: 16px; }
-  .focus-board-empty .secondary-button { margin-left: 60px; }
+  /* Give the onboarding copy a real reading column on narrow phones. */
+  .focus-board-empty {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-areas: "emblem intro" "action action";
+    align-items: start;
+    gap: 12px 14px;
+    padding: 16px;
+  }
+  .focus-board-empty .focus-emblem { grid-area: emblem; }
+  .focus-board-empty .focus-intro { grid-area: intro; min-width: 0; }
+  .focus-board-empty .focus-intro p:last-child { line-height: 1.5; }
+  .focus-board-empty .secondary-button {
+    grid-area: action;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    justify-content: center;
+  }
 }
 @media (prefers-reduced-motion: reduce) { .focus-device { transition: none; } }
 
