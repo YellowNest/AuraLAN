@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   prune:
-    if: startsWith(github.event.head_commit.message, 'release: AuraLAN 2.0.1 mobile layout polish')
+    if: "startsWith(github.event.head_commit.message, 'release: AuraLAN 2.0.1 mobile layout polish')"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
